@@ -40,6 +40,7 @@ interface BidHistory {
 type View = "feed" | "my_listings" | "my_bids";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ function Toast({ msg, type, onClose }: { msg: string; type: "ok" | "err" | "info
 // ─── Card Picker Component ────────────────────────────────────────────────────
 function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
   title: string; ownedCards?: Record<string, number>;
-  selectedId: string | null; onSelect: (id: string) => void; onClose: () => void;
+  selectedId: string | null; onSelect: (card: CardMeta) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState("");
   const [allOwnedCards, setAllOwnedCards] = useState<CardMeta[]>([]);
@@ -194,7 +195,7 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
   }, [q, allOwnedCards]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950/95 flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-zinc-950/95 flex flex-col">
       <div className="flex items-center gap-3 p-4 border-b border-zinc-800">
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
           <X className="w-4 h-4" />
@@ -213,7 +214,7 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
         {!loading && cards.map(card => {
           const isSelected = selectedId === card.id;
           return (
-            <button key={card.id} onClick={() => onSelect(card.id)}
+            <button key={card.id} onClick={() => onSelect(card)}
               className={`relative flex flex-col items-center rounded-2xl p-2 border transition-all ${isSelected ? "border-fuchsia-500/60 bg-fuchsia-500/10" : "border-zinc-800/60 bg-zinc-900/60 active:scale-95"}`}>
               <CardThumb card={card} size={60} />
               <p className="text-[9px] text-zinc-300 mt-1 text-center leading-tight line-clamp-2">{card.name}</p>
@@ -233,7 +234,7 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
         )}
       </div>
       <div className="p-4 border-t border-zinc-800">
-        <button onClick={onClose} disabled={!selectedId}
+        <button onClick={() => { const selected = cards.find(c => c.id === selectedId); if (selected) onSelect(selected); }} disabled={!selectedId}
           className="w-full h-12 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 text-white font-bold rounded-2xl transition-all">
           Confirm Selection
         </button>
@@ -246,7 +247,7 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
 function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   userId: string; ownedCards: Record<string, number>; onCreated: () => void; onClose: () => void;
 }) {
-  const [cardId, setCardId] = useState<string | null>(null);
+  const [selectedCard, setSelectedCard] = useState<CardMeta | null>(null);
   const [startPrice, setStartPrice] = useState("");
   const [buyoutPrice, setBuyoutPrice] = useState("");
   const [duration, setDuration] = useState("24"); // default 24 hours
@@ -254,7 +255,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   const [picker, setPicker] = useState(false);
 
   const handleSubmit = async () => {
-    if (!cardId || !startPrice) return;
+    if (!selectedCard || !startPrice) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/marketplace", {
@@ -262,7 +263,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "create_auction",
-          payload: { userId, cardId, startPrice, buyoutPrice: buyoutPrice || null, durationHours: parseInt(duration) }
+          payload: { userId, cardId: selectedCard.id, startPrice, buyoutPrice: buyoutPrice || null, durationHours: parseInt(duration) }
         }),
       });
       const data = await res.json();
@@ -279,14 +280,14 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         <CardPicker
           title="Select Card to Auction"
           ownedCards={ownedCards}
-          selectedId={cardId}
-          onSelect={id => { setCardId(id); setPicker(false); }}
+          selectedId={selectedCard?.id || null}
+          onSelect={card => { setSelectedCard(card); setPicker(false); }}
           onClose={() => setPicker(false)}
         />
       )}
 
       <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", bounce: 0.15 }}
-        className="fixed inset-x-0 bottom-0 z-40 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl overflow-hidden max-h-[90vh] flex flex-col">
+        className="fixed inset-x-0 bottom-0 z-[60] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center gap-3 p-4 border-b border-zinc-800">
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 shrink-0">
             <X className="w-4 h-4" />
@@ -298,19 +299,19 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
           {/* Card Selection */}
           <div className="space-y-2">
             <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Selected Card</p>
-            {!cardId ? (
+            {!selectedCard ? (
               <button onClick={() => setPicker(true)}
                 className="w-full h-24 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-600 text-sm flex items-center justify-center gap-2 hover:border-fuchsia-500/40 hover:text-zinc-500 transition-all">
                 <Plus className="w-5 h-5" /> Tap to select card
               </button>
             ) : (
               <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
-                <CardThumb card={{ id: cardId, name: cardId }} size={50} />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-zinc-200">ID: {cardId}</p>
-                  <p className="text-xs text-zinc-500">Available to auction</p>
+                <CardThumb card={selectedCard} size={50} />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-zinc-200 truncate">{selectedCard.name}</h4>
+                  <p className="text-[10px] text-zinc-500 font-mono mt-0.5">ID: {selectedCard.id}</p>
                 </div>
-                <button onClick={() => setCardId(null)} className="text-xs text-rose-400 font-semibold px-2 py-1 rounded-lg bg-rose-500/10">Remove</button>
+                <button onClick={() => setSelectedCard(null)} className="text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-xl bg-rose-500/10 shrink-0">Remove</button>
               </div>
             )}
           </div>
@@ -349,7 +350,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         </div>
 
         <div className="p-4 border-t border-zinc-800">
-          <button onClick={handleSubmit} disabled={submitting || !cardId || !startPrice}
+          <button onClick={handleSubmit} disabled={submitting || !selectedCard || !startPrice}
             className="w-full h-12 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2">
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Store className="w-5 h-5" />}
             {submitting ? "Posting Auction…" : "Start Auction"}
@@ -526,32 +527,56 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
 
       if (provider) {
         // USDC decimals: 6
-        const value = BigInt(Math.round(expectedUSDC * 1_000_000));
+        // Split payment: 98% to seller, 2% to treasury fee
+        const sellerAmount = expectedUSDC * 0.98;
+        const treasuryAmount = expectedUSDC * 0.02;
+        
+        const valueSeller = BigInt(Math.round(sellerAmount * 1_000_000));
+        const valueTreasury = BigInt(Math.round(treasuryAmount * 1_000_000));
+        
         const cleanRecipient = recipient.toLowerCase().replace('0x', '');
+        const cleanTreasury = TREASURY_ADDRESS.toLowerCase().replace('0x', '');
         
         // ERC-20 transfer selector: 0xa9059cbb
-        const txData = ('0xa9059cbb' + 
-                     cleanRecipient.padStart(64, '0') + 
-                     value.toString(16).padStart(64, '0')) as `0x${string}`;
+        const txDataSeller = ('0xa9059cbb' + 
+                             cleanRecipient.padStart(64, '0') + 
+                             valueSeller.toString(16).padStart(64, '0')) as `0x${string}`;
+                             
+        const txDataTreasury = ('0xa9059cbb' + 
+                               cleanTreasury.padStart(64, '0') + 
+                               valueTreasury.toString(16).padStart(64, '0')) as `0x${string}`;
 
         setTxModal(prev => ({ ...prev, state: "broadcasting" }));
         
-        const tx = await provider.request({
+        // 1. Pay seller
+        const tx1 = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
             to: USDC_CONTRACT_BASE,
-            data: txData,
+            data: txDataSeller,
             value: '0x0'
           }]
         });
-        txHash = tx as string;
+        
+        // 2. Pay 2% fee to treasury
+        const tx2 = await provider.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            to: USDC_CONTRACT_BASE,
+            data: txDataTreasury,
+            value: '0x0'
+          }]
+        });
+        
+        txHash = `${tx1},${tx2}`;
       } else {
         // MOCK Fallback for Frame Developer Shells / Dev Sandboxes
         console.warn("Frame wallet provider not found. Simulating transaction on Base.");
         setTxModal(prev => ({ ...prev, state: "broadcasting" }));
         await new Promise(r => setTimeout(r, 2000));
-        // Generate a random-looking mock transaction hash
-        txHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        const m1 = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        const m2 = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        txHash = `${m1},${m2}`;
       }
 
       setTxModal(prev => ({ ...prev, state: "verifying", txHash }));
@@ -619,7 +644,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
       {/* ─── WEB3 TRANSACTION MODAL DIALOG ─────────────────────────────────────── */}
       <AnimatePresence>
         {txModal.show && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
               className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-5 space-y-4 shadow-2xl relative overflow-hidden">
               
@@ -727,7 +752,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
       </AnimatePresence>
 
       <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", bounce: 0.1 }}
-        className="fixed inset-x-0 bottom-0 z-30 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl max-h-[92vh] flex flex-col">
+        className="fixed inset-x-0 bottom-0 z-[60] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-zinc-800 shrink-0">
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
