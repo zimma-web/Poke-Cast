@@ -275,6 +275,16 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         if (provider) {
           const valueWei = BigInt(15000000000000); // 0.000015 ETH
           try {
+            // Ensure connected to Base Network (8453 / 0x2105)
+            try {
+              await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x2105' }]
+              });
+            } catch (switchErr) {
+              console.warn("Switch chain failed or was ignored:", switchErr);
+            }
+
             const tx = await provider.request({
               method: 'eth_sendTransaction',
               params: [{
@@ -583,6 +593,16 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
       let txHash = "";
 
       if (provider) {
+        // Ensure connected to Base Network (8453 / 0x2105)
+        try {
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }]
+          });
+        } catch (switchErr) {
+          console.warn("Switch chain failed or was ignored:", switchErr);
+        }
+
         // USDC decimals: 6
         // Split payment: 98% to seller, 2% to treasury fee
         const sellerAmount = expectedUSDC * 0.98;

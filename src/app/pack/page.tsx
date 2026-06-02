@@ -59,6 +59,16 @@ export default function PackScreen() {
     const provider = sdk.wallet?.ethProvider;
     if (walletAddress && provider) {
       try {
+        // Ensure connected to Base Network (8453 / 0x2105)
+        try {
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }]
+          });
+        } catch (switchErr) {
+          console.warn("Switch chain failed or was ignored:", switchErr);
+        }
+
         const hexBalance = await provider.request({
           method: 'eth_getBalance',
           params: [walletAddress as `0x${string}`, 'latest']
@@ -80,6 +90,16 @@ export default function PackScreen() {
 
     try {
       if (provider) {
+        // Ensure connected to Base Network (8453 / 0x2105)
+        try {
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }]
+          });
+        } catch (switchErr) {
+          console.warn("Switch chain failed or was ignored:", switchErr);
+        }
+
         // 0.000001 ETH is 10^12 Wei
         const valueWei = BigInt(1000000000000);
 
