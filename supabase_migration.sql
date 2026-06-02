@@ -274,3 +274,6 @@ CREATE TABLE IF NOT EXISTS pack_openings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pack_openings_hash ON pack_openings(tx_hash);
+
+-- SQL Database Migration: Add listing_tx_hash column to auctions
+ALTER TABLE auctions ADD COLUMN IF NOT EXISTS listing_tx_hash TEXT UNIQUE;

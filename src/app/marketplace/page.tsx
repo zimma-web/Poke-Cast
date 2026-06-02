@@ -252,26 +252,79 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   const [buyoutPrice, setBuyoutPrice] = useState("");
   const [duration, setDuration] = useState("24"); // default 24 hours
   const [submitting, setSubmitting] = useState(false);
+  const [statusText, setStatusText] = useState("");
   const [picker, setPicker] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" | "info" } | null>(null);
+
+  const showToast = (msg: string, type: "ok" | "err" | "info" = "ok") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const handleSubmit = async () => {
     if (!selectedCard || !startPrice) return;
     setSubmitting(true);
+    setStatusText("Preparing listing...");
     try {
+      const parsedBuyout = buyoutPrice ? parseFloat(buyoutPrice) : null;
+      let listingTxHash = null;
+
+      if (parsedBuyout !== null && parsedBuyout > 0) {
+        setStatusText("Requesting listing fee (0.05 USD)...");
+        const provider = sdk.wallet?.ethProvider;
+        if (provider) {
+          const valueWei = BigInt(15000000000000); // 0.000015 ETH
+          try {
+            const tx = await provider.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                to: TREASURY_ADDRESS,
+                value: `0x${valueWei.toString(16)}`,
+                data: '0x'
+              }]
+            });
+            listingTxHash = tx as string;
+          } catch (walletErr: any) {
+            console.error("Wallet transaction rejected:", walletErr);
+            throw new Error(walletErr.message || "Listing fee payment rejected by wallet.");
+          }
+        } else {
+          // Dev Mock
+          console.warn("Frame wallet provider not found. Simulating transaction on Base.");
+          await new Promise(r => setTimeout(r, 1500));
+          listingTxHash = "0xmock_listing_" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        }
+      }
+
+      setStatusText("Creating auction listing...");
       const res = await fetch("/api/marketplace", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "create_auction",
-          payload: { userId, cardId: selectedCard.id, startPrice, buyoutPrice: buyoutPrice || null, durationHours: parseInt(duration) }
+          payload: {
+            userId,
+            cardId: selectedCard.id,
+            startPrice,
+            buyoutPrice: parsedBuyout,
+            durationHours: parseInt(duration),
+            listingTxHash
+          }
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      onCreated();
+      
+      showToast("Auction listed successfully!", "ok");
+      setTimeout(() => {
+        onCreated();
+      }, 1000);
     } catch (e: any) {
-      alert(e.message);
-    } finally { setSubmitting(false); }
+      showToast(e.message || "Failed to create auction", "err");
+    } finally {
+      setSubmitting(false);
+      setStatusText("");
+    }
   };
 
   return (
@@ -353,10 +406,14 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
           <button onClick={handleSubmit} disabled={submitting || !selectedCard || !startPrice}
             className="w-full h-12 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2">
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Store className="w-5 h-5" />}
-            {submitting ? "Posting Auction…" : "Start Auction"}
+            {submitting ? (statusText || "Posting Auction…") : "Start Auction"}
           </button>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      </AnimatePresence>
     </>
   );
 }

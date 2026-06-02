@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { supabaseAdmin } from '@/lib/supabase';
-import { getBaseUSDCBalance, verifyBaseUSDCTransfer } from '@/lib/web3';
+import { getBaseUSDCBalance, verifyBaseUSDCTransfer, verifyBaseETHTransfer } from '@/lib/web3';
 
 const CARDS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
 const SETS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
@@ -230,7 +230,8 @@ export async function POST(request: Request) {
 
     // ── CREATE AUCTION ────────────────────────────────────────────────────────
     if (action === 'create_auction') {
-      const { userId, cardId, startPrice, buyoutPrice, durationHours = 24 } = payload || {};
+      const { userId, cardId, startPrice, buyoutPrice, durationHours, listingTxHash } = payload || {};
+      
       if (!userId || !cardId || !startPrice) {
         return NextResponse.json({ error: 'userId, cardId, and startPrice are required' }, { status: 400 });
       }
@@ -249,6 +250,37 @@ export async function POST(request: Request) {
       const { data: seller } = await supabaseAdmin.from('users').select('wallet_address').eq('id', userId).single();
       if (!seller?.wallet_address) {
         return NextResponse.json({ error: 'Farcaster wallet address is required to sell cards' }, { status: 400 });
+      }
+
+      // Verify listing fee on-chain if buyout price is set
+      if (parsedBuyout !== null && parsedBuyout > 0) {
+        if (!listingTxHash) {
+          return NextResponse.json({ error: 'Listing fee transaction hash is required for auctions with a buyout price' }, { status: 400 });
+        }
+        
+        // Verify listing tx hash isn't already processed to prevent replay
+        const { data: duplicateListing } = await supabaseAdmin
+          .from('auctions')
+          .select('id')
+          .eq('listing_tx_hash', listingTxHash)
+          .maybeSingle();
+
+        if (duplicateListing) {
+          return NextResponse.json({ error: 'This listing transaction hash has already been processed' }, { status: 400 });
+        }
+
+        const isMock = listingTxHash.startsWith('0xmock') || process.env.NODE_ENV !== 'production' && listingTxHash.includes('mock');
+        let isListingTxValid = false;
+        if (isMock) {
+          isListingTxValid = true;
+        } else {
+          // 0.000015 ETH native transfer to TREASURY_ADDRESS
+          isListingTxValid = await verifyBaseETHTransfer(listingTxHash, seller.wallet_address, TREASURY_ADDRESS, 0.000015);
+        }
+
+        if (!isListingTxValid) {
+          return NextResponse.json({ error: 'Listing fee verification failed. Ensure you paid 0.05 USD in Base ETH (0.000015 ETH) to the treasury.' }, { status: 400 });
+        }
       }
 
       // Fetch all card copies owned by user
@@ -302,7 +334,8 @@ export async function POST(request: Request) {
           highest_bid: 0,
           highest_bidder_id: null,
           status: 'active',
-          end_at: endAt
+          end_at: endAt,
+          listing_tx_hash: listingTxHash
         })
         .select('*')
         .single();
