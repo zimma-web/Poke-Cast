@@ -5,8 +5,11 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card as CardType, useCollectionStore } from "@/lib/store";
-import { Loader2, Share2, Sparkles } from "lucide-react";
+import { Loader2, Share2, Sparkles, Coins } from "lucide-react";
 import sdk from "@farcaster/frame-sdk";
+
+const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
+const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -23,6 +26,9 @@ export default function PackScreen() {
   const packTickets = useCollectionStore(state => state.packTickets);
   const freePacksRemaining = useCollectionStore(state => state.freePacksRemaining);
   const updateEconomy = useCollectionStore(state => state.updateEconomy);
+  const usdcBalance = useCollectionStore(state => state.usdcBalance);
+  const walletAddress = useCollectionStore(state => state.walletAddress);
+  
   const activeSet = sets.find(s => s.id === selectedSetId);
 
   useEffect(() => {
@@ -46,18 +52,59 @@ export default function PackScreen() {
     if (!selectedSetId || !userId) return;
 
     if (freePacksRemaining === 0 && packTickets === 0) {
-      setError("Not enough Pack Tickets");
+      setError("Not enough Pack Tickets or daily free packs.");
+      return;
+    }
+
+    // Check USDC balance if wallet is connected and provider is available
+    const provider = sdk.wallet?.ethProvider;
+    if (walletAddress && usdcBalance < 0.003 && provider) {
+      setError(`Insufficient USDC balance. Pack opening fee is 0.003 USDC (approx. Rp 50), but you only have ${usdcBalance.toFixed(4)} USDC.`);
       return;
     }
 
     setLoading(true);
     setError("");
+    let txHash = "";
+
     try {
-      const res = await fetch(`/api/pack?set=${selectedSetId}&userId=${userId}`);
+      if (provider) {
+        // USDC has 6 decimals on Base. 0.003 USDC = 3,000 raw units
+        const value = BigInt(3000);
+        const cleanRecipient = TREASURY_ADDRESS.toLowerCase().replace('0x', '');
+        
+        // ERC-20 transfer selector: 0xa9059cbb
+        const txData = ('0xa9059cbb' + 
+                     cleanRecipient.padStart(64, '0') + 
+                     value.toString(16).padStart(64, '0')) as `0x${string}`;
+
+        // Prompt native Warpcast transaction signing
+        const tx = await provider.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            to: USDC_CONTRACT_BASE,
+            data: txData,
+            value: '0x0'
+          }]
+        });
+        txHash = tx as string;
+      } else {
+        // MOCK Fallback for Developer Shells & local developer environments
+        console.warn("Warpcast wallet provider not found. Simulating transaction on Base.");
+        await new Promise(r => setTimeout(r, 1500));
+        txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      }
+
+      // Submit payment hash to backend API to deduct resources and pull cards
+      const res = await fetch("/api/pack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, setId: selectedSetId, txHash })
+      });
       const data = await res.json();
       
       if (res.status === 400 || data.error) {
-        setError(data.error || "Not enough Pack Tickets");
+        setError(data.error || "Failed to process pack opening");
         return;
       }
 
@@ -74,9 +121,9 @@ export default function PackScreen() {
 
       setOpened(true);
       setCurrentIndex(0);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setError("Failed to open pack");
+      setError(e.message || "Failed to open pack (transaction rejected or timed out)");
     } finally {
       setLoading(false);
     }
@@ -186,9 +233,13 @@ export default function PackScreen() {
           ) : (freePacksRemaining === 0 && packTickets === 0) ? (
             "Not enough Pack Tickets"
           ) : (
-            "Rip Open!"
+            "Rip Open! (0.003 USDC)"
           )}
         </Button>
+        <p className="text-[10px] text-zinc-500 font-mono mt-2 text-center flex items-center justify-center space-x-1">
+          <Coins className="w-3 h-3 text-emerald-500 shrink-0" />
+          <span>Requires 0.003 USDC fee (~Rp 50 perak) on Base.</span>
+        </p>
       </div>
     );
   }

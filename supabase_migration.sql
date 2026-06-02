@@ -263,3 +263,14 @@ CREATE TABLE IF NOT EXISTS user_quests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_quests_user_day ON user_quests(user_id, day);
+
+-- SQL Database Migration: On-Chain Pack Opening Logs
+CREATE TABLE IF NOT EXISTS pack_openings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  set_id TEXT NOT NULL,
+  tx_hash TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pack_openings_hash ON pack_openings(tx_hash);

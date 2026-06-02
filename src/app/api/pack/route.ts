@@ -22,69 +22,81 @@ function getRarityWeight(rarity: string): number {
   return 100; // Standard Rare
 }
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const setId = searchParams.get('set');
-  const userId = searchParams.get('userId');
+import { verifyBaseUSDCTransfer } from '@/lib/web3';
 
-  if (!setId) {
-    return NextResponse.json({ error: 'Set ID is required' }, { status: 400 });
-  }
+const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
+export async function POST(request: Request) {
+  try {
+    const { setId, userId, txHash } = await request.json();
 
-  // 1. Fetch user data first to validate economy
-  const { data: user, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset')
-    .eq('id', userId)
-    .single();
+    if (!setId || !userId || !txHash) {
+      return NextResponse.json({ error: 'setId, userId, and txHash are required' }, { status: 400 });
+    }
 
-  if (userError || !user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  }
+    // 1. Fetch user data first to validate economy and wallet address
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, wallet_address')
+      .eq('id', userId)
+      .single();
 
-  // Daily reset check
-  const now = new Date();
-  let lastReset = user.last_daily_reset ? new Date(user.last_daily_reset) : null;
-  let currentTickets = user.pack_tickets !== null && user.pack_tickets !== undefined ? user.pack_tickets : 10;
-  let currentFreePacks = user.free_packs_remaining !== null && user.free_packs_remaining !== undefined ? user.free_packs_remaining : 2;
-  let resetApplied = false;
+    if (userError || !user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
-  const timeSinceReset = lastReset ? now.getTime() - lastReset.getTime() : null;
-  const isDueForReset = lastReset === null || (timeSinceReset !== null && timeSinceReset >= 24 * 60 * 60 * 1000);
+    if (!user.wallet_address) {
+      return NextResponse.json({ error: 'Farcaster wallet must be connected to open packs' }, { status: 400 });
+    }
 
-  if (isDueForReset) {
-    currentFreePacks = 2;
-    currentTickets = (currentTickets || 0) + 2;
-    lastReset = now;
-    resetApplied = true;
-  }
+    // 2. Check if txHash has already been processed to prevent replay attacks
+    const { data: duplicateTx } = await supabaseAdmin
+      .from('pack_openings')
+      .select('id')
+      .eq('tx_hash', txHash)
+      .maybeSingle();
 
-  // Future-ready pack cost configuration
-  interface PackCost {
-    cost: number;
-    currency: 'free_or_ticket' | 'ticket' | 'event_ticket';
-  }
+    if (duplicateTx) {
+      return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
+    }
 
-  const PACK_COSTS: Record<string, PackCost> = {
-    // Define set-specific costs if they differ from the default in the future.
-  };
+    // 3. Verify on-chain payment on Base mainnet (0.003 USDC to Treasury, which is ~50 perak)
+    const isMock = txHash.startsWith('0xmock') && process.env.NODE_ENV !== 'production';
+    let isTxValid = false;
+    if (isMock) {
+      isTxValid = true;
+    } else {
+      isTxValid = await verifyBaseUSDCTransfer(txHash, user.wallet_address, TREASURY_ADDRESS, 0.003);
+    }
 
-  const getPackCost = (id: string): PackCost => {
-    return PACK_COSTS[id] || { cost: 1, currency: 'free_or_ticket' };
-  };
+    if (!isTxValid) {
+      return NextResponse.json({
+        error: 'On-chain fee payment verification failed. Ensure you transferred 0.003 USDC on Base to the treasury wallet.'
+      }, { status: 400 });
+    }
 
-  const packCost = getPackCost(setId);
+    // Daily reset check
+    const now = new Date();
+    let lastReset = user.last_daily_reset ? new Date(user.last_daily_reset) : null;
+    let currentTickets = user.pack_tickets !== null && user.pack_tickets !== undefined ? user.pack_tickets : 10;
+    let currentFreePacks = user.free_packs_remaining !== null && user.free_packs_remaining !== undefined ? user.free_packs_remaining : 2;
+    let resetApplied = false;
 
-  // Validate and deduct currency
-  if (packCost.currency === 'free_or_ticket') {
+    const timeSinceReset = lastReset ? now.getTime() - lastReset.getTime() : null;
+    const isDueForReset = lastReset === null || (timeSinceReset !== null && timeSinceReset >= 24 * 60 * 60 * 1000);
+
+    if (isDueForReset) {
+      currentFreePacks = 2;
+      currentTickets = (currentTickets || 0) + 2;
+      lastReset = now;
+      resetApplied = true;
+    }
+
+    // Cost validation & deduction
     if (currentFreePacks > 0) {
       currentFreePacks -= 1;
-    } else if (currentTickets >= packCost.cost) {
-      currentTickets -= packCost.cost;
+    } else if (currentTickets >= 1) {
+      currentTickets -= 1;
     } else {
       // Not enough balance
       if (resetApplied) {
@@ -98,17 +110,22 @@ export async function GET(request: Request) {
           })
           .eq('id', userId);
       }
-      return NextResponse.json({ error: 'Not enough Pack Tickets' }, { status: 400 });
+      return NextResponse.json({ error: 'Not enough Pack Tickets or daily free packs remaining' }, { status: 400 });
     }
-  } else {
-    return NextResponse.json({ error: 'Unsupported pack currency type' }, { status: 400 });
-  }
+
+    // Log the pack opening transaction in the DB to prevent double claims / replays
+    const { error: logError } = await supabaseAdmin
+      .from('pack_openings')
+      .insert({ user_id: userId, set_id: setId, tx_hash: txHash });
+
+    if (logError) {
+      return NextResponse.json({ error: 'Failed to record on-chain transaction log: ' + logError.message }, { status: 500 });
+    }
 
   const filePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
   
-  try {
-    const fileContents = fs.readFileSync(filePath, 'utf8');
-    const cards = JSON.parse(fileContents);
+  const fileContents = fs.readFileSync(filePath, 'utf8');
+  const cards = JSON.parse(fileContents);
 
     // Filter cards by selected set
     const setCards = cards.filter((c: any) => c.setId === setId);
