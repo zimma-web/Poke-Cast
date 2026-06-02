@@ -58,7 +58,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const userFid = context.user.fid;
         const userUsername = context.user.username || "trainer_" + userFid;
         const userAvatar = context.user.pfpUrl || "";
-        const walletAddress = context.user.custodyAddress || context.user.verifiedAddresses?.ethAddresses?.[0] || "";
+        let walletAddress = context.user.custodyAddress || context.user.verifiedAddresses?.ethAddresses?.[0] || "";
+
+        if (!walletAddress && sdk.wallet?.ethProvider) {
+          try {
+            const ethAccounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
+            if (Array.isArray(ethAccounts) && ethAccounts.length > 0 && typeof ethAccounts[0] === 'string') {
+              walletAddress = ethAccounts[0];
+            }
+          } catch (accountErr) {
+            console.warn('Failed to auto-detect connected wallet address from provider:', accountErr);
+          }
+        }
 
         // 1. Post to auth endpoint
         const authRes = await fetch('/api/auth', {

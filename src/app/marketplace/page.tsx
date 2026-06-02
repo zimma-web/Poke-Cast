@@ -583,7 +583,18 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
     try {
       const provider = sdk.wallet?.ethProvider;
       let txHash = "";
-      const senderAddress = walletAddress || data.auction.winner?.wallet_address || "";
+      let senderAddress = walletAddress || data.auction.winner?.wallet_address || "";
+
+      if (provider && !senderAddress) {
+        try {
+          const ethAccounts = await provider.request({ method: 'eth_accounts' });
+          if (Array.isArray(ethAccounts) && ethAccounts.length > 0 && typeof ethAccounts[0] === 'string') {
+            senderAddress = ethAccounts[0];
+          }
+        } catch (accountErr) {
+          console.warn('Failed to auto-detect wallet address from provider accounts:', accountErr);
+        }
+      }
 
       if (provider) {
         if (!senderAddress) {

@@ -62,8 +62,20 @@ export default function PackScreen() {
     const provider = sdk.wallet?.ethProvider;
 
     try {
+      let senderAddress = walletAddress;
+      if (provider && !senderAddress) {
+        try {
+          const ethAccounts = await provider.request({ method: 'eth_accounts' });
+          if (Array.isArray(ethAccounts) && ethAccounts.length > 0 && typeof ethAccounts[0] === 'string') {
+            senderAddress = ethAccounts[0];
+          }
+        } catch (accountErr) {
+          console.warn('Failed to read connected eth_accounts from provider:', accountErr);
+        }
+      }
+
       if (provider) {
-        if (!walletAddress) {
+        if (!senderAddress) {
           throw new Error("Farcaster wallet address is not connected. Please connect your wallet and retry.");
         }
 
@@ -74,7 +86,7 @@ export default function PackScreen() {
         const tx = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
-            from: walletAddress as `0x${string}`,
+            from: senderAddress as `0x${string}`,
             to: TREASURY_ADDRESS,
             value: `0x${valueWei.toString(16)}`,
             gas: '0x5208',
