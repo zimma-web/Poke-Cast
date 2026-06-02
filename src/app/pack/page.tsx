@@ -66,7 +66,7 @@ export default function PackScreen() {
         const balanceWei = BigInt(hexBalance);
         const balanceETH = Number(balanceWei) / 1e18;
         if (balanceETH < 0.000001) {
-          setError(`Insufficient ETH balance. Pack opening fee is 0.000001 ETH (~Rp 50 perak), but you only have ${balanceETH.toFixed(8)} ETH.`);
+          setError(`Insufficient ETH balance. Pack opening fee is 0.000001 ETH (~$0.003), but you only have ${balanceETH.toFixed(8)} ETH.`);
           return;
         }
       } catch (err) {
@@ -243,7 +243,7 @@ export default function PackScreen() {
         </Button>
         <p className="text-[10px] text-zinc-500 font-mono mt-2 text-center flex items-center justify-center space-x-1">
           <Coins className="w-3 h-3 text-emerald-500 shrink-0" />
-          <span>Requires 0.000001 ETH fee (~Rp 50 perak) on Base.</span>
+          <span>Requires 0.000001 ETH fee (~$0.003) on Base.</span>
         </p>
       </div>
     );

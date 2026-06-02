@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
     }
 
-    // 3. Verify on-chain payment on Base mainnet (0.000001 ETH to Treasury, which is ~50 perak)
+    // 3. Verify on-chain payment on Base mainnet (0.000001 ETH to Treasury, which is ~$0.003)
     const isMock = txHash.startsWith('0xmock') && process.env.NODE_ENV !== 'production';
     let isTxValid = false;
     if (isMock) {
