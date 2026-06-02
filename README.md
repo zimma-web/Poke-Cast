@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎴 PokéCast
 
-## Getting Started
+A premium **Farcaster Mini App** designed as a Pokémon collectible card game where players select expansion packs, rip them open to roll weighted rarities, track their collection stats, and sync progress securely using a Supabase PostgreSQL backend.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ Features
+
+*   **🔒 Farcaster Native Authentication**:
+    *   Automatically identifies user context (`FID`, `username`, `pfpUrl`).
+    *   Lockout screen for regular browsers to enforce Farcaster-only access.
+*   **🎁 Set-Restricted Booster Packs**:
+    *   Select from **173 expansion sets** (Base Set, Crown Zenith, Scarlet & Violet, etc.).
+    *   Pulls are strictly locked to cards belonging to the chosen set.
+    *   Booster displays dynamically load corresponding expansion pack logos and set symbols.
+*   **🎲 5-Card Pack Pull System**:
+    *   Each booster contains **3 Commons**, **1 Uncommon**, and **1 Rare**.
+    *   Rares use a custom weighted probability distribution based on rarity tiers (e.g., Secret, Hyper, Gold, Art Rare, Holo).
+*   **📊 Synced Collection & Profile Stats**:
+    *   Automatically migrates legacy local collection items to the database upon first launch.
+    *   Track **Total Cards Owned**, **Unique Cards**, **Global Completion %**, and **Collection Score**.
+    *   Profile screen displays Farcaster details, score ranks (Master, Ultra, Great, Beginner), and unlocked badges.
+*   **⚡ Performance First**:
+    *   Mobile-first layout with smooth fluid animations powered by Framer Motion.
+    *   Infinite-scrolling card gallery with horizontal series and expansion selector chips.
+
+---
+
+## 🛠️ Tech Stack
+
+*   **Framework**: [Next.js (App Router)](https://nextjs.org/)
+*   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+*   **Styling**: [TailwindCSS v4](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/)
+*   **SDK**: [@farcaster/frame-sdk v0.2.0](https://github.com/farcasterxyz/frames)
+*   **Database**: [Supabase](https://supabase.com/) (PostgreSQL)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Environment Variables
+
+Create a `.env.local` file in the root of the `miniapp` directory and configure the following credentials:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Database Schema
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Execute the following DDL script in your Supabase SQL editor:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sql
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fid BIGINT UNIQUE NOT NULL,
+  username TEXT NOT NULL,
+  avatar TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  packs_opened INTEGER DEFAULT 0 NOT NULL
+);
 
-## Learn More
+-- Create user_cards table
+CREATE TABLE IF NOT EXISTS user_cards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  card_id TEXT NOT NULL,
+  obtained_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  source_set_id TEXT NOT NULL
+);
 
-To learn more about Next.js, take a look at the following resources:
+-- Indexing for fast collection calculations
+CREATE INDEX IF NOT EXISTS idx_user_cards_user_id ON user_cards(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_cards_user_card ON user_cards(user_id, card_id);
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Installation & Dev Server
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Install dependencies
+npm install
 
-## Deploy on Vercel
+# Start development server
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app will run locally at `http://localhost:3000`. Use the [Farcaster Frame Developer Tool](https://github.com/farcasterxyz/frame-toy) or test within a client shell to bypass the browser lockout screen.
