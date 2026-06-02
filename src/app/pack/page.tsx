@@ -238,13 +238,9 @@ export default function PackScreen() {
           ) : (freePacksRemaining === 0 && packTickets === 0) ? (
             "Not enough Pack Tickets"
           ) : (
-            "Rip Open! (0.000001 ETH)"
+            "Rip Open!"
           )}
         </Button>
-        <p className="text-[10px] text-zinc-500 font-mono mt-2 text-center flex items-center justify-center space-x-1">
-          <Coins className="w-3 h-3 text-emerald-500 shrink-0" />
-          <span>Requires 0.000001 ETH fee (~$0.003) on Base.</span>
-        </p>
       </div>
     );
   }
