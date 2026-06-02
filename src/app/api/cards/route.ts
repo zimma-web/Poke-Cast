@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const set = searchParams.get('set');
   const rarity = searchParams.get('rarity');
   const query = searchParams.get('q');
+  const ids = searchParams.get('ids');
 
   const filePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
   
@@ -17,6 +18,10 @@ export async function GET(request: Request) {
     let cards = JSON.parse(fileContents);
 
     // Filter
+    if (ids) {
+      const idList = ids.split(',');
+      cards = cards.filter((c: any) => idList.includes(c.id));
+    }
     if (set) {
       cards = cards.filter((c: any) => c.setId === set);
     }
@@ -31,7 +36,7 @@ export async function GET(request: Request) {
     // Paginate
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
-    const paginatedCards = cards.slice(startIndex, endIndex);
+    const paginatedCards = ids ? cards : cards.slice(startIndex, endIndex);
 
     return NextResponse.json({
       cards: paginatedCards,

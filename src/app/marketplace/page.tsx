@@ -78,7 +78,7 @@ function StatusBadge({ status, isHighestBidder }: { status: string; isHighestBid
 
   let label = status.replace('_', ' ');
   if (status === 'pending_payment') {
-    label = isHighestBidder ? 'bayar klaim' : 'tunggu bayar';
+    label = isHighestBidder ? 'claim payment' : 'pending payment';
   }
 
   return (
@@ -152,27 +152,46 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
   selectedId: string | null; onSelect: (id: string) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  const [allOwnedCards, setAllOwnedCards] = useState<CardMeta[]>([]);
   const [cards, setCards] = useState<CardMeta[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const search = useCallback(async (query: string) => {
-    setLoading(true);
-    try {
-      const url = `/api/cards?limit=40&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      let result = data.cards || [];
-      // Only filter cards that the user actually owns
-      result = result.filter((c: CardMeta) => ownedCards[c.id] > 0);
-      setCards(result);
-    } finally { setLoading(false); }
+  // Load all owned cards once on mount
+  useEffect(() => {
+    const loadOwnedCards = async () => {
+      setLoading(true);
+      try {
+        const ownedIds = Object.keys(ownedCards).filter(id => ownedCards[id] > 0);
+        if (ownedIds.length === 0) {
+          setAllOwnedCards([]);
+          setCards([]);
+          return;
+        }
+        const url = `/api/cards?ids=${encodeURIComponent(ownedIds.join(','))}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const result = data.cards || [];
+        setAllOwnedCards(result);
+        setCards(result);
+      } catch (err) {
+        console.error("Failed to load owned cards:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadOwnedCards();
   }, [ownedCards]);
 
-  useEffect(() => { search(""); }, []);
+  // Filter cards locally when search query changes
   useEffect(() => {
-    const t = setTimeout(() => search(q), 350);
-    return () => clearTimeout(t);
-  }, [q]);
+    if (!q.trim()) {
+      setCards(allOwnedCards);
+      return;
+    }
+    const lowerQ = q.toLowerCase();
+    const filtered = allOwnedCards.filter(c => c.name.toLowerCase().includes(lowerQ));
+    setCards(filtered);
+  }, [q, allOwnedCards]);
 
   return (
     <div className="fixed inset-0 z-50 bg-zinc-950/95 flex flex-col">
@@ -272,7 +291,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 shrink-0">
             <X className="w-4 h-4" />
           </button>
-          <h3 className="font-bold text-zinc-100 flex-1">List Card for Auction (Lelang)</h3>
+          <h3 className="font-bold text-zinc-100 flex-1">List Card for Auction</h3>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -383,14 +402,14 @@ function AuctionCard({ auction, onTap, isOwnListing }: { auction: Auction; onTap
           </div>
           <div className="flex items-end justify-between flex-wrap gap-1">
             <div>
-              <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest leading-none">Bid Terakhir</p>
+              <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest leading-none">Highest Bid</p>
               <p className="text-sm font-extrabold text-fuchsia-400 font-mono mt-1">
                 {highestBid.toFixed(2)} <span className="text-[9.5px] font-normal text-zinc-500">USDC</span>
               </p>
             </div>
             {auction.buyout_price && (
               <div className="text-right">
-                <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest leading-none">Beli Instan</p>
+                <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest leading-none">Buyout</p>
                 <p className="text-sm font-bold text-emerald-400 font-mono mt-1">
                   {auction.buyout_price.toFixed(2)} <span className="text-[9.5px] font-normal text-zinc-500">USDC</span>
                 </p>
@@ -769,12 +788,12 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
 
                 <div className="grid grid-cols-2 gap-4 w-full border-t border-zinc-800/60 pt-4 font-mono text-center">
                   <div>
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Bid Tertinggi</span>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Highest Bid</span>
                     <span className="text-lg font-black text-fuchsia-400 block mt-1">{highestBidVal.toFixed(2)} USDC</span>
                     <span className="text-[9px] text-zinc-600 block mt-0.5">Start: {data.auction.start_price.toFixed(2)} USDC</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Beli Langsung</span>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Buyout</span>
                     <span className="text-lg font-black text-emerald-400 block mt-1">
                       {data.auction.buyout_price ? `${data.auction.buyout_price.toFixed(2)} USDC` : "N/A"}
                     </span>
@@ -803,7 +822,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
                 <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-3xl p-4 space-y-4">
                   {/* Bidding row */}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Pasang Bid (Soft-Commitment)</p>
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Place Bid (Soft-Commitment)</p>
                     <div className="flex gap-2">
                       <input value={bidAmount} onChange={e => setBidAmount(e.target.value)} type="number" step="0.1"
                         className="flex-1 h-11 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 font-mono" />
@@ -819,7 +838,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
                     <div className="border-t border-zinc-800/60 pt-3">
                       <button onClick={triggerOnChainPayment}
                         className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 shadow-lg">
-                        <Coins className="w-4 h-4" /> Beli Instan sekarang ({data.auction.buyout_price.toFixed(2)} USDC)
+                        <Coins className="w-4.5 h-4.5" /> Buy Now ({data.auction.buyout_price.toFixed(2)} USDC)
                       </button>
                     </div>
                   )}
@@ -829,13 +848,13 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
               {/* Pay and Claim for pending_payment won auctions */}
               {!isOwner && userId && data.auction.status === "pending_payment" && isHighestBidder && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-3xl p-4 space-y-3">
-                  <p className="text-xs font-bold text-amber-300">Selamat! Anda Memenangkan Lelang 🏆</p>
+                  <p className="text-xs font-bold text-amber-300">Congratulations! You Won the Auction 🏆</p>
                   <p className="text-xs text-zinc-400 leading-relaxed">
-                    Silakan bayar **{highestBidVal.toFixed(2)} USDC** ke penjual via on-chain Base untuk mengklaim kartu Anda.
+                    Please pay **{highestBidVal.toFixed(2)} USDC** to the seller via on-chain Base to claim your card.
                   </p>
                   <button onClick={triggerOnChainPayment}
                     className="w-full h-12 bg-amber-500 text-zinc-950 font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg transition-all hover:bg-amber-400">
-                    <Coins className="w-4.5 h-4.5" /> Bayar & Klaim Kartu
+                    <Coins className="w-4.5 h-4.5" /> Pay & Claim Card
                   </button>
                 </div>
               )}
@@ -844,19 +863,19 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
               {isOwner && (data.auction.status === "active" || data.auction.status === "pending_payment") && (
                 <button onClick={handleCancelAuction}
                   className="w-full h-10 border border-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 hover:bg-rose-500/5 transition-all">
-                  <X className="w-3.5 h-3.5" /> Batalkan Lelang (Void Bids)
+                  <X className="w-3.5 h-3.5" /> Cancel Auction (Void Bids)
                 </button>
               )}
 
               {/* Bid History */}
               <div className="space-y-3">
                 <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">
-                  Riwayat Penawaran ({data.bids.length})
+                  Bid History ({data.bids.length})
                 </p>
 
                 {data.bids.length === 0 ? (
                   <div className="text-center py-6 text-zinc-600 text-sm bg-zinc-900/30 rounded-2xl border border-zinc-800/40 border-dashed">
-                    Belum ada penawaran bid
+                    No bids placed yet
                   </div>
                 ) : (
                   data.bids.map((b, idx) => (
@@ -879,7 +898,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
 
             </div>
           ) : (
-            <div className="text-center py-12 text-zinc-600 text-sm">Gagal memuat detail lelang</div>
+            <div className="text-center py-12 text-zinc-600 text-sm">Failed to load auction details</div>
           )}
         </div>
       </motion.div>
@@ -1033,12 +1052,12 @@ export default function MarketplacePage() {
             <h1 className="text-xl font-black text-zinc-100 flex items-center gap-2">
               <Store className="w-5 h-5 text-fuchsia-400" /> Auction House
             </h1>
-            <p className="text-[10px] text-zinc-600 mt-0.5 uppercase tracking-wider font-mono">Base Network USDC Lelang</p>
+            <p className="text-[10px] text-zinc-600 mt-0.5 uppercase tracking-wider font-mono">Base Network USDC Auctions</p>
           </div>
           {userId && (
             <button onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 px-3 h-9 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg">
-              <Plus className="w-3.5 h-3.5" /> Mulai Lelang
+              <Plus className="w-3.5 h-3.5" /> Start Auction
             </button>
           )}
         </div>
@@ -1051,7 +1070,7 @@ export default function MarketplacePage() {
                 <Wallet className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] text-zinc-500 leading-none">Wallet Farcaster</p>
+                <p className="text-[9px] text-zinc-500 leading-none">Farcaster Wallet</p>
                 <p className="text-xs font-mono font-bold text-zinc-300 mt-1">{formatAddr(walletAddress)}</p>
               </div>
             </div>
@@ -1067,7 +1086,7 @@ export default function MarketplacePage() {
           {(["feed", "my_listings", "my_bids"] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${view === v ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}>
-              {v === "feed" ? "Pasar Lelang" : v === "my_listings" ? "Lelang Saya" : "Tawaran Bids"}
+              {v === "feed" ? "Auction Market" : v === "my_listings" ? "My Listings" : "My Bids"}
             </button>
           ))}
         </div>
@@ -1077,7 +1096,7 @@ export default function MarketplacePage() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nama kartu..."
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search card name..."
                 className="w-full h-9 pl-8 pr-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 transition-all" />
             </div>
             <button onClick={() => setWishlistOnly(!wishlistOnly)}
@@ -1100,12 +1119,12 @@ export default function MarketplacePage() {
             {!loading && auctions.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 space-y-3">
                 <Store className="w-10 h-10 text-zinc-700" />
-                <p className="text-sm text-zinc-500 font-medium">Belum ada lelang aktif</p>
-                <p className="text-xs text-zinc-600">Jadilah yang pertama untuk melelang kartu!</p>
+                <p className="text-sm text-zinc-500 font-medium">No active auctions</p>
+                <p className="text-xs text-zinc-600">Be the first to list a card for auction!</p>
                 {userId && (
                   <button onClick={() => setShowCreate(true)}
                     className="mt-2 px-4 h-9 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold rounded-xl transition-all">
-                    Mulai Lelang
+                    Start Auction
                   </button>
                 )}
               </div>
@@ -1116,7 +1135,7 @@ export default function MarketplacePage() {
             {hasMore && auctions.length > 0 && (
               <button onClick={() => fetchFeed(false)} disabled={loading}
                 className="w-full h-10 border border-zinc-800 rounded-xl text-xs text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-all flex items-center justify-center gap-1.5">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Muat Lebih Banyak"}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Load More"}
               </button>
             )}
           </>
@@ -1129,10 +1148,10 @@ export default function MarketplacePage() {
             {!loading && myListings.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 space-y-3">
                 <Package className="w-10 h-10 text-zinc-700" />
-                <p className="text-sm text-zinc-500">Anda belum membuat lelang</p>
+                <p className="text-sm text-zinc-500">You have not created any auctions yet</p>
                 <button onClick={() => setShowCreate(true)}
                   className="px-4 h-9 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold rounded-xl transition-all">
-                  Mulai Lelang Pertama Anda
+                  Start Your First Auction
                 </button>
               </div>
             )}
@@ -1154,8 +1173,8 @@ export default function MarketplacePage() {
             {!loading && myBids.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 space-y-3">
                 <ArrowLeftRight className="w-10 h-10 text-zinc-700" />
-                <p className="text-sm text-zinc-500">Belum ada bid penawaran yang dipasang</p>
-                <p className="text-xs text-zinc-600">Cari kartu menarik di lelang dan mulailah bid!</p>
+                <p className="text-sm text-zinc-500">No bids placed yet</p>
+                <p className="text-xs text-zinc-600">Find cards in the market and start bidding!</p>
               </div>
             )}
             {myBids.map(a => {
@@ -1176,7 +1195,7 @@ export default function MarketplacePage() {
                   className="w-full text-left bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-zinc-500">
-                      Lelang oleh <span className="text-zinc-300 font-semibold">{a.seller?.username || "Trainer"}</span>
+                      Auction by <span className="text-zinc-300 font-semibold">{a.seller?.username || "Trainer"}</span>
                     </span>
                     <span className={`text-[9px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
                       bidLabelState.includes('WINNING') || bidLabelState.includes('WON') ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" :
@@ -1195,7 +1214,7 @@ export default function MarketplacePage() {
                         <p className="text-[9px] text-zinc-500 truncate">{a.card.rarity || 'Common'}</p>
                       </div>
                       <div className="flex justify-between items-baseline font-mono text-[10px] text-zinc-400">
-                        <span>Bid Tertinggi: {a.highest_bid.toFixed(2)} USDC</span>
+                        <span>Highest Bid: {a.highest_bid.toFixed(2)} USDC</span>
                       </div>
                     </div>
                   </div>

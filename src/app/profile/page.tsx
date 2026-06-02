@@ -58,7 +58,7 @@ export default function ProfileScreen() {
       <div className="flex items-center space-x-4">
         <div className="relative w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border-2 border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.2)] shrink-0">
           {avatar ? (
-            <Image src={avatar} alt={displayName} fill className="object-cover" />
+            <img src={avatar} alt={displayName} className="w-full h-full object-cover" />
           ) : (
             <User className="w-10 h-10 text-zinc-400" />
           )}

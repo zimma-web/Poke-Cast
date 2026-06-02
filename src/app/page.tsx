@@ -245,7 +245,7 @@ export default function Home() {
         </div>
         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-zinc-800 shadow-md">
           {avatar ? (
-            <Image src={avatar} alt={username || "User"} fill className="object-cover" />
+            <img src={avatar} alt={username || "User"} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
               P
