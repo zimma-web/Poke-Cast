@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
     }
 
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'ZeemmyAdmin07';
 
     // Handle Login Action
     if (action === 'login') {
