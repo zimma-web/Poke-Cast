@@ -88,6 +88,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Database query error' }, { status: 500 });
     }
 
+    // 2b. Fetch user wishlist
+    const { data: wishlistData, error: wishlistError } = await supabaseAdmin
+      .from('user_wishlist')
+      .select('card_id')
+      .eq('user_id', userId);
+
+    if (wishlistError) {
+      console.error('Database query wishlist error:', wishlistError);
+      return NextResponse.json({ error: 'Database query error' }, { status: 500 });
+    }
+
     // 3. Load card database to map card IDs to their rarities
     const cardsFilePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
     const fileContents = fs.readFileSync(cardsFilePath, 'utf8');
@@ -120,7 +131,8 @@ export async function GET(request: Request) {
       packsOpened: updatedUser?.packs_opened || 0,
       packTickets: updatedUser?.pack_tickets !== undefined ? updatedUser.pack_tickets : 10,
       freePacksRemaining: updatedUser?.free_packs_remaining !== undefined ? updatedUser.free_packs_remaining : 2,
-      lastDailyReset: updatedUser?.last_daily_reset || null
+      lastDailyReset: updatedUser?.last_daily_reset || null,
+      wishlist: wishlistData ? wishlistData.map((row: any) => row.card_id) : []
     });
   } catch (error) {
     console.error('Collection query error:', error);

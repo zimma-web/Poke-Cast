@@ -13,7 +13,8 @@ export default function ProfileScreen() {
     ownedCards, 
     uniqueCards, 
     collectionScore, 
-    packsOpened 
+    packsOpened,
+    wishlist = {}
   } = useCollectionStore();
 
   const totalCards = Object.values(ownedCards).reduce((a, b) => a + b, 0);
@@ -62,26 +63,42 @@ export default function ProfileScreen() {
 
       <div className="grid grid-cols-2 gap-4">
         <Card className="bg-zinc-900/40 border-zinc-800/80">
-          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1">
-            <Layers className="w-6 h-6 text-blue-400 mb-1" />
-            <span className="text-2xl font-bold">{uniqueCards}</span>
-            <span className="text-[11px] text-zinc-400 uppercase font-mono tracking-wider">Unique Cards</span>
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <Layers className="w-5 h-5 text-blue-400 mb-1" />
+            <span className="text-xl font-bold font-mono">{uniqueCards}</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Unique Cards</span>
           </CardContent>
         </Card>
 
         <Card className="bg-zinc-900/40 border-zinc-800/80">
-          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1">
-            <Trophy className="w-6 h-6 text-emerald-400 mb-1" />
-            <span className="text-2xl font-bold">{totalCards}</span>
-            <span className="text-[11px] text-zinc-400 uppercase font-mono tracking-wider">Total Cards</span>
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <Trophy className="w-5 h-5 text-emerald-400 mb-1" />
+            <span className="text-xl font-bold font-mono">{totalCards}</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Total Cards</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900/40 border-zinc-800/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-amber-400 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 9H9v6h6V9z"/></svg>
+            <span className="text-xl font-bold font-mono">{Math.max(0, totalCards - uniqueCards)}</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Duplicates</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900/40 border-zinc-800/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-rose-400 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <span className="text-xl font-bold font-mono">{Object.keys(wishlist).length}</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Wishlist</span>
           </CardContent>
         </Card>
 
         <Card className="bg-zinc-900/40 border-zinc-800/80 col-span-2">
-          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1">
-            <PackageOpen className="w-6 h-6 text-purple-400 mb-1" />
-            <span className="text-2xl font-bold">{packsOpened}</span>
-            <span className="text-[11px] text-zinc-400 uppercase font-mono tracking-wider">Packs Opened</span>
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <PackageOpen className="w-5 h-5 text-purple-400 mb-1" />
+            <span className="text-xl font-bold font-mono">{packsOpened}</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Packs Opened</span>
           </CardContent>
         </Card>
       </div>

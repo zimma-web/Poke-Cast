@@ -28,6 +28,7 @@ interface CollectionState {
   packTickets: number;
   freePacksRemaining: number;
   lastDailyReset: string | null;
+  wishlist: Record<string, boolean>; // cardId -> boolean
   addCards: (cards: Card[]) => void;
   setAuth: (auth: { 
     userId: string; 
@@ -37,6 +38,7 @@ interface CollectionState {
     packTickets?: number; 
     freePacksRemaining?: number; 
     lastDailyReset?: string | null;
+    wishlist?: string[];
   }) => void;
   setCollection: (collection: { 
     ownedCards: Record<string, number>; 
@@ -46,8 +48,11 @@ interface CollectionState {
     packTickets?: number;
     freePacksRemaining?: number;
     lastDailyReset?: string | null;
+    wishlist?: string[];
   }) => void;
   updateEconomy: (economy: { packTickets: number; freePacksRemaining: number; lastDailyReset: string | null }) => void;
+  toggleWishlist: (cardId: string) => void;
+  setWishlist: (wishlist: Record<string, boolean>) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -84,29 +89,58 @@ export const useCollectionStore = create<CollectionState>()(
       packTickets: 10,
       freePacksRemaining: 2,
       lastDailyReset: null,
-      setAuth: (auth) => set(() => ({
-        userId: auth.userId,
-        fid: auth.fid,
-        username: auth.username,
-        avatar: auth.avatar,
-        packTickets: auth.packTickets ?? 10,
-        freePacksRemaining: auth.freePacksRemaining ?? 2,
-        lastDailyReset: auth.lastDailyReset ?? null
-      })),
-      setCollection: (col) => set(() => ({
-        ownedCards: col.ownedCards,
-        uniqueCards: col.uniqueCards,
-        collectionScore: col.collectionScore,
-        packsOpened: col.packsOpened,
-        ...(col.packTickets !== undefined ? { packTickets: col.packTickets } : {}),
-        ...(col.freePacksRemaining !== undefined ? { freePacksRemaining: col.freePacksRemaining } : {}),
-        ...(col.lastDailyReset !== undefined ? { lastDailyReset: col.lastDailyReset } : {}),
-      })),
+      wishlist: {},
+      setAuth: (auth) => set(() => {
+        const wishlistRecord: Record<string, boolean> = {};
+        if (auth.wishlist) {
+          auth.wishlist.forEach(id => {
+            wishlistRecord[id] = true;
+          });
+        }
+        return {
+          userId: auth.userId,
+          fid: auth.fid,
+          username: auth.username,
+          avatar: auth.avatar,
+          packTickets: auth.packTickets ?? 10,
+          freePacksRemaining: auth.freePacksRemaining ?? 2,
+          lastDailyReset: auth.lastDailyReset ?? null,
+          ...(auth.wishlist !== undefined ? { wishlist: wishlistRecord } : {})
+        };
+      }),
+      setCollection: (col) => set(() => {
+        const wishlistRecord: Record<string, boolean> = {};
+        if (col.wishlist) {
+          col.wishlist.forEach(id => {
+            wishlistRecord[id] = true;
+          });
+        }
+        return {
+          ownedCards: col.ownedCards,
+          uniqueCards: col.uniqueCards,
+          collectionScore: col.collectionScore,
+          packsOpened: col.packsOpened,
+          ...(col.packTickets !== undefined ? { packTickets: col.packTickets } : {}),
+          ...(col.freePacksRemaining !== undefined ? { freePacksRemaining: col.freePacksRemaining } : {}),
+          ...(col.lastDailyReset !== undefined ? { lastDailyReset: col.lastDailyReset } : {}),
+          ...(col.wishlist !== undefined ? { wishlist: wishlistRecord } : {}),
+        };
+      }),
       updateEconomy: (economy) => set(() => ({
         packTickets: economy.packTickets,
         freePacksRemaining: economy.freePacksRemaining,
         lastDailyReset: economy.lastDailyReset
       })),
+      toggleWishlist: (cardId) => set((state) => {
+        const nextWishlist = { ...state.wishlist };
+        if (nextWishlist[cardId]) {
+          delete nextWishlist[cardId];
+        } else {
+          nextWishlist[cardId] = true;
+        }
+        return { wishlist: nextWishlist };
+      }),
+      setWishlist: (wishlist) => set(() => ({ wishlist })),
       setLoading: (loading) => set(() => ({ loading })),
       addCards: (cards) => set((state) => {
         const newOwned = { ...state.ownedCards };
@@ -140,6 +174,7 @@ export const useCollectionStore = create<CollectionState>()(
         packTickets: state.packTickets,
         freePacksRemaining: state.freePacksRemaining,
         lastDailyReset: state.lastDailyReset,
+        wishlist: state.wishlist,
       }),
     }
   )

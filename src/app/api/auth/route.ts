@@ -72,7 +72,16 @@ export async function POST(request: Request) {
           updatedUser = refreshedUser;
         }
       }
-      return NextResponse.json(updatedUser);
+      // Fetch wishlist for returning user
+      const { data: wishlistData } = await supabaseAdmin
+        .from('user_wishlist')
+        .select('card_id')
+        .eq('user_id', updatedUser.id);
+
+      return NextResponse.json({
+        ...updatedUser,
+        wishlist: wishlistData ? wishlistData.map((row: any) => row.card_id) : []
+      });
     }
 
     // 2. Create new user
@@ -95,7 +104,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database insert error' }, { status: 500 });
     }
 
-    return NextResponse.json(newUser);
+    return NextResponse.json({
+      ...newUser,
+      wishlist: []
+    });
   } catch (error) {
     console.error('Auth endpoint error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

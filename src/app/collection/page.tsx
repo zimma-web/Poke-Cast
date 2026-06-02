@@ -22,6 +22,32 @@ export default function CollectionScreen() {
   
   const { ref, inView } = useInView();
   const ownedCards = useCollectionStore(state => state.ownedCards);
+  const userId = useCollectionStore(state => state.userId);
+  const wishlist = useCollectionStore(state => state.wishlist) || {};
+  const toggleWishlist = useCollectionStore(state => state.toggleWishlist);
+
+  const handleToggleWishlist = async (cardId: string) => {
+    if (!userId) return;
+    
+    // Optimistic toggle on client
+    toggleWishlist(cardId);
+
+    try {
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, cardId })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        // Rollback
+        toggleWishlist(cardId);
+      }
+    } catch (e) {
+      console.error(e);
+      toggleWishlist(cardId);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/sets').then(res => res.json()).then(data => setSets(data.sets));
@@ -113,7 +139,7 @@ export default function CollectionScreen() {
 
   const totalOwned = Object.values(ownedCards).reduce((a, b) => a + b, 0);
   const uniqueOwned = Object.keys(ownedCards).length;
-  const completionRate = ((uniqueOwned / 20359) * 100).toFixed(2);
+  const duplicateCount = Math.max(0, totalOwned - uniqueOwned);
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-zinc-950 text-white">
@@ -125,16 +151,16 @@ export default function CollectionScreen() {
         {/* Global Collection Statistics Row */}
         <div className="grid grid-cols-3 gap-2 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-2.5 text-center">
           <div>
-            <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Total Cards</p>
+            <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Total Copies</p>
             <p className="text-sm font-bold text-zinc-200">{totalOwned}</p>
           </div>
           <div className="border-x border-zinc-800/80">
-            <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Unique</p>
+            <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Unique Cards</p>
             <p className="text-sm font-bold text-zinc-200">{uniqueOwned}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Completion</p>
-            <p className="text-sm font-bold text-fuchsia-500">{completionRate}%</p>
+            <p className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Duplicate Count</p>
+            <p className="text-sm font-bold text-fuchsia-500">{duplicateCount}</p>
           </div>
         </div>
 
@@ -261,13 +287,36 @@ export default function CollectionScreen() {
         <div className="p-4 grid grid-cols-2 gap-4">
           {cards.map((card) => {
             const isOwned = !!ownedCards[card.id];
+            const isWishlisted = !!wishlist[card.id];
 
             return (
-              <div key={card.id} className="flex flex-col group cursor-pointer">
+              <div key={card.id} className="flex flex-col group cursor-pointer relative">
                 <div className={cn(
                   "relative aspect-[2.5/3.5] rounded-xl overflow-hidden mb-2 transition-all duration-300", 
                   isOwned ? "ring-2 ring-fuchsia-500 ring-offset-2 ring-offset-zinc-950 shadow-[0_0_15px_rgba(217,70,239,0.3)]" : "opacity-75 grayscale-[0.3]"
                 )}>
+                  {/* Wishlist Heart Toggle Overlay */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleWishlist(card.id);
+                    }}
+                    className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-zinc-950/80 border border-zinc-850 text-zinc-400 hover:text-white transition-colors backdrop-blur-xs shadow-md"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill={isWishlisted ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={cn("w-3.5 h-3.5 transition-transform active:scale-75", isWishlisted ? "text-rose-500" : "text-zinc-400")}
+                    >
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                    </svg>
+                  </button>
+
                   {card.smallImage ? (
                     <Image 
                       src={card.smallImage} 
@@ -288,7 +337,7 @@ export default function CollectionScreen() {
                     {card.name} <span className="text-zinc-500 text-[11px]">#{card.number}</span>
                   </p>
                   <p className="text-[11px] font-bold mt-0.5 text-fuchsia-500/90 flex items-center justify-center gap-1">
-                    {isOwned ? "Owned" : <span className="text-zinc-600 font-normal">{card.rarity || 'Common'}</span>}
+                    {isOwned ? `Owned ×${ownedCards[card.id]}` : <span className="text-zinc-600 font-normal">{card.rarity || 'Common'}</span>}
                   </p>
                 </div>
               </div>
