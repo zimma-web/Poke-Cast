@@ -280,6 +280,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
               params: [{
                 to: TREASURY_ADDRESS,
                 value: `0x${valueWei.toString(16)}`,
+                gas: '0x5208',
                 data: '0x'
               }]
             });
@@ -611,6 +612,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
           params: [{
             to: USDC_CONTRACT_BASE,
             data: txDataSeller,
+            gas: '0x11170',
             value: '0x0'
           }]
         });
@@ -621,6 +623,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
           params: [{
             to: USDC_CONTRACT_BASE,
             data: txDataTreasury,
+            gas: '0x11170',
             value: '0x0'
           }]
         });

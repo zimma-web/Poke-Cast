@@ -70,8 +70,10 @@ export default function PackScreen() {
         const tx = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
+            from: walletAddress as `0x${string}`,
             to: TREASURY_ADDRESS,
             value: `0x${valueWei.toString(16)}`,
+            gas: '0x5208',
             data: '0x'
           }]
         });
