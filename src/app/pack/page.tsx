@@ -55,28 +55,11 @@ export default function PackScreen() {
       return;
     }
 
-    // Check ETH balance if wallet is connected and provider is available
-    const provider = sdk.wallet?.ethProvider;
-    if (walletAddress && provider) {
-      try {
-        const hexBalance = await provider.request({
-          method: 'eth_getBalance',
-          params: [walletAddress as `0x${string}`, 'latest']
-        }) as string;
-        const balanceWei = BigInt(hexBalance);
-        const balanceETH = Number(balanceWei) / 1e18;
-        if (balanceETH < 0.000001) {
-          setError(`Insufficient ETH balance. Pack opening fee is 0.000001 ETH (~$0.003), but you only have ${balanceETH.toFixed(8)} ETH.`);
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to check ETH balance:", err);
-      }
-    }
-
     setLoading(true);
     setError("");
     let txHash = "";
+
+    const provider = sdk.wallet?.ethProvider;
 
     try {
       if (provider) {
