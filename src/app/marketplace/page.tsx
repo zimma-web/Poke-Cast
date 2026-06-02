@@ -582,8 +582,13 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
     try {
       const provider = sdk.wallet?.ethProvider;
       let txHash = "";
+      const senderAddress = walletAddress || data.auction.winner?.wallet_address || "";
 
       if (provider) {
+        if (!senderAddress) {
+          throw new Error("Connected Farcaster wallet address is required to send USDC.");
+        }
+
         // USDC decimals: 6
         // Split payment: 98% to seller, 2% to treasury fee
         const sellerAmount = expectedUSDC * 0.98;
@@ -610,6 +615,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
         const tx1 = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
+            from: senderAddress as `0x${string}`,
             to: USDC_CONTRACT_BASE,
             data: txDataSeller,
             gas: '0x11170',
@@ -621,6 +627,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
         const tx2 = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
+            from: senderAddress as `0x${string}`,
             to: USDC_CONTRACT_BASE,
             data: txDataTreasury,
             gas: '0x11170',

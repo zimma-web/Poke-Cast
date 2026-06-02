@@ -63,6 +63,10 @@ export default function PackScreen() {
 
     try {
       if (provider) {
+        if (!walletAddress) {
+          throw new Error("Farcaster wallet address is not connected. Please connect your wallet and retry.");
+        }
+
         // 0.000001 ETH is 10^12 Wei
         const valueWei = BigInt(1000000000000);
 
