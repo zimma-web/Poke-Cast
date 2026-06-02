@@ -58,12 +58,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const userFid = context.user.fid;
         const userUsername = context.user.username || "trainer_" + userFid;
         const userAvatar = context.user.pfpUrl || "";
+        const walletAddress = context.user.custodyAddress || context.user.verifiedAddresses?.ethAddresses?.[0] || "";
 
         // 1. Post to auth endpoint
         const authRes = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fid: userFid, username: userUsername, avatar: userAvatar })
+          body: JSON.stringify({ fid: userFid, username: userUsername, avatar: userAvatar, walletAddress })
         });
         const authData = await authRes.json();
         
@@ -73,6 +74,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             fid: authData.fid,
             username: authData.username,
             avatar: authData.avatar,
+            walletAddress: authData.wallet_address,
+            usdcBalance: authData.usdc_balance || 0,
             packTickets: authData.pack_tickets,
             freePacksRemaining: authData.free_packs_remaining,
             lastDailyReset: authData.last_daily_reset,
@@ -114,6 +117,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             uniqueCards: collectionData.uniqueCards || 0,
             collectionScore: collectionData.collectionScore || 0,
             packsOpened: collectionData.packsOpened || 0,
+            walletAddress: collectionData.walletAddress,
+            usdcBalance: collectionData.usdcBalance || 0,
             packTickets: collectionData.packTickets,
             freePacksRemaining: collectionData.freePacksRemaining,
             lastDailyReset: collectionData.lastDailyReset,

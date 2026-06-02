@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getBaseUSDCBalance, verifyBaseUSDCTransfer } from '@/lib/web3';
 
 const CARDS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
 const SETS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
@@ -30,9 +31,9 @@ function getSetMap(): Map<string, any> {
   return _setMap!;
 }
 
-function resolveCards(cardIds: string[]) {
+function resolveCard(cardId: string) {
   const cardMap = getCardMap();
-  return cardIds.map(id => cardMap.get(id) || { id, name: id, smallImage: '', largeImage: '' });
+  return cardMap.get(cardId) || { id: cardId, name: cardId, smallImage: '', largeImage: '' };
 }
 
 // ─── Notification helper ──────────────────────────────────────────────────────
@@ -49,21 +50,128 @@ async function track(userId: string | null, event: string, data?: any) {
   } catch (e) { console.error('Track error:', e); }
 }
 
-// ─── Ownership validation ─────────────────────────────────────────────────────
-async function userOwnsCards(userId: string, cardIds: string[]): Promise<boolean> {
-  if (!cardIds.length) return true;
-  const { data } = await supabaseAdmin
-    .from('user_cards').select('card_id').eq('user_id', userId).in('card_id', cardIds);
-  const owned = new Set((data || []).map((r: any) => r.card_id));
-  return cardIds.every(id => owned.has(id));
+// ─── Cards locked in active P2P trades ────────────────────────────────────────
+async function getLockedCardIdsInTrades(userId: string): Promise<Record<string, number>> {
+  const { data: pendingOffers } = await supabaseAdmin
+    .from('trade_offers')
+    .select('id')
+    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+    .eq('status', 'pending');
+
+  if (!pendingOffers || pendingOffers.length === 0) return {};
+
+  const offerIds = pendingOffers.map((o: any) => o.id);
+  const { data: lockedCards } = await supabaseAdmin
+    .from('trade_offer_cards')
+    .select('card_id')
+    .eq('owner_user_id', userId)
+    .in('offer_id', offerIds);
+
+  const counts: Record<string, number> = {};
+  (lockedCards || []).forEach((c: any) => {
+    counts[c.card_id] = (counts[c.card_id] || 0) + 1;
+  });
+  return counts;
 }
 
-// ─── Enrich listing with card metadata + offer count ─────────────────────────
-function enrichListing(listing: any, wishlistSet: Set<string> = new Set()) {
-  const wantCards = resolveCards(listing.want_card_ids || []);
-  const offerCards = resolveCards(listing.offer_card_ids || []);
-  const wishlistMatch = (listing.want_card_ids || []).some((id: string) => wishlistSet.has(id));
-  return { ...listing, wantCards, offerCards, wishlistMatch };
+// ─── Expired auctions background processor ───────────────────────────────────
+async function processExpiredAuctions() {
+  try {
+    const now = new Date().toISOString();
+    
+    // 1. Process active auctions that reached their end_at time
+    const { data: expired } = await supabaseAdmin
+      .from('auctions')
+      .select('*')
+      .eq('status', 'active')
+      .lte('end_at', now);
+
+    if (expired && expired.length > 0) {
+      for (const auction of expired) {
+        if (auction.highest_bidder_id && auction.highest_bid > 0) {
+          // Transition to pending_payment (winner must transfer USDC within 24h to claim)
+          await supabaseAdmin
+            .from('auctions')
+            .update({ status: 'pending_payment' })
+            .eq('id', auction.id);
+
+          await notify(
+            auction.highest_bidder_id,
+            'auction_won',
+            'Auction Won! 🏆',
+            `You won the auction for card ${resolveCard(auction.card_id).name}! Please pay ${auction.highest_bid} USDC on Base to claim your card.`,
+            { auctionId: auction.id }
+          );
+
+          await notify(
+            auction.seller_id,
+            'auction_pending_payment',
+            'Auction Awaiting Payment 🪙',
+            `Your auction for card ${resolveCard(auction.card_id).name} ended. Winner has 24h to pay ${auction.highest_bid} USDC.`,
+            { auctionId: auction.id }
+          );
+        } else {
+          // No bids. Close as expired.
+          await supabaseAdmin
+            .from('auctions')
+            .update({ status: 'expired' })
+            .eq('id', auction.id);
+
+          await notify(
+            auction.seller_id,
+            'auction_expired',
+            'Auction Expired ⏳',
+            `Your auction for card ${resolveCard(auction.card_id).name} expired with no bids.`,
+            { auctionId: auction.id }
+          );
+        }
+      }
+    }
+
+    // 2. Process unpaid pending_payment auctions after 24h limit
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: unpaid } = await supabaseAdmin
+      .from('auctions')
+      .select('*')
+      .eq('status', 'pending_payment')
+      .lte('end_at', twentyFourHoursAgo);
+
+    if (unpaid && unpaid.length > 0) {
+      for (const auction of unpaid) {
+        await supabaseAdmin
+          .from('auctions')
+          .update({ status: 'expired' })
+          .eq('id', auction.id);
+
+        await notify(
+          auction.seller_id,
+          'auction_unpaid',
+          'Auction Unpaid - Card Returned ⏳',
+          `The winner failed to pay. Your card ${resolveCard(auction.card_id).name} is back in your collection.`,
+          { auctionId: auction.id }
+        );
+
+        if (auction.highest_bidder_id) {
+          await notify(
+            auction.highest_bidder_id,
+            'auction_unpaid_winner',
+            'Payment Timeout ❌',
+            `You failed to pay for card ${resolveCard(auction.card_id).name} within 24 hours.`,
+            { auctionId: auction.id }
+          );
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error processing expired auctions:', e);
+  }
+}
+
+// ─── enrich auction listing with card metadata ──────────────────────────────
+function enrichAuction(auction: any, wishlistSet: Set<string> = new Set()) {
+  const card = resolveCard(auction.card_id);
+  const wishlistMatch = wishlistSet.has(auction.card_id);
+  return { ...auction, card, wishlistMatch };
 }
 
 // ─── POST Handler ─────────────────────────────────────────────────────────────
@@ -73,40 +181,37 @@ export async function POST(request: Request) {
     const { action, payload } = body;
     if (!action) return NextResponse.json({ error: 'Action required' }, { status: 400 });
 
+    // Process expired auctions before handling feed/listing queries
+    await processExpiredAuctions();
+
     // ── LIST FEED ─────────────────────────────────────────────────────────────
     if (action === 'list_feed') {
       const { page = 1, limit = 20, search = '', wishlistCardIds = [], userId } = payload || {};
 
       let query = supabaseAdmin
-        .from('marketplace_listings')
+        .from('auctions')
         .select(`
           *,
-          user:user_id(id, username, avatar, fid),
-          offer_count:marketplace_offers(count)
+          seller:seller_id(id, username, avatar, fid, wallet_address)
         `, { count: 'exact' })
         .eq('status', 'active')
-        .order('created_at', { ascending: false })
+        .order('end_at', { ascending: true }) // ending soonest first
         .range((page - 1) * limit, page * limit - 1);
 
-      const { data: listings, count, error } = await query;
+      if (userId) {
+        query = query.neq('seller_id', userId); // hide own auctions from feed
+      }
+
+      const { data: rawAuctions, count, error } = await query;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
       const wishlistSet = new Set<string>(wishlistCardIds);
-      let enriched = (listings || []).map((l: any) => ({
-        ...enrichListing(l, wishlistSet),
-        offerCount: l.offer_count?.[0]?.count || 0,
-      }));
+      let enriched = (rawAuctions || []).map((a: any) => enrichAuction(a, wishlistSet));
 
-      // Apply search filter on card names
+      // Search filter
       if (search) {
         const q = search.toLowerCase();
-        const cardMap = getCardMap();
-        enriched = enriched.filter((l: any) =>
-          [...(l.want_card_ids || []), ...(l.offer_card_ids || [])].some(id => {
-            const card = cardMap.get(id);
-            return card?.name?.toLowerCase().includes(q);
-          })
-        );
+        enriched = enriched.filter((a: any) => a.card?.name?.toLowerCase().includes(q));
       }
 
       // Sort wishlist matches first
@@ -115,293 +220,544 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json({
-        listings: enriched,
+        auctions: enriched,
         total: count || 0,
         page,
         totalPages: Math.ceil((count || 0) / limit),
       });
     }
 
-    // ── CREATE LISTING ────────────────────────────────────────────────────────
-    if (action === 'create_listing') {
-      const { userId, wantCardIds, offerCardIds, note } = payload || {};
-      if (!userId || !wantCardIds?.length || !offerCardIds?.length) {
-        return NextResponse.json({ error: 'userId, wantCardIds and offerCardIds are required' }, { status: 400 });
+    // ── CREATE AUCTION ────────────────────────────────────────────────────────
+    if (action === 'create_auction') {
+      const { userId, cardId, startPrice, buyoutPrice, durationHours = 24 } = payload || {};
+      if (!userId || !cardId || !startPrice) {
+        return NextResponse.json({ error: 'userId, cardId, and startPrice are required' }, { status: 400 });
       }
 
-      // Validate user owns offered cards
-      const ownsAll = await userOwnsCards(userId, offerCardIds);
-      if (!ownsAll) return NextResponse.json({ error: 'You do not own all offered cards' }, { status: 400 });
+      const parsedStart = parseFloat(startPrice);
+      const parsedBuyout = buyoutPrice ? parseFloat(buyoutPrice) : null;
 
-      const { data: listing, error } = await supabaseAdmin
-        .from('marketplace_listings')
-        .insert({ user_id: userId, want_card_ids: wantCardIds, offer_card_ids: offerCardIds, note, status: 'active' })
-        .select('*').single();
+      if (isNaN(parsedStart) || parsedStart < 0.01) {
+        return NextResponse.json({ error: 'Start price must be at least 0.01 USDC' }, { status: 400 });
+      }
+      if (parsedBuyout !== null && (isNaN(parsedBuyout) || parsedBuyout <= parsedStart)) {
+        return NextResponse.json({ error: 'Buyout price must be greater than start price' }, { status: 400 });
+      }
+
+      // Fetch user's wallet address to ensure they have one
+      const { data: seller } = await supabaseAdmin.from('users').select('wallet_address').eq('id', userId).single();
+      if (!seller?.wallet_address) {
+        return NextResponse.json({ error: 'Farcaster wallet address is required to sell cards' }, { status: 400 });
+      }
+
+      // Fetch all card copies owned by user
+      const { data: ownedCopies } = await supabaseAdmin
+        .from('user_cards')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('card_id', cardId);
+
+      if (!ownedCopies || ownedCopies.length === 0) {
+        return NextResponse.json({ error: 'You do not own this card' }, { status: 400 });
+      }
+
+      // Fetch card copies currently listed in active auctions
+      const { data: activeAuctions } = await supabaseAdmin
+        .from('auctions')
+        .select('user_card_id')
+        .eq('seller_id', userId)
+        .eq('card_id', cardId)
+        .in('status', ['active', 'pending_payment']);
+
+      const listedCardIds = new Set((activeAuctions || []).map((a: any) => a.user_card_id));
+      
+      // Filter out copies that are listed
+      const unlistedCopies = ownedCopies.filter(c => !listedCardIds.has(c.id));
+      if (unlistedCopies.length === 0) {
+        return NextResponse.json({ error: 'All copies of this card are already listed for auction' }, { status: 400 });
+      }
+
+      // Filter out copies locked in active trades
+      const lockedTradeCounts = await getLockedCardIdsInTrades(userId);
+      const lockedInTradesCount = lockedTradeCounts[cardId] || 0;
+      
+      if (unlistedCopies.length <= lockedInTradesCount) {
+        return NextResponse.json({ error: 'All remaining copies of this card are locked in pending trades' }, { status: 400 });
+      }
+
+      // Select the first available user_card_id
+      const targetUserCard = unlistedCopies[0];
+
+      // Insert auction record
+      const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+      const { data: auction, error } = await supabaseAdmin
+        .from('auctions')
+        .insert({
+          seller_id: userId,
+          user_card_id: targetUserCard.id,
+          card_id: cardId,
+          start_price: parsedStart,
+          buyout_price: parsedBuyout,
+          highest_bid: 0,
+          highest_bidder_id: null,
+          status: 'active',
+          end_at: endAt
+        })
+        .select('*')
+        .single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      await track(userId, 'listing_created', { listingId: listing.id, wantCount: wantCardIds.length, offerCount: offerCardIds.length });
-      return NextResponse.json({ success: true, listing });
+      await track(userId, 'auction_created', { auctionId: auction.id, cardId, startPrice: parsedStart, buyoutPrice: parsedBuyout });
+
+      // Increment create_auction quest progress
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data: questRow } = await supabaseAdmin
+          .from('user_quests')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('quest_id', 'create_auction')
+          .eq('day', todayStr)
+          .maybeSingle();
+
+        if (questRow) {
+          await supabaseAdmin
+            .from('user_quests')
+            .update({ progress: Math.min(questRow.target, questRow.progress + 1) })
+            .eq('user_id', userId)
+            .eq('quest_id', 'create_auction')
+            .eq('day', todayStr);
+        } else {
+          await supabaseAdmin
+            .from('user_quests')
+            .insert({
+              user_id: userId,
+              quest_id: 'create_auction',
+              progress: 1,
+              target: 1,
+              claimed: false,
+              day: todayStr
+            });
+        }
+      } catch (e) {
+        console.error('Failed to update create_auction quest:', e);
+      }
+
+      return NextResponse.json({ success: true, auction });
     }
 
-    // ── GET LISTING ───────────────────────────────────────────────────────────
-    if (action === 'get_listing') {
-      const { listingId } = payload || {};
-      if (!listingId) return NextResponse.json({ error: 'listingId required' }, { status: 400 });
+    // ── PLACE BID ─────────────────────────────────────────────────────────────
+    if (action === 'place_bid') {
+      const { auctionId, bidderId, amount } = payload || {};
+      if (!auctionId || !bidderId || !amount) {
+        return NextResponse.json({ error: 'auctionId, bidderId, and amount are required' }, { status: 400 });
+      }
 
-      const { data: listing, error } = await supabaseAdmin
-        .from('marketplace_listings')
-        .select(`*, user:user_id(id, username, avatar, fid)`)
-        .eq('id', listingId).single();
-      if (error || !listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+      const bidAmount = parseFloat(amount);
+      if (isNaN(bidAmount) || bidAmount < 0.01) {
+        return NextResponse.json({ error: 'Bid amount must be at least 0.01 USDC' }, { status: 400 });
+      }
 
-      const { data: offers } = await supabaseAdmin
-        .from('marketplace_offers')
-        .select(`*, offerer:offerer_user_id(id, username, avatar, fid)`)
-        .eq('listing_id', listingId)
+      // Fetch auction details
+      const { data: auction } = await supabaseAdmin.from('auctions').select('*').eq('id', auctionId).single();
+      if (!auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
+      if (auction.status !== 'active') return NextResponse.json({ error: 'Auction is no longer active' }, { status: 400 });
+      if (auction.seller_id === bidderId) return NextResponse.json({ error: 'You cannot bid on your own auction' }, { status: 400 });
+
+      // Check end time
+      if (new Date(auction.end_at).getTime() <= Date.now()) {
+        return NextResponse.json({ error: 'Auction has already ended' }, { status: 400 });
+      }
+
+      // Verify bid is higher than starting price / current highest bid
+      const minRequired = auction.highest_bid > 0 ? auction.highest_bid + 0.01 : auction.start_price;
+      if (bidAmount < minRequired) {
+        return NextResponse.json({ error: `Bid must be at least ${minRequired.toFixed(2)} USDC` }, { status: 400 });
+      }
+
+      // Check buyout threshold
+      if (auction.buyout_price && bidAmount >= auction.buyout_price) {
+        return NextResponse.json({ error: 'Bid exceeds or meets buyout price. Use Buyout instead.' }, { status: 400 });
+      }
+
+      // Fetch bidder's wallet and check live USDC balance on Base
+      const { data: bidder } = await supabaseAdmin.from('users').select('wallet_address').eq('id', bidderId).single();
+      if (!bidder?.wallet_address) {
+        return NextResponse.json({ error: 'Farcaster wallet must be connected to bid' }, { status: 400 });
+      }
+
+      const liveBalance = await getBaseUSDCBalance(bidder.wallet_address);
+      if (liveBalance < bidAmount) {
+        return NextResponse.json({
+          error: `Insufficient USDC balance in wallet. You have ${liveBalance.toFixed(2)} USDC, but this bid requires ${bidAmount.toFixed(2)} USDC.`
+        }, { status: 400 });
+      }
+
+      const previousBidderId = auction.highest_bidder_id;
+      const previousBid = auction.highest_bid;
+
+      // Update auction
+      const { data: updatedAuction, error: updateError } = await supabaseAdmin
+        .from('auctions')
+        .update({
+          highest_bid: bidAmount,
+          highest_bidder_id: bidderId
+        })
+        .eq('id', auctionId)
+        .select('*')
+        .single();
+
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+      // Record bid
+      await supabaseAdmin.from('auction_bids').insert({
+        auction_id: auctionId,
+        bidder_id: bidderId,
+        amount: bidAmount
+      });
+
+      // Send notifications
+      const cardName = resolveCard(auction.card_id).name;
+      // Notify seller
+      const { data: bidderUser } = await supabaseAdmin.from('users').select('username').eq('id', bidderId).single();
+      await notify(auction.seller_id, 'new_bid', 'New Bid! 🪙', `${bidderUser?.username || 'Someone'} bid ${bidAmount.toFixed(2)} USDC on your card ${cardName}.`, { auctionId });
+
+      // Notify previous bidder they were outbid
+      if (previousBidderId && previousBidderId !== bidderId) {
+        await notify(previousBidderId, 'outbid', 'You\'ve been outbid! ⏳', `Someone placed a higher bid of ${bidAmount.toFixed(2)} USDC on card ${cardName}.`, { auctionId });
+      }
+
+      await track(bidderId, 'bid_placed', { auctionId, amount: bidAmount });
+
+      // Increment place_bid quest progress
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data: questRow } = await supabaseAdmin
+          .from('user_quests')
+          .select('*')
+          .eq('user_id', bidderId)
+          .eq('quest_id', 'place_bid')
+          .eq('day', todayStr)
+          .maybeSingle();
+
+        if (questRow) {
+          await supabaseAdmin
+            .from('user_quests')
+            .update({ progress: Math.min(questRow.target, questRow.progress + 1) })
+            .eq('user_id', bidderId)
+            .eq('quest_id', 'place_bid')
+            .eq('day', todayStr);
+        } else {
+          await supabaseAdmin
+            .from('user_quests')
+            .insert({
+              user_id: bidderId,
+              quest_id: 'place_bid',
+              progress: 1,
+              target: 1,
+              claimed: false,
+              day: todayStr
+            });
+        }
+      } catch (e) {
+        console.error('Failed to update place_bid quest:', e);
+      }
+
+      return NextResponse.json({ success: true, auction: enrichAuction(updatedAuction) });
+    }
+
+    // ── VERIFY ON-CHAIN PAYMENT (Buyout or Auction Claim) ────────────────────────
+    if (action === 'verify_payment') {
+      const { auctionId, txHash, userId } = payload || {};
+      if (!auctionId || !txHash || !userId) {
+        return NextResponse.json({ error: 'auctionId, txHash, and userId are required' }, { status: 400 });
+      }
+
+      // Fetch auction
+      const { data: auction } = await supabaseAdmin.from('auctions').select('*').eq('id', auctionId).single();
+      if (!auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
+
+      // Must be active (for buyout) or pending_payment (for auction claim)
+      if (auction.status !== 'active' && auction.status !== 'pending_payment') {
+        return NextResponse.json({ error: 'Auction is not in a payable state' }, { status: 400 });
+      }
+
+      const isBuyout = auction.status === 'active';
+      if (isBuyout) {
+        if (!auction.buyout_price) return NextResponse.json({ error: 'Buyout not enabled for this auction' }, { status: 400 });
+        if (auction.seller_id === userId) return NextResponse.json({ error: 'Cannot buy out your own card' }, { status: 400 });
+      } else {
+        // Claiming pending payment
+        if (auction.highest_bidder_id !== userId) {
+          return NextResponse.json({ error: 'Only the winning bidder can claim this card' }, { status: 403 });
+        }
+      }
+
+      // Check if tx hash is already used in DB to prevent replay attacks
+      const { data: duplicateTx } = await supabaseAdmin.from('auctions').select('id').eq('tx_hash', txHash).maybeSingle();
+      if (duplicateTx) {
+        return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
+      }
+
+      // Fetch addresses of buyer and seller
+      const { data: buyer } = await supabaseAdmin.from('users').select('wallet_address').eq('id', userId).single();
+      const { data: seller } = await supabaseAdmin.from('users').select('wallet_address').eq('id', auction.seller_id).single();
+
+      if (!buyer?.wallet_address || !seller?.wallet_address) {
+        return NextResponse.json({ error: 'Wallet addresses are missing for this trade' }, { status: 400 });
+      }
+
+      const expectedUSDC = isBuyout ? auction.buyout_price : auction.highest_bid;
+
+      // Call Web3 helper to verify tx on-chain
+      const isTxValid = await verifyBaseUSDCTransfer(txHash, buyer.wallet_address, seller.wallet_address, expectedUSDC);
+      if (!isTxValid) {
+        return NextResponse.json({ error: 'Transaction validation failed. Ensure the transaction is confirmed, on Base, and matches the correct price and recipient.' }, { status: 400 });
+      }
+
+      // Check if card is still owned by the seller
+      const { data: cardRow } = await supabaseAdmin
+        .from('user_cards')
+        .select('*')
+        .eq('id', auction.user_card_id)
+        .eq('user_id', auction.seller_id)
+        .maybeSingle();
+
+      if (!cardRow) {
+        // Seller no longer owns the card. Cancel the auction.
+        await supabaseAdmin.from('auctions').update({ status: 'cancelled' }).eq('id', auctionId);
+        return NextResponse.json({ error: 'Card transfer failed — seller no longer owns the card. Auction cancelled.' }, { status: 409 });
+      }
+
+      // Transfer card ownership in DB
+      const { error: transferError } = await supabaseAdmin
+        .from('user_cards')
+        .update({ user_id: userId })
+        .eq('id', auction.user_card_id);
+
+      if (transferError) return NextResponse.json({ error: 'Card transfer failed in database: ' + transferError.message }, { status: 500 });
+
+      // Update auction record
+      const updateData: any = {
+        status: 'completed',
+        tx_hash: txHash
+      };
+      if (isBuyout) {
+        updateData.highest_bid = expectedUSDC;
+        updateData.highest_bidder_id = userId;
+      }
+      await supabaseAdmin.from('auctions').update(updateData).eq('id', auctionId);
+
+      // Send notifications
+      const cardName = resolveCard(auction.card_id).name;
+      await notify(
+        auction.seller_id,
+        'auction_sold',
+        'Card Sold! 🪙',
+        `Your card ${cardName} was purchased by ${buyer.wallet_address.slice(0, 6)}... for ${expectedUSDC.toFixed(2)} USDC on Base.`,
+        { auctionId, txHash }
+      );
+      await notify(
+        userId,
+        'auction_purchased',
+        'Card Claimed! 🎉',
+        `You purchased ${cardName} for ${expectedUSDC.toFixed(2)} USDC! It is now in your collection.`,
+        { auctionId, txHash }
+      );
+
+      // Notify outbid users if buyout triggered
+      if (isBuyout && auction.highest_bidder_id) {
+        await notify(
+          auction.highest_bidder_id,
+          'outbid',
+          'Auction Buyout Triggered ⏳',
+          `The auction for card ${cardName} was bought out immediately by another user.`,
+          { auctionId }
+        );
+      }
+
+      await track(userId, 'auction_completed', { auctionId, amount: expectedUSDC, isBuyout });
+      return NextResponse.json({ success: true });
+    }
+
+    // ── CANCEL AUCTION ────────────────────────────────────────────────────────
+    if (action === 'cancel_auction') {
+      const { auctionId, userId } = payload || {};
+      if (!auctionId || !userId) return NextResponse.json({ error: 'auctionId and userId are required' }, { status: 400 });
+
+      const { data: auction } = await supabaseAdmin.from('auctions').select('*').eq('id', auctionId).single();
+      if (!auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
+      
+      // Authorization check (owner or admin check via x-admin-password)
+      const adminPwd = request.headers.get('x-admin-password');
+      const isAdmin = adminPwd === (process.env.ADMIN_PASSWORD || 'ZeemmyAdmin07');
+
+      if (auction.seller_id !== userId && !isAdmin) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      }
+
+      if (auction.status !== 'active' && auction.status !== 'pending_payment') {
+        return NextResponse.json({ error: 'Auction is not active' }, { status: 400 });
+      }
+
+      // Update status
+      await supabaseAdmin.from('auctions').update({ status: 'cancelled' }).eq('id', auctionId);
+
+      // Notify highest bidder (since bidding was off-chain commitment, we just notify them it was cancelled)
+      if (auction.highest_bidder_id) {
+        await notify(
+          auction.highest_bidder_id,
+          'outbid',
+          'Auction Cancelled',
+          `The auction for card ${resolveCard(auction.card_id).name} was cancelled by the seller.`,
+          { auctionId }
+        );
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ── MY AUCTIONS ───────────────────────────────────────────────────────────
+    if (action === 'my_auctions') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: rawAuctions, error } = await supabaseAdmin
+        .from('auctions')
+        .select(`
+          *,
+          seller:seller_id(username, avatar),
+          winner:highest_bidder_id(username, avatar, wallet_address)
+        `)
+        .eq('seller_id', userId)
         .order('created_at', { ascending: false });
 
-      const enrichedOffers = (offers || []).map((o: any) => ({
-        ...o,
-        offerCards: resolveCards(o.offer_card_ids || []),
-        wantCards: resolveCards(o.want_card_ids || []),
-      }));
-
-      return NextResponse.json({ listing: enrichListing(listing), offers: enrichedOffers });
-    }
-
-    // ── CANCEL LISTING ────────────────────────────────────────────────────────
-    if (action === 'cancel_listing') {
-      const { listingId, userId } = payload || {};
-      if (!listingId || !userId) return NextResponse.json({ error: 'listingId and userId required' }, { status: 400 });
-
-      const { data: listing } = await supabaseAdmin.from('marketplace_listings').select('*').eq('id', listingId).single();
-      if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
-      if (listing.user_id !== userId) return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-      if (listing.status !== 'active') return NextResponse.json({ error: `Listing is already ${listing.status}` }, { status: 400 });
-
-      await supabaseAdmin.from('marketplace_listings').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', listingId);
-
-      // Notify pending offerers
-      const { data: pendingOffers } = await supabaseAdmin.from('marketplace_offers')
-        .select('offerer_user_id').eq('listing_id', listingId).eq('status', 'pending');
-      for (const offer of (pendingOffers || [])) {
-        await notify(offer.offerer_user_id, 'offer_rejected', 'Listing Cancelled', 'A listing you made an offer on was cancelled.', { listingId });
-      }
-      await supabaseAdmin.from('marketplace_offers').update({ status: 'rejected' }).eq('listing_id', listingId).eq('status', 'pending');
-
-      return NextResponse.json({ success: true });
-    }
-
-    // ── CREATE OFFER ──────────────────────────────────────────────────────────
-    if (action === 'create_offer') {
-      const { listingId, offererId, offerCardIds, wantCardIds, note } = payload || {};
-      if (!listingId || !offererId || !offerCardIds?.length || !wantCardIds?.length) {
-        return NextResponse.json({ error: 'listingId, offererId, offerCardIds and wantCardIds required' }, { status: 400 });
-      }
-
-      const { data: listing } = await supabaseAdmin.from('marketplace_listings').select('*').eq('id', listingId).single();
-      if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
-      if (listing.status !== 'active') return NextResponse.json({ error: 'Listing is no longer active' }, { status: 400 });
-      if (listing.user_id === offererId) return NextResponse.json({ error: 'Cannot offer on your own listing' }, { status: 400 });
-
-      // Check offerer doesn't already have a pending offer
-      const { data: existingOffer } = await supabaseAdmin.from('marketplace_offers')
-        .select('id').eq('listing_id', listingId).eq('offerer_user_id', offererId).eq('status', 'pending').maybeSingle();
-      if (existingOffer) return NextResponse.json({ error: 'You already have a pending offer on this listing' }, { status: 400 });
-
-      // Validate offerer owns their cards
-      const ownsAll = await userOwnsCards(offererId, offerCardIds);
-      if (!ownsAll) return NextResponse.json({ error: 'You do not own all offered cards' }, { status: 400 });
-
-      const { data: offer, error } = await supabaseAdmin.from('marketplace_offers')
-        .insert({ listing_id: listingId, offerer_user_id: offererId, offer_card_ids: offerCardIds, want_card_ids: wantCardIds, note, status: 'pending' })
-        .select('*').single();
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      const enriched = (rawAuctions || []).map((a: any) => enrichAuction(a));
 
-      // Notify listing owner
-      const { data: offerer } = await supabaseAdmin.from('users').select('username').eq('id', offererId).single();
-      await notify(listing.user_id, 'new_offer', 'New Offer on Your Listing! 🎴', `${offerer?.username || 'Someone'} made an offer on your listing.`, { listingId, offerId: offer.id });
-      await track(offererId, 'offer_created', { listingId, offerId: offer.id });
-
-      return NextResponse.json({ success: true, offerId: offer.id });
+      return NextResponse.json({ auctions: enriched });
     }
 
-    // ── ACCEPT OFFER ──────────────────────────────────────────────────────────
-    if (action === 'accept_offer') {
-      const { offerId, userId } = payload || {};
-      if (!offerId || !userId) return NextResponse.json({ error: 'offerId and userId required' }, { status: 400 });
+    // ── MY BIDS ───────────────────────────────────────────────────────────────
+    if (action === 'my_bids') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
-      const { data: offer } = await supabaseAdmin.from('marketplace_offers').select('*').eq('id', offerId).single();
-      if (!offer) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
-      if (offer.status !== 'pending') return NextResponse.json({ error: `Offer is already ${offer.status}` }, { status: 400 });
+      // Fetch auctions where user bid
+      const { data: userBids, error: bidsError } = await supabaseAdmin
+        .from('auction_bids')
+        .select('auction_id')
+        .eq('bidder_id', userId);
 
-      const { data: listing } = await supabaseAdmin.from('marketplace_listings').select('*').eq('id', offer.listing_id).single();
-      if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
-      if (listing.user_id !== userId) return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-      if (listing.status !== 'active') return NextResponse.json({ error: 'Listing is no longer active' }, { status: 400 });
+      if (bidsError) return NextResponse.json({ error: bidsError.message }, { status: 500 });
+      if (!userBids || userBids.length === 0) return NextResponse.json({ auctions: [] });
 
-      // Validate ownership before transfer
-      const listerOwns = await userOwnsCards(listing.user_id, offer.want_card_ids);
-      const offererOwns = await userOwnsCards(offer.offerer_user_id, offer.offer_card_ids);
+      const auctionIds = Array.from(new Set(userBids.map((b: any) => b.auction_id)));
 
-      if (!listerOwns || !offererOwns) {
-        // Auto-cancel listing — cards no longer available
-        await supabaseAdmin.from('marketplace_listings').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', listing.id);
-        return NextResponse.json({ error: 'Trade failed — one or more cards are no longer available. Listing cancelled.' }, { status: 409 });
-      }
+      const { data: rawAuctions, error: auctionsError } = await supabaseAdmin
+        .from('auctions')
+        .select(`
+          *,
+          seller:seller_id(username, avatar, wallet_address)
+        `)
+        .in('id', auctionIds)
+        .order('end_at', { ascending: true });
 
-      // Transfer cards: lister's wanted cards → offerer
-      for (const cardId of offer.want_card_ids) {
-        await supabaseAdmin.from('user_cards')
-          .update({ user_id: offer.offerer_user_id })
-          .eq('user_id', listing.user_id).eq('card_id', cardId).limit(1);
-      }
+      if (auctionsError) return NextResponse.json({ error: auctionsError.message }, { status: 500 });
+      const enriched = (rawAuctions || []).map((a: any) => enrichAuction(a));
 
-      // Transfer cards: offerer's cards → lister
-      for (const cardId of offer.offer_card_ids) {
-        await supabaseAdmin.from('user_cards')
-          .update({ user_id: listing.user_id })
-          .eq('user_id', offer.offerer_user_id).eq('card_id', cardId).limit(1);
-      }
-
-      // Mark offer accepted, listing completed
-      await supabaseAdmin.from('marketplace_offers').update({ status: 'accepted' }).eq('id', offerId);
-      await supabaseAdmin.from('marketplace_listings').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', listing.id);
-
-      // Auto-reject all other pending offers
-      const { data: otherOffers } = await supabaseAdmin.from('marketplace_offers')
-        .select('id, offerer_user_id').eq('listing_id', listing.id).eq('status', 'pending').neq('id', offerId);
-      for (const other of (otherOffers || [])) {
-        await supabaseAdmin.from('marketplace_offers').update({ status: 'rejected' }).eq('id', other.id);
-        await notify(other.offerer_user_id, 'offer_rejected', 'Offer Not Selected', 'The listing owner chose a different offer.', { listingId: listing.id });
-      }
-
-      // Notify accepted offerer
-      const { data: lister } = await supabaseAdmin.from('users').select('username').eq('id', listing.user_id).single();
-      await notify(offer.offerer_user_id, 'offer_accepted', 'Offer Accepted! 🎉', `${lister?.username || 'Someone'} accepted your marketplace offer!`, { listingId: listing.id, offerId });
-      await track(userId, 'offer_accepted', { listingId: listing.id, offerId });
-
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ auctions: enriched });
     }
 
-    // ── REJECT OFFER ──────────────────────────────────────────────────────────
-    if (action === 'reject_offer') {
-      const { offerId, userId } = payload || {};
-      if (!offerId || !userId) return NextResponse.json({ error: 'offerId and userId required' }, { status: 400 });
+    // ── GET AUCTION DETAIL ────────────────────────────────────────────────────
+    if (action === 'get_auction') {
+      const { auctionId } = payload || {};
+      if (!auctionId) return NextResponse.json({ error: 'auctionId required' }, { status: 400 });
 
-      const { data: offer } = await supabaseAdmin.from('marketplace_offers').select('*').eq('id', offerId).single();
-      if (!offer) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
-      if (offer.status !== 'pending') return NextResponse.json({ error: `Offer is ${offer.status}` }, { status: 400 });
+      const { data: auction, error } = await supabaseAdmin
+        .from('auctions')
+        .select(`
+          *,
+          seller:seller_id(id, username, avatar, fid, wallet_address)
+        `)
+        .eq('id', auctionId)
+        .single();
 
-      const { data: listing } = await supabaseAdmin.from('marketplace_listings').select('user_id').eq('id', offer.listing_id).single();
-      if (listing?.user_id !== userId) return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      if (error || !auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
 
-      await supabaseAdmin.from('marketplace_offers').update({ status: 'rejected' }).eq('id', offerId);
-      await notify(offer.offerer_user_id, 'offer_rejected', 'Offer Rejected', 'Your marketplace offer was declined.', { listingId: offer.listing_id, offerId });
-      await track(userId, 'offer_rejected', { listingId: offer.listing_id, offerId });
+      // Fetch bid history
+      const { data: bids } = await supabaseAdmin
+        .from('auction_bids')
+        .select(`
+          *,
+          bidder:bidder_id(id, username, avatar)
+        `)
+        .eq('auction_id', auctionId)
+        .order('amount', { ascending: false })
+        .limit(10);
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        auction: enrichAuction(auction),
+        bids: bids || []
+      });
     }
 
     // ── REPORT LISTING ────────────────────────────────────────────────────────
-    if (action === 'report_listing') {
-      const { listingId, reporterUserId, reason } = payload || {};
-      if (!listingId || !reporterUserId || !reason) {
-        return NextResponse.json({ error: 'listingId, reporterUserId and reason required' }, { status: 400 });
+    if (action === 'report_auction') {
+      const { auctionId, reporterUserId, reason } = payload || {};
+      if (!auctionId || !reporterUserId || !reason) {
+        return NextResponse.json({ error: 'auctionId, reporterUserId, and reason are required' }, { status: 400 });
       }
-      const { error } = await supabaseAdmin.from('marketplace_reports').insert({ listing_id: listingId, reporter_user_id: reporterUserId, reason });
+      const { error } = await supabaseAdmin
+        .from('auction_reports')
+        .insert({ auction_id: auctionId, reporter_user_id: reporterUserId, reason });
+
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ success: true });
     }
 
-    // ── MY LISTINGS ───────────────────────────────────────────────────────────
-    if (action === 'my_listings') {
-      const { userId } = payload || {};
-      if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
-
-      const { data: listings, error } = await supabaseAdmin
-        .from('marketplace_listings')
-        .select(`*, offer_count:marketplace_offers(count)`)
-        .eq('user_id', userId).order('created_at', { ascending: false });
-
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      const enriched = (listings || []).map((l: any) => ({
-        ...enrichListing(l),
-        offerCount: l.offer_count?.[0]?.count || 0,
-        pendingOfferCount: 0, // resolved below
-      }));
-
-      return NextResponse.json({ listings: enriched });
-    }
-
-    // ── MY OFFERS ─────────────────────────────────────────────────────────────
-    if (action === 'my_offers') {
-      const { userId } = payload || {};
-      if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
-
-      const { data: offers, error } = await supabaseAdmin
-        .from('marketplace_offers')
-        .select(`*, listing:listing_id(*, user:user_id(id, username, avatar))`)
-        .eq('offerer_user_id', userId).order('created_at', { ascending: false });
-
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      const enriched = (offers || []).map((o: any) => ({
-        ...o,
-        offerCards: resolveCards(o.offer_card_ids || []),
-        wantCards: resolveCards(o.want_card_ids || []),
-        listing: o.listing ? enrichListing(o.listing) : null,
-      }));
-
-      return NextResponse.json({ offers: enriched });
-    }
-
     // ── ADMIN: LIST ALL + REPORTS ─────────────────────────────────────────────
-    if (action === 'admin_listings') {
+    if (action === 'admin_auctions') {
       const adminPwd = request.headers.get('x-admin-password');
       if (adminPwd !== (process.env.ADMIN_PASSWORD || 'ZeemmyAdmin07')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
       const { page = 1, limit = 50, status } = payload || {};
+
       let query = supabaseAdmin
-        .from('marketplace_listings')
-        .select(`*, user:user_id(id, username, avatar), offer_count:marketplace_offers(count)`)
+        .from('auctions')
+        .select(`*, seller:seller_id(id, username, avatar)`)
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1);
+
       if (status) query = query.eq('status', status);
-      const { data: listings, error } = await query;
+      const { data: rawAuctions, error } = await query;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
       const { data: reports } = await supabaseAdmin
-        .from('marketplace_reports')
-        .select(`*, reporter:reporter_user_id(username), listing:listing_id(*)`)
-        .eq('resolved', false).order('created_at', { ascending: false });
+        .from('auction_reports')
+        .select(`*, reporter:reporter_user_id(username), auction:auction_id(*)`)
+        .eq('resolved', false)
+        .order('created_at', { ascending: false });
 
       const { count: totalActive } = await supabaseAdmin
-        .from('marketplace_listings').select('*', { count: 'exact', head: true }).eq('status', 'active');
-      const { count: totalOffers } = await supabaseAdmin
-        .from('marketplace_offers').select('*', { count: 'exact', head: true });
+        .from('auctions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
+
+      const { count: totalBids } = await supabaseAdmin
+        .from('auction_bids')
+        .select('*', { count: 'exact', head: true });
 
       return NextResponse.json({
-        listings: (listings || []).map((l: any) => ({ ...enrichListing(l), offerCount: l.offer_count?.[0]?.count || 0 })),
+        auctions: (rawAuctions || []).map((a: any) => enrichAuction(a)),
         reports: reports || [],
-        stats: { totalActive: totalActive || 0, totalOffers: totalOffers || 0, unresolvedReports: (reports || []).length },
+        stats: {
+          totalActive: totalActive || 0,
+          totalBids: totalBids || 0,
+          unresolvedReports: (reports || []).length
+        }
       });
-    }
-
-    // ── ADMIN: REMOVE LISTING ─────────────────────────────────────────────────
-    if (action === 'admin_remove_listing') {
-      const adminPwd = request.headers.get('x-admin-password');
-      if (adminPwd !== (process.env.ADMIN_PASSWORD || 'ZeemmyAdmin07')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      const { listingId } = payload || {};
-      if (!listingId) return NextResponse.json({ error: 'listingId required' }, { status: 400 });
-
-      const { data: listing } = await supabaseAdmin.from('marketplace_listings').select('user_id').eq('id', listingId).single();
-      await supabaseAdmin.from('marketplace_listings').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', listingId);
-      if (listing) await notify(listing.user_id, 'listing_removed', 'Listing Removed', 'Your marketplace listing was removed by an admin.', { listingId });
-
-      return NextResponse.json({ success: true });
     }
 
     // ── ADMIN: RESOLVE REPORT ─────────────────────────────────────────────────
@@ -412,32 +768,29 @@ export async function POST(request: Request) {
       }
       const { reportId } = payload || {};
       if (!reportId) return NextResponse.json({ error: 'reportId required' }, { status: 400 });
-      await supabaseAdmin.from('marketplace_reports').update({ resolved: true }).eq('id', reportId);
+      await supabaseAdmin.from('auction_reports').update({ resolved: true }).eq('id', reportId);
       return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (err: any) {
-    console.error('Marketplace API Error:', err);
+    console.error('Auction API Error:', err);
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
   }
 }
 
-// ─── GET: lightweight pending offer count for badge ───────────────────────────
+// ─── GET: lightweight counter for BottomNav badge ────────────────────────────
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ pendingOffers: 0 });
+  if (!userId) return NextResponse.json({ pendingPayments: 0 });
 
-  // Count pending offers on user's active listings
-  const { data: listings } = await supabaseAdmin
-    .from('marketplace_listings').select('id').eq('user_id', userId).eq('status', 'active');
-  const listingIds = (listings || []).map((l: any) => l.id);
-  if (!listingIds.length) return NextResponse.json({ pendingOffers: 0 });
-
+  // Count auctions won by user that are awaiting payment
   const { count } = await supabaseAdmin
-    .from('marketplace_offers').select('*', { count: 'exact', head: true })
-    .in('listing_id', listingIds).eq('status', 'pending');
+    .from('auctions')
+    .select('*', { count: 'exact', head: true })
+    .eq('highest_bidder_id', userId)
+    .eq('status', 'pending_payment');
 
-  return NextResponse.json({ pendingOffers: count || 0 });
+  return NextResponse.json({ pendingPayments: count || 0, pendingOffers: count || 0 });
 }

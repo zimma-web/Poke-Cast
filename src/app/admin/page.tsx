@@ -161,7 +161,7 @@ export default function AdminDashboard() {
   // Marketplace admin state
   const [marketListings, setMarketListings] = useState<any[]>([]);
   const [marketReports, setMarketReports] = useState<any[]>([]);
-  const [marketStats, setMarketStats] = useState<{ totalActive: number; totalOffers: number; unresolvedReports: number } | null>(null);
+  const [marketStats, setMarketStats] = useState<{ totalActive: number; totalBids: number; unresolvedReports: number } | null>(null);
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [marketSearch, setMarketSearch] = useState("");
 
@@ -321,10 +321,10 @@ export default function AdminDashboard() {
       const res = await fetch("/api/marketplace", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-password": storedPwd },
-        body: JSON.stringify({ action: "admin_listings", payload: { limit: 50 } }),
+        body: JSON.stringify({ action: "admin_auctions", payload: { limit: 50 } }),
       });
       const data = await res.json();
-      setMarketListings(data.listings || []);
+      setMarketListings(data.auctions || []);
       setMarketReports(data.reports || []);
       setMarketStats(data.stats || null);
     } catch (e: any) { showToast(e.message || "Failed to load marketplace data", "error"); }
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
   }, [adminPassword, showToast]);
 
   const handleMarketRemoveListing = async (listingId: string) => {
-    if (!confirm("Remove this listing?")) return;
+    if (!confirm("Cancel and remove this auction? Any pending bids will be cancelled.")) return;
     const storedPwd = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
     try {
       const res = await fetch("/api/marketplace", {
@@ -342,7 +342,7 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("Listing removed");
+      showToast("Auction removed by admin");
       fetchMarketAdmin();
     } catch (e: any) { showToast(e.message, "error"); }
   };
@@ -1354,8 +1354,8 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Marketplace Moderation</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Review listings, reports, and trade board activity</p>
+                <h1 className="text-xl font-black text-zinc-100">Auction Moderation</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Review active auctions, reports, and bidding boards</p>
               </div>
               <button onClick={fetchMarketAdmin} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -1365,8 +1365,8 @@ export default function AdminDashboard() {
             {/* Market Stats */}
             {marketStats && (
               <div className="grid grid-cols-3 gap-3">
-                <StatCard icon={<Package className="w-5 h-5" />} label="Active Listings" value={marketStats.totalActive} accent="bg-emerald-500/10 text-emerald-400" />
-                <StatCard icon={<ArrowLeftRight className="w-5 h-5" />} label="Total Offers" value={marketStats.totalOffers} accent="bg-sky-500/10 text-sky-400" />
+                <StatCard icon={<Package className="w-5 h-5" />} label="Active Auctions" value={marketStats.totalActive} accent="bg-emerald-500/10 text-emerald-400" />
+                <StatCard icon={<ArrowLeftRight className="w-5 h-5" />} label="Total Bids" value={marketStats.totalBids} accent="bg-sky-500/10 text-sky-400" />
                 <StatCard icon={<ShieldAlert className="w-5 h-5" />} label="Open Reports" value={marketStats.unresolvedReports} accent={marketStats.unresolvedReports > 0 ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-400"} />
               </div>
             )}
@@ -1380,14 +1380,14 @@ export default function AdminDashboard() {
                     <div className="flex-1 min-w-0 space-y-1">
                       <p className="text-xs font-semibold text-rose-300">Reported by: {report.reporter?.username || "Unknown"}</p>
                       <p className="text-xs text-zinc-400">Reason: {report.reason}</p>
-                      {report.listing && <p className="text-[10px] font-mono text-zinc-600">Listing ID: {report.listing_id}</p>}
+                      {report.auction_id && <p className="text-[10px] font-mono text-zinc-600">Auction ID: {report.auction_id}</p>}
                       <p className="text-[10px] text-zinc-600">{new Date(report.created_at).toLocaleString()}</p>
                     </div>
                     <div className="flex flex-col gap-2">
-                      {report.listing_id && (
-                        <button onClick={() => handleMarketRemoveListing(report.listing_id)}
+                      {report.auction_id && (
+                        <button onClick={() => handleMarketRemoveListing(report.auction_id)}
                           className="px-3 py-1.5 bg-rose-500/15 text-rose-400 text-xs font-semibold rounded-lg border border-rose-500/20 hover:bg-rose-500/25 transition-all">
-                          Remove
+                          Remove Auction
                         </button>
                       )}
                       <button onClick={() => handleMarketResolveReport(report.id)}
@@ -1403,40 +1403,40 @@ export default function AdminDashboard() {
             {/* All Listings */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <SectionHeader title="All Active Listings" />
-                <input value={marketSearch} onChange={e => setMarketSearch(e.target.value)} placeholder="Filter by listing ID…"
+                <SectionHeader title="All Auctions" />
+                <input value={marketSearch} onChange={e => setMarketSearch(e.target.value)} placeholder="Filter by seller, card, or ID…"
                   className="flex-1 h-8 bg-zinc-900 border border-zinc-800 rounded-lg px-3 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/40" />
               </div>
 
               {loadingMarket ? (
                 <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
               ) : marketListings.length === 0 ? (
-                <div className="text-center py-12 text-zinc-600 text-sm">No listings found</div>
+                <div className="text-center py-12 text-zinc-600 text-sm">No auctions found</div>
               ) : (
                 <div className="space-y-2">
                   {marketListings
-                    .filter((l: any) => !marketSearch || l.id.includes(marketSearch) || l.user?.username?.includes(marketSearch))
+                    .filter((l: any) => !marketSearch || l.id.includes(marketSearch) || l.seller?.username?.includes(marketSearch) || l.card?.name?.toLowerCase().includes(marketSearch.toLowerCase()))
                     .map((listing: any) => (
                       <div key={listing.id} className="flex items-start gap-3 p-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl hover:border-zinc-700 transition-colors">
                         <div className="flex-1 min-w-0 space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-zinc-200">{listing.user?.username || "Unknown"}</span>
+                            <span className="text-xs font-bold text-zinc-200">{listing.seller?.username || "Unknown"}</span>
                             <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
                               listing.status === "active" ? "bg-emerald-500/15 text-emerald-300" :
                               listing.status === "completed" ? "bg-sky-500/15 text-sky-300" :
                               "bg-zinc-700/50 text-zinc-400"
                             }`}>{listing.status}</span>
-                            <span className="text-[9px] text-zinc-600">{listing.offerCount} offer{listing.offerCount !== 1 ? "s" : ""}</span>
+                            {listing.highest_bid > 0 && <span className="text-[9px] text-fuchsia-400 font-semibold">{listing.highest_bid.toFixed(2)} USDC highest bid</span>}
                           </div>
                           <p className="text-[10px] text-zinc-500">
-                            Wants {listing.wantCards?.length || 0} cards · Offers {listing.offerCards?.length || 0} cards
+                            Card: {listing.card?.name || listing.card_id} · Buyout: {listing.buyout_price ? `${listing.buyout_price} USDC` : "None"}
                           </p>
                           <p className="text-[10px] font-mono text-zinc-700">{listing.id}</p>
                         </div>
-                        {listing.status === "active" && (
+                        {(listing.status === "active" || listing.status === "pending_payment") && (
                           <button onClick={() => handleMarketRemoveListing(listing.id)}
                             className="shrink-0 px-2.5 py-1 bg-rose-500/10 text-rose-400 text-[10px] font-semibold rounded-lg border border-rose-500/15 hover:bg-rose-500/20 transition-all">
-                            Remove
+                            Cancel Auction
                           </button>
                         )}
                       </div>

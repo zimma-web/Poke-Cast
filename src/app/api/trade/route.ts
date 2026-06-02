@@ -25,40 +25,88 @@ async function trackEvent(userId: string | null, event: string, data?: Record<st
   }
 }
 
-// Validate that a user still owns all the cards in a given card_id array
-async function validateOwnership(userId: string, cardIds: string[]): Promise<boolean> {
-  if (!cardIds.length) return true;
-  const { data, error } = await supabaseAdmin
+// Validate card availability accounting for duplicates, active auctions, and other active trades
+async function validateCardAvailability(userId: string, cardIds: string[], excludeOfferId?: string): Promise<{ valid: boolean, error?: string }> {
+  if (!cardIds.length) return { valid: true };
+
+  // Count requested quantities in this transaction
+  const requestedCounts: Record<string, number> = {};
+  cardIds.forEach(id => {
+    requestedCounts[id] = (requestedCounts[id] || 0) + 1;
+  });
+
+  const uniqueCardIds = Object.keys(requestedCounts);
+
+  // 1. Fetch total owned copies
+  const { data: ownedData } = await supabaseAdmin
     .from('user_cards')
     .select('card_id')
     .eq('user_id', userId)
-    .in('card_id', cardIds);
-  if (error || !data) return false;
-  const owned = new Set(data.map((r: any) => r.card_id));
-  return cardIds.every(id => owned.has(id));
-}
+    .in('card_id', uniqueCardIds);
 
-// Check if any cards are already locked in another pending trade
-async function cardsInActiveTrade(userId: string, cardIds: string[]): Promise<string[]> {
-  if (!cardIds.length) return [];
-  // Get all pending trade_offer_cards where this user is the owner
-  const { data: pendingOffers } = await supabaseAdmin
+  const ownedCounts: Record<string, number> = {};
+  (ownedData || []).forEach((c: any) => {
+    ownedCounts[c.card_id] = (ownedCounts[c.card_id] || 0) + 1;
+  });
+
+  // 2. Fetch active auction counts
+  const { data: auctionData } = await supabaseAdmin
+    .from('auctions')
+    .select('card_id')
+    .eq('seller_id', userId)
+    .in('card_id', uniqueCardIds)
+    .in('status', ['active', 'pending_payment']);
+
+  const auctionCounts: Record<string, number> = {};
+  (auctionData || []).forEach((c: any) => {
+    auctionCounts[c.card_id] = (auctionCounts[c.card_id] || 0) + 1;
+  });
+
+  // 3. Fetch locked trade counts (in other pending trades)
+  let pendingOffersQuery = supabaseAdmin
     .from('trade_offers')
     .select('id')
     .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
     .eq('status', 'pending');
+  
+  if (excludeOfferId) {
+    pendingOffersQuery = pendingOffersQuery.neq('id', excludeOfferId);
+  }
 
-  if (!pendingOffers || pendingOffers.length === 0) return [];
+  const { data: pendingOffers } = await pendingOffersQuery;
 
-  const offerIds = pendingOffers.map((o: any) => o.id);
-  const { data: lockedCards } = await supabaseAdmin
-    .from('trade_offer_cards')
-    .select('card_id')
-    .eq('owner_user_id', userId)
-    .in('offer_id', offerIds);
+  const tradeCounts: Record<string, number> = {};
+  if (pendingOffers && pendingOffers.length > 0) {
+    const offerIds = pendingOffers.map((o: any) => o.id);
+    const { data: lockedCards } = await supabaseAdmin
+      .from('trade_offer_cards')
+      .select('card_id')
+      .eq('owner_user_id', userId)
+      .in('offer_id', offerIds)
+      .in('card_id', uniqueCardIds);
 
-  const locked = new Set((lockedCards || []).map((c: any) => c.card_id));
-  return cardIds.filter(id => locked.has(id));
+    (lockedCards || []).forEach((c: any) => {
+      tradeCounts[c.card_id] = (tradeCounts[c.card_id] || 0) + 1;
+    });
+  }
+
+  // Verify availability for each unique card
+  for (const cardId of uniqueCardIds) {
+    const owned = ownedCounts[cardId] || 0;
+    const listed = auctionCounts[cardId] || 0;
+    const lockedTrade = tradeCounts[cardId] || 0;
+    const requested = requestedCounts[cardId];
+
+    const available = owned - listed - lockedTrade;
+    if (available < requested) {
+      return {
+        valid: false,
+        error: `Insufficient copies of card ${cardId}. Available: ${available} (Owned: ${owned}, Listed: ${listed}, In Trades: ${lockedTrade}), Requested: ${requested}.`
+      };
+    }
+  }
+
+  return { valid: true };
 }
 
 // Get enriched trade details (includes card metadata from JSON files)
@@ -99,19 +147,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Cannot trade with yourself' }, { status: 400 });
       }
 
-      // Validate sender owns their cards
-      const senderOwns = await validateOwnership(senderId, senderCardIds);
-      if (!senderOwns) return NextResponse.json({ error: 'You do not own all offered cards' }, { status: 400 });
+      // Validate sender card availability (owned - listed - locked)
+      const senderCheck = await validateCardAvailability(senderId, senderCardIds);
+      if (!senderCheck.valid) return NextResponse.json({ error: senderCheck.error }, { status: 400 });
 
-      // Check for cards already in active trade
-      const lockedSender = await cardsInActiveTrade(senderId, senderCardIds);
-      if (lockedSender.length > 0) {
-        return NextResponse.json({ error: `Some cards are already in an active trade: ${lockedSender.join(', ')}` }, { status: 400 });
-      }
-
-      // Check receiver owns their cards
-      const receiverOwns = await validateOwnership(receiverId, receiverCardIds);
-      if (!receiverOwns) return NextResponse.json({ error: 'Receiver does not own all requested cards' }, { status: 400 });
+      // Validate receiver card availability (owned - listed - locked)
+      const receiverCheck = await validateCardAvailability(receiverId, receiverCardIds);
+      if (!receiverCheck.valid) return NextResponse.json({ error: receiverCheck.error }, { status: 400 });
 
       // Create trade offer
       const { data: offer, error: offerError } = await supabaseAdmin
@@ -164,14 +206,14 @@ export async function POST(request: Request) {
       const senderCards = tradeCards.filter((c: any) => c.owner_user_id === trade.sender_id).map((c: any) => c.card_id);
       const receiverCards = tradeCards.filter((c: any) => c.owner_user_id === trade.receiver_id).map((c: any) => c.card_id);
 
-      // VALIDATE ownership before swap
-      const senderStillOwns = await validateOwnership(trade.sender_id, senderCards);
-      const receiverStillOwns = await validateOwnership(trade.receiver_id, receiverCards);
+      // VALIDATE availability before swap (excluding this trade's locking)
+      const senderCheck = await validateCardAvailability(trade.sender_id, senderCards, tradeId);
+      const receiverCheck = await validateCardAvailability(trade.receiver_id, receiverCards, tradeId);
 
-      if (!senderStillOwns || !receiverStillOwns) {
+      if (!senderCheck.valid || !receiverCheck.valid) {
         // Auto-cancel the trade as cards are no longer available
         await supabaseAdmin.from('trade_offers').update({ status: 'cancelled', completed_at: new Date().toISOString() }).eq('id', tradeId);
-        return NextResponse.json({ error: 'Trade cancelled — one or more cards are no longer available' }, { status: 409 });
+        return NextResponse.json({ error: `Trade cancelled — ${senderCheck.error || receiverCheck.error}` }, { status: 409 });
       }
 
       // Atomic ownership transfer:

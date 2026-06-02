@@ -193,48 +193,73 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event, 
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id, created_at DESC);
 
 
--- SQL Database Migration: Marketplace V1
+-- SQL Database Migration: Marketplace V1 (Replaced with USDC Auction House)
 
--- 1. Marketplace Listings
-CREATE TABLE IF NOT EXISTS marketplace_listings (
+-- Add wallet_address to users table to store connected Farcaster wallet address
+ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT;
+
+-- Drop old barter marketplace tables
+DROP TABLE IF EXISTS marketplace_reports CASCADE;
+DROP TABLE IF EXISTS marketplace_offers CASCADE;
+DROP TABLE IF EXISTS marketplace_listings CASCADE;
+
+-- 1. Auctions
+CREATE TABLE IF NOT EXISTS auctions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'active',
-  want_card_ids TEXT[] NOT NULL DEFAULT '{}',
-  offer_card_ids TEXT[] NOT NULL DEFAULT '{}',
-  note TEXT,
+  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_card_id UUID NOT NULL REFERENCES user_cards(id) ON DELETE CASCADE,
+  card_id TEXT NOT NULL,
+  start_price NUMERIC(12, 2) NOT NULL DEFAULT 1.00,
+  buyout_price NUMERIC(12, 2),
+  highest_bid NUMERIC(12, 2) DEFAULT 0.00 NOT NULL,
+  highest_bidder_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'active', -- 'active', 'pending_payment', 'completed', 'cancelled', 'expired'
+  end_at TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-  CONSTRAINT chk_listing_status CHECK (status IN ('active', 'completed', 'cancelled'))
+  tx_hash TEXT, -- transaction hash verifying buyout or winner's claim payment
+  CONSTRAINT chk_auction_status CHECK (status IN ('active', 'pending_payment', 'completed', 'cancelled', 'expired')),
+  CONSTRAINT chk_prices CHECK (buyout_price IS NULL OR buyout_price > start_price),
+  CONSTRAINT chk_start_price CHECK (start_price >= 0.01)
 );
 
-CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_marketplace_listings_user ON marketplace_listings(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auctions_status_end ON auctions(status, end_at ASC);
+CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller_id);
+CREATE INDEX IF NOT EXISTS idx_auctions_user_card ON auctions(user_card_id);
 
--- 2. Marketplace Offers
-CREATE TABLE IF NOT EXISTS marketplace_offers (
+-- 2. Auction Bids
+CREATE TABLE IF NOT EXISTS auction_bids (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  listing_id UUID NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
-  offerer_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  offer_card_ids TEXT[] NOT NULL DEFAULT '{}',
-  want_card_ids TEXT[] NOT NULL DEFAULT '{}',
-  status TEXT NOT NULL DEFAULT 'pending',
-  note TEXT,
+  auction_id UUID NOT NULL REFERENCES auctions(id) ON DELETE CASCADE,
+  bidder_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC(12, 2) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-  CONSTRAINT chk_offer_status CHECK (status IN ('pending', 'accepted', 'rejected'))
+  CONSTRAINT chk_bid_amount CHECK (amount >= 0.01)
 );
 
-CREATE INDEX IF NOT EXISTS idx_marketplace_offers_listing ON marketplace_offers(listing_id, status);
-CREATE INDEX IF NOT EXISTS idx_marketplace_offers_offerer ON marketplace_offers(offerer_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_auction ON auction_bids(auction_id, amount DESC);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_bidder ON auction_bids(bidder_id);
 
--- 3. Marketplace Reports (admin moderation)
-CREATE TABLE IF NOT EXISTS marketplace_reports (
+-- 3. Auction Reports
+CREATE TABLE IF NOT EXISTS auction_reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  listing_id UUID REFERENCES marketplace_listings(id) ON DELETE SET NULL,
+  auction_id UUID REFERENCES auctions(id) ON DELETE CASCADE,
   reason TEXT NOT NULL,
   resolved BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_marketplace_reports_unresolved ON marketplace_reports(resolved, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auction_reports_unresolved ON auction_reports(resolved, created_at DESC);
+
+-- SQL Database Migration: Daily Quest System
+CREATE TABLE IF NOT EXISTS user_quests (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quest_id TEXT NOT NULL,
+  progress INTEGER DEFAULT 0 NOT NULL,
+  target INTEGER DEFAULT 1 NOT NULL,
+  claimed BOOLEAN DEFAULT FALSE NOT NULL,
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  PRIMARY KEY (user_id, quest_id, day)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_quests_user_day ON user_quests(user_id, day);

@@ -30,6 +30,8 @@ interface CollectionState {
   lastDailyReset: string | null;
   wishlist: Record<string, boolean>; // cardId -> boolean
   achievements: any[]; // achievements with unlocked status
+  walletAddress: string | null;
+  usdcBalance: number;
   loginStreak: number;
   highestStreak: number;
   claimedToday: boolean;
@@ -39,6 +41,8 @@ interface CollectionState {
     fid: number; 
     username: string; 
     avatar: string; 
+    walletAddress?: string | null;
+    usdcBalance?: number;
     packTickets?: number; 
     freePacksRemaining?: number; 
     lastDailyReset?: string | null;
@@ -52,6 +56,8 @@ interface CollectionState {
     uniqueCards: number; 
     collectionScore: number; 
     packsOpened: number;
+    walletAddress?: string | null;
+    usdcBalance?: number;
     packTickets?: number;
     freePacksRemaining?: number;
     lastDailyReset?: string | null;
@@ -103,6 +109,8 @@ export const useCollectionStore = create<CollectionState>()(
       lastDailyReset: null,
       wishlist: {},
       achievements: [],
+      walletAddress: null,
+      usdcBalance: 0,
       loginStreak: 0,
       highestStreak: 0,
       claimedToday: false,
@@ -118,6 +126,8 @@ export const useCollectionStore = create<CollectionState>()(
           fid: auth.fid,
           username: auth.username,
           avatar: auth.avatar,
+          walletAddress: auth.walletAddress ?? null,
+          usdcBalance: auth.usdcBalance ?? 0,
           packTickets: auth.packTickets ?? 10,
           freePacksRemaining: auth.freePacksRemaining ?? 2,
           lastDailyReset: auth.lastDailyReset ?? null,
@@ -139,6 +149,8 @@ export const useCollectionStore = create<CollectionState>()(
           uniqueCards: col.uniqueCards,
           collectionScore: col.collectionScore,
           packsOpened: col.packsOpened,
+          ...(col.walletAddress !== undefined ? { walletAddress: col.walletAddress } : {}),
+          ...(col.usdcBalance !== undefined ? { usdcBalance: col.usdcBalance } : {}),
           ...(col.packTickets !== undefined ? { packTickets: col.packTickets } : {}),
           ...(col.freePacksRemaining !== undefined ? { freePacksRemaining: col.freePacksRemaining } : {}),
           ...(col.lastDailyReset !== undefined ? { lastDailyReset: col.lastDailyReset } : {}),
@@ -207,6 +219,8 @@ export const useCollectionStore = create<CollectionState>()(
         loginStreak: state.loginStreak,
         highestStreak: state.highestStreak,
         claimedToday: state.claimedToday,
+        walletAddress: state.walletAddress,
+        usdcBalance: state.usdcBalance,
       }),
     }
   )

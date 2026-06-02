@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const { fid, username, avatar } = await request.json();
+    const { fid, username, avatar, walletAddress } = await request.json();
 
     if (fid === undefined || fid === null) {
       return NextResponse.json({ error: 'FID is required' }, { status: 400 });
@@ -79,6 +79,7 @@ export async function POST(request: Request) {
             last_daily_reset: lastReset.toISOString(),
             username,
             avatar,
+            wallet_address: walletAddress || undefined,
             ...streakUpdates
           })
           .eq('id', existingUser.id)
@@ -92,11 +93,12 @@ export async function POST(request: Request) {
         updatedUser = refreshedUser;
       } else {
         const needsMetadataUpdate = existingUser.username !== username || existingUser.avatar !== avatar;
-        if (needsMetadataUpdate || streakUpdated) {
+        if (needsMetadataUpdate || streakUpdated || walletAddress) {
           const { data: refreshedUser, error: updateError } = await supabaseAdmin
             .from('users')
             .update({
               ...(needsMetadataUpdate ? { username, avatar } : {}),
+              wallet_address: walletAddress || undefined,
               ...streakUpdates
             })
             .eq('id', existingUser.id)
@@ -149,7 +151,8 @@ export async function POST(request: Request) {
         last_daily_reset: new Date().toISOString(),
         login_streak: 1,
         highest_streak: 1,
-        last_login_date: todayStr
+        last_login_date: todayStr,
+        wallet_address: walletAddress || null
       })
       .select('*')
       .single();

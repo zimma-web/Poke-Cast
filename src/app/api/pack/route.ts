@@ -200,6 +200,40 @@ export async function GET(request: Request) {
       console.error('Failed to update user pack stats:', updateError);
     }
 
+    // Increment open_pack quest progress
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data: questRow } = await supabaseAdmin
+        .from('user_quests')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('quest_id', 'open_pack')
+        .eq('day', todayStr)
+        .maybeSingle();
+
+      if (questRow) {
+        await supabaseAdmin
+          .from('user_quests')
+          .update({ progress: Math.min(questRow.target, questRow.progress + 1) })
+          .eq('user_id', userId)
+          .eq('quest_id', 'open_pack')
+          .eq('day', todayStr);
+      } else {
+        await supabaseAdmin
+          .from('user_quests')
+          .insert({
+            user_id: userId,
+            quest_id: 'open_pack',
+            progress: 1,
+            target: 1,
+            claimed: false,
+            day: todayStr
+          });
+      }
+    } catch (e) {
+      console.error('Failed to update open_pack quest:', e);
+    }
+
     // Evaluate achievements dynamically (may award additional tickets)
     await evaluateAchievements(userId);
 
