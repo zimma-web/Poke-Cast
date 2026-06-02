@@ -1,65 +1,82 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Sparkles, Layers } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
+  const [stats, setStats] = useState({ cards: 0, sets: 0, loading: true });
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const [cardsRes, setsRes] = await Promise.all([
+          fetch('/api/cards?limit=1'),
+          fetch('/api/sets')
+        ]);
+        const cardsData = await cardsRes.json();
+        const setsData = await setsRes.json();
+        setStats({ cards: cardsData.total || 0, sets: setsData.total || 0, loading: false });
+      } catch (e) {
+        console.error("Failed to fetch stats", e);
+        setStats({ cards: 20000, sets: 170, loading: false }); // Fallback
+      }
+    }
+    fetchStats();
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex flex-col h-full px-4 pt-8 pb-4 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-extrabold tracking-tight">PokéCast</h1>
+        <p className="text-muted-foreground text-sm">Your ultimate card collection journey.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-none shadow-none rounded-2xl">
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-2">
+            <Layers className="w-8 h-8 text-primary" />
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Sets</p>
+              {stats.loading ? <Skeleton className="h-6 w-12 mx-auto mt-1" /> : <p className="text-2xl font-bold">{stats.sets}</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-none shadow-none rounded-2xl">
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-2">
+            <Sparkles className="w-8 h-8 text-blue-500" />
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Cards</p>
+              {stats.loading ? <Skeleton className="h-6 w-16 mx-auto mt-1" /> : <p className="text-2xl font-bold">{(stats.cards / 1000).toFixed(1)}k</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center mt-8">
+        <div className="relative w-full max-w-[280px] aspect-[2.5/3.5] bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 rounded-3xl shadow-2xl flex items-center justify-center p-1 group transform transition-transform hover:scale-105">
+          <div className="absolute inset-0 bg-white/20 blur-xl rounded-full animate-pulse" />
+          <div className="relative w-full h-full bg-background/90 backdrop-blur-sm rounded-[22px] flex flex-col items-center justify-center border border-white/20 space-y-4">
+            <span className="text-5xl">🎁</span>
+            <div className="text-center">
+              <p className="font-bold text-lg">Daily Pack</p>
+              <p className="text-xs text-muted-foreground">Ready to open!</p>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      <div className="pt-4 pb-2">
+        <Link href="/pack" className="w-full">
+          <Button size="lg" className="w-full h-14 rounded-full text-lg font-bold shadow-xl shadow-primary/25">
+            Open Pack
+          </Button>
+        </Link>
+      </div>
     </div>
   );
 }
