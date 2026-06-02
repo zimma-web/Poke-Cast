@@ -3,12 +3,20 @@
 import { useEffect, useState, useRef } from "react";
 import sdk from "@farcaster/frame-sdk";
 import { useCollectionStore } from "@/lib/store";
+import { usePathname } from "next/navigation";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith('/admin') || false;
+
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [isFarcaster, setIsFarcaster] = useState<boolean | null>(null);
   const { setAuth, setCollection, setLoading, loading } = useCollectionStore();
   const initializedRef = useRef(false);
+
+  if (isAdminRoute) {
+    return <>{children}</>;
+  }
 
   useEffect(() => {
     if (initializedRef.current) return;
