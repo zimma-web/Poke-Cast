@@ -485,6 +485,7 @@ function AuctionCard({ auction, onTap, isOwnListing }: { auction: Auction; onTap
 function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
   auctionId: string; userId: string | null; onClose: () => void; onRefresh: () => void;
 }) {
+  const walletAddress = useCollectionStore(state => state.walletAddress);
   const [data, setData] = useState<{ auction: Auction; bids: BidHistory[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [bidAmount, setBidAmount] = useState("");
