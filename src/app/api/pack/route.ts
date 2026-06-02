@@ -22,7 +22,7 @@ function getRarityWeight(rarity: string): number {
   return 100; // Standard Rare
 }
 
-import { verifyBaseUSDCTransfer } from '@/lib/web3';
+import { verifyBaseETHTransfer } from '@/lib/web3';
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 
@@ -60,18 +60,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
     }
 
-    // 3. Verify on-chain payment on Base mainnet (0.003 USDC to Treasury, which is ~50 perak)
+    // 3. Verify on-chain payment on Base mainnet (0.000001 ETH to Treasury, which is ~50 perak)
     const isMock = txHash.startsWith('0xmock') && process.env.NODE_ENV !== 'production';
     let isTxValid = false;
     if (isMock) {
       isTxValid = true;
     } else {
-      isTxValid = await verifyBaseUSDCTransfer(txHash, user.wallet_address, TREASURY_ADDRESS, 0.003);
+      isTxValid = await verifyBaseETHTransfer(txHash, user.wallet_address, TREASURY_ADDRESS, 0.000001);
     }
 
     if (!isTxValid) {
       return NextResponse.json({
-        error: 'On-chain fee payment verification failed. Ensure you transferred 0.003 USDC on Base to the treasury wallet.'
+        error: 'On-chain fee payment verification failed. Ensure you transferred 0.000001 ETH on Base to the treasury wallet.'
       }, { status: 400 });
     }
 

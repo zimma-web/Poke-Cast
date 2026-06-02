@@ -9,7 +9,6 @@ import { Loader2, Share2, Sparkles, Coins } from "lucide-react";
 import sdk from "@farcaster/frame-sdk";
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
-const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -56,11 +55,23 @@ export default function PackScreen() {
       return;
     }
 
-    // Check USDC balance if wallet is connected and provider is available
+    // Check ETH balance if wallet is connected and provider is available
     const provider = sdk.wallet?.ethProvider;
-    if (walletAddress && usdcBalance < 0.003 && provider) {
-      setError(`Insufficient USDC balance. Pack opening fee is 0.003 USDC (approx. Rp 50), but you only have ${usdcBalance.toFixed(4)} USDC.`);
-      return;
+    if (walletAddress && provider) {
+      try {
+        const hexBalance = await provider.request({
+          method: 'eth_getBalance',
+          params: [walletAddress as `0x${string}`, 'latest']
+        }) as string;
+        const balanceWei = BigInt(hexBalance);
+        const balanceETH = Number(balanceWei) / 1e18;
+        if (balanceETH < 0.000001) {
+          setError(`Insufficient ETH balance. Pack opening fee is 0.000001 ETH (~Rp 50 perak), but you only have ${balanceETH.toFixed(8)} ETH.`);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check ETH balance:", err);
+      }
     }
 
     setLoading(true);
@@ -69,22 +80,16 @@ export default function PackScreen() {
 
     try {
       if (provider) {
-        // USDC has 6 decimals on Base. 0.003 USDC = 3,000 raw units
-        const value = BigInt(3000);
-        const cleanRecipient = TREASURY_ADDRESS.toLowerCase().replace('0x', '');
-        
-        // ERC-20 transfer selector: 0xa9059cbb
-        const txData = ('0xa9059cbb' + 
-                     cleanRecipient.padStart(64, '0') + 
-                     value.toString(16).padStart(64, '0')) as `0x${string}`;
+        // 0.000001 ETH is 10^12 Wei
+        const valueWei = BigInt(1000000000000);
 
         // Prompt native Warpcast transaction signing
         const tx = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
-            to: USDC_CONTRACT_BASE,
-            data: txData,
-            value: '0x0'
+            to: TREASURY_ADDRESS,
+            value: `0x${valueWei.toString(16)}`,
+            data: '0x'
           }]
         });
         txHash = tx as string;
@@ -233,12 +238,12 @@ export default function PackScreen() {
           ) : (freePacksRemaining === 0 && packTickets === 0) ? (
             "Not enough Pack Tickets"
           ) : (
-            "Rip Open! (0.003 USDC)"
+            "Rip Open! (0.000001 ETH)"
           )}
         </Button>
         <p className="text-[10px] text-zinc-500 font-mono mt-2 text-center flex items-center justify-center space-x-1">
           <Coins className="w-3 h-3 text-emerald-500 shrink-0" />
-          <span>Requires 0.003 USDC fee (~Rp 50 perak) on Base.</span>
+          <span>Requires 0.000001 ETH fee (~Rp 50 perak) on Base.</span>
         </p>
       </div>
     );

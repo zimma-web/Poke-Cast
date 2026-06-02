@@ -116,3 +116,78 @@ export async function verifyBaseUSDCTransfer(
     return false;
   }
 }
+
+/**
+ * Queries Base RPC to check if a transaction hash is a successful native ETH transfer
+ * from `expectedFrom` to `expectedTo` for at least `expectedAmountETH`.
+ */
+export async function verifyBaseETHTransfer(
+  txHash: string,
+  expectedFrom: string,
+  expectedTo: string,
+  expectedAmountETH: number
+): Promise<boolean> {
+  if (!txHash || !txHash.startsWith('0x')) return false;
+  try {
+    // 1. Fetch transaction details
+    const resTx = await fetch(BASE_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getTransactionByHash',
+        params: [txHash]
+      })
+    });
+    const jsonTx = await resTx.json();
+    if (jsonTx.error || !jsonTx.result) {
+      console.error('Base RPC eth_getTransactionByHash error:', jsonTx.error || 'tx not found');
+      return false;
+    }
+    const tx = jsonTx.result;
+
+    // 2. Fetch transaction receipt to check success status
+    const resReceipt = await fetch(BASE_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getTransactionReceipt',
+        params: [txHash]
+      })
+    });
+    const jsonReceipt = await resReceipt.json();
+    if (jsonReceipt.error || !jsonReceipt.result) {
+      console.error('Base RPC getTransactionReceipt error:', jsonReceipt.error);
+      return false;
+    }
+    const receipt = jsonReceipt.result;
+    if (receipt.status !== '0x1') {
+      console.warn('Base tx failed or reverted:', receipt.status);
+      return false;
+    }
+
+    // Verify sender and receiver match
+    if (tx.from.toLowerCase() !== expectedFrom.toLowerCase() || tx.to.toLowerCase() !== expectedTo.toLowerCase()) {
+      console.warn(`Address mismatch: expected from ${expectedFrom} to ${expectedTo}, got from ${tx.from} to ${tx.to}`);
+      return false;
+    }
+
+    // Convert value from Wei to ETH
+    const valueWei = BigInt(tx.value);
+    const amountETH = Number(valueWei) / 1e18;
+
+    // Allow a tiny margin for float precision issues
+    if (amountETH < expectedAmountETH - 0.000000001) {
+      console.warn(`Amount mismatch: expected ${expectedAmountETH} ETH, got ${amountETH} ETH`);
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error('Error verifying Base ETH transfer:', e);
+    return false;
+  }
+}
