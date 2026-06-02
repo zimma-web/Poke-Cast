@@ -234,9 +234,7 @@ export default function Home() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-violet-400 uppercase">
-              PokéCast
-            </span>
+            <img src="/Text-PokeCast.png" alt="PokéCast" className="h-6 object-contain" />
             <div className="px-2 py-0.5 bg-fuchsia-500/10 text-fuchsia-400 text-[8px] font-bold rounded-full border border-fuchsia-500/25 uppercase tracking-widest">
               Live
             </div>
