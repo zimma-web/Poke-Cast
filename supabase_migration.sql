@@ -99,12 +99,142 @@ CREATE TABLE IF NOT EXISTS login_rewards (
   streak_day INTEGER NOT NULL,
   reward_type TEXT NOT NULL,
   reward_amount INTEGER NOT NULL DEFAULT 0,
-  claimed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL
+  claimed_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_login_rewards_user ON login_rewards(user_id);
 
--- 3. Create unique index to prevent duplicate claims on the same UTC calendar day
-CREATE UNIQUE INDEX IF NOT EXISTS idx_login_rewards_user_date ON login_rewards (user_id, (claimed_at::date));
+-- Note: same-day claim uniqueness is enforced in application logic
+CREATE INDEX IF NOT EXISTS idx_login_rewards_user_date ON login_rewards(user_id, claimed_at DESC);
 
 
+-- SQL Database Migration: Updated Admin Panel
+
+-- 1. Add admin/ban fields to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT;
+
+-- 2. Create pack_settings table (per set configuration)
+CREATE TABLE IF NOT EXISTS pack_settings (
+  set_id TEXT PRIMARY KEY,
+  pack_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+  featured_pack BOOLEAN DEFAULT FALSE NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+-- 3. Create event_packs table
+CREATE TABLE IF NOT EXISTS event_packs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  bonus_drop_rate NUMERIC(5,2) DEFAULT 1.0 NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  CONSTRAINT chk_bonus_rate CHECK (bonus_drop_rate > 0 AND bonus_drop_rate <= 10.0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_packs_active ON event_packs(is_active, end_date);
+
+-- 4. Create admin_logs table (persistent audit trail)
+CREATE TABLE IF NOT EXISTS admin_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  details TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_logs_admin ON admin_logs(admin_user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_logs_created ON admin_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_logs_target ON admin_logs(target_user_id);
+
+
+-- SQL Database Migration: Complete Trading System
+
+-- 1. Extend trade_offers table
+ALTER TABLE trade_offers ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE trade_offers ADD COLUMN IF NOT EXISTS message TEXT;
+ALTER TABLE trade_offers DROP CONSTRAINT IF EXISTS chk_trade_status;
+ALTER TABLE trade_offers ADD CONSTRAINT chk_trade_status
+  CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled'));
+
+-- 2. Extend trade_offer_cards with owner tracking
+ALTER TABLE trade_offer_cards ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+
+-- 3. Create notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT,
+  data JSONB,
+  read BOOLEAN DEFAULT FALSE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read, created_at DESC);
+
+-- 4. Create analytics_events table
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  event TEXT NOT NULL,
+  data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id, created_at DESC);
+
+
+-- SQL Database Migration: Marketplace V1
+
+-- 1. Marketplace Listings
+CREATE TABLE IF NOT EXISTS marketplace_listings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active',
+  want_card_ids TEXT[] NOT NULL DEFAULT '{}',
+  offer_card_ids TEXT[] NOT NULL DEFAULT '{}',
+  note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  CONSTRAINT chk_listing_status CHECK (status IN ('active', 'completed', 'cancelled'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_user ON marketplace_listings(user_id, created_at DESC);
+
+-- 2. Marketplace Offers
+CREATE TABLE IF NOT EXISTS marketplace_offers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id UUID NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
+  offerer_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  offer_card_ids TEXT[] NOT NULL DEFAULT '{}',
+  want_card_ids TEXT[] NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  CONSTRAINT chk_offer_status CHECK (status IN ('pending', 'accepted', 'rejected'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_offers_listing ON marketplace_offers(listing_id, status);
+CREATE INDEX IF NOT EXISTS idx_marketplace_offers_offerer ON marketplace_offers(offerer_user_id, created_at DESC);
+
+-- 3. Marketplace Reports (admin moderation)
+CREATE TABLE IF NOT EXISTS marketplace_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  listing_id UUID REFERENCES marketplace_listings(id) ON DELETE SET NULL,
+  reason TEXT NOT NULL,
+  resolved BOOLEAN DEFAULT FALSE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_reports_unresolved ON marketplace_reports(resolved, created_at DESC);

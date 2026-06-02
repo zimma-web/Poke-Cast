@@ -7,7 +7,6 @@ import { supabaseAdmin } from '@/lib/supabase';
 const CARDS_FILE_PATH = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
 const SETS_FILE_PATH = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
 
-// Read JSON files helper
 function readJsonFile(filePath: string) {
   try {
     const fileContents = fs.readFileSync(filePath, 'utf8');
@@ -18,7 +17,6 @@ function readJsonFile(filePath: string) {
   }
 }
 
-// Write JSON files helper
 function writeJsonFile(filePath: string, data: any) {
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
@@ -29,73 +27,106 @@ function writeJsonFile(filePath: string, data: any) {
   }
 }
 
-// Keep a simple in-memory audit log
-const auditLogs: any[] = [];
-function addAuditLog(action: string, details: string) {
-  auditLogs.unshift({
-    timestamp: new Date().toISOString(),
-    action,
-    details
-  });
-  if (auditLogs.length > 100) auditLogs.pop(); // Keep last 100 logs
+// Write persistent audit log to Supabase admin_logs table
+async function writeAuditLog(adminUserId: string, action: string, details: string, targetUserId?: string) {
+  try {
+    await supabaseAdmin.from('admin_logs').insert({
+      admin_user_id: adminUserId,
+      action,
+      details,
+      target_user_id: targetUserId || null
+    });
+  } catch (err) {
+    console.error('Failed to write audit log:', err);
+  }
+}
+
+// Verify admin role from Supabase
+async function verifyAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const { data } = await supabaseAdmin
+    .from('users')
+    .select('is_admin')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.is_admin === true;
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, payload } = body;
+    const { action, payload, adminUserId } = body;
 
     if (!action) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
     }
 
+    // Legacy password-based login for backward compatibility
     const expectedPassword = process.env.ADMIN_PASSWORD || 'ZeemmyAdmin07';
-
-    // Handle Login Action
     if (action === 'login') {
       const { password } = payload || {};
       if (password === expectedPassword) {
-        addAuditLog('ADMIN_LOGIN', 'Administrator logged in successfully.');
         return NextResponse.json({ success: true });
-      } else {
-        return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
       }
+      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
 
-    // Protect all other admin actions
+    // All other actions require admin verification
+    // Support both role-based (adminUserId) and legacy password header
     const adminPasswordHeader = request.headers.get('x-admin-password');
-    if (adminPasswordHeader !== expectedPassword) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const isLegacyAuth = adminPasswordHeader === expectedPassword;
+    const isRoleAuth = adminUserId ? await verifyAdmin(adminUserId) : false;
+
+    if (!isLegacyAuth && !isRoleAuth) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 401 });
     }
 
-    const startTime = Date.now();
+    const effectiveAdminId = adminUserId || null;
 
-    // 1. STATS ACTION
+    // ─── STATS ───────────────────────────────────────────────────────────────
     if (action === 'stats') {
-      // Measure database latency
       const dbStart = Date.now();
       const { count: userCount, error: userCountError } = await supabaseAdmin
-        .from('users')
-        .select('*', { count: 'exact', head: true });
+        .from('users').select('*', { count: 'exact', head: true });
       const dbLatency = Date.now() - dbStart;
 
       const { count: cardCount } = await supabaseAdmin
-        .from('user_cards')
-        .select('*', { count: 'exact', head: true });
+        .from('user_cards').select('*', { count: 'exact', head: true });
 
-      const { data: sumData } = await supabaseAdmin
+      const { count: wishlistCount } = await supabaseAdmin
+        .from('user_wishlist').select('*', { count: 'exact', head: true });
+
+      const { count: tradeCount } = await supabaseAdmin
+        .from('trade_offers').select('*', { count: 'exact', head: true });
+
+      const { data: sumData } = await supabaseAdmin.from('users').select('packs_opened');
+      const totalPacks = sumData ? sumData.reduce((s, u) => s + (u.packs_opened || 0), 0) : 0;
+
+      // Daily active users: logged in within last 24h
+      const since24h = new Date(Date.now() - 86400000).toISOString();
+      const { count: dauCount } = await supabaseAdmin
         .from('users')
-        .select('packs_opened');
-      
-      const totalPacks = sumData ? sumData.reduce((sum, u) => sum + (u.packs_opened || 0), 0) : 0;
+        .select('*', { count: 'exact', head: true })
+        .gte('last_login_date', since24h.split('T')[0]);
+
+      // New users today
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { count: newUsersToday } = await supabaseAdmin
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', `${todayStr}T00:00:00.000Z`);
 
       const localCards = readJsonFile(CARDS_FILE_PATH);
       const localSets = readJsonFile(SETS_FILE_PATH);
 
       return NextResponse.json({
         totalUsers: userCount || 0,
+        dailyActiveUsers: dauCount || 0,
+        newUsersToday: newUsersToday || 0,
         totalCardsClaimed: cardCount || 0,
         totalPacksOpened: totalPacks,
+        totalWishlists: wishlistCount || 0,
+        totalTrades: tradeCount || 0,
         databaseLatencyMs: dbLatency,
         databaseStatus: userCountError ? 'Error' : 'Healthy',
         totalAvailableCards: localCards.length,
@@ -104,12 +135,12 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. USERS LIST ACTION
+    // ─── USERS LIST ──────────────────────────────────────────────────────────
     if (action === 'users_list') {
       const { search = '', limit = 100 } = payload || {};
       let query = supabaseAdmin
         .from('users')
-        .select('id, fid, username, avatar, created_at, packs_opened')
+        .select('id, fid, username, avatar, created_at, packs_opened, pack_tickets, login_streak, highest_streak, is_admin, is_banned, ban_reason')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -118,197 +149,410 @@ export async function POST(request: Request) {
       }
 
       const { data: users, error } = await query;
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      return NextResponse.json({ users });
+      // Enrich with card counts
+      const enriched = await Promise.all((users || []).map(async (u: any) => {
+        const { count } = await supabaseAdmin
+          .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', u.id);
+        return { ...u, totalCards: count || 0 };
+      }));
+
+      return NextResponse.json({ users: enriched });
     }
 
-    // 3. USER DETAIL ACTION
+    // ─── USER DETAIL ─────────────────────────────────────────────────────────
     if (action === 'user_detail') {
       const { userId } = payload || {};
       if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
-      // Fetch user details
       const { data: user, error: userError } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
+        .from('users').select('*').eq('id', userId).single();
       if (userError) return NextResponse.json({ error: userError.message }, { status: 500 });
 
-      // Fetch user cards
-      const { data: userCards, error: cardsError } = await supabaseAdmin
-        .from('user_cards')
-        .select('card_id, obtained_at, source_set_id')
-        .eq('user_id', userId);
+      const { data: userCards } = await supabaseAdmin
+        .from('user_cards').select('card_id, obtained_at, source_set_id').eq('user_id', userId);
 
-      if (cardsError) return NextResponse.json({ error: cardsError.message }, { status: 500 });
+      // Count unique cards
+      const uniqueCardIds = new Set((userCards || []).map((c: any) => c.card_id));
 
-      return NextResponse.json({ user, cards: userCards });
+      return NextResponse.json({
+        user,
+        cards: userCards || [],
+        totalCards: (userCards || []).length,
+        uniqueCards: uniqueCardIds.size
+      });
     }
 
-    // 4. USER UPDATE ACTION
+    // ─── USER UPDATE ─────────────────────────────────────────────────────────
     if (action === 'user_update') {
       const { userId, username, avatar, packsOpened } = payload || {};
       if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
       const { data: updatedUser, error } = await supabaseAdmin
         .from('users')
-        .update({
-          username,
-          avatar,
-          packs_opened: packsOpened
-        })
-        .eq('id', userId)
-        .select('*')
-        .single();
+        .update({ username, avatar, packs_opened: packsOpened })
+        .eq('id', userId).select('*').single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-      addAuditLog('USER_UPDATE', `Updated user details for ${username} (FID: ${updatedUser.fid})`);
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'USER_UPDATE', `Updated profile for ${username}`, userId);
       return NextResponse.json({ user: updatedUser });
     }
 
-    // 5. USER DELETE ACTION
+    // ─── ADD TICKETS ─────────────────────────────────────────────────────────
+    if (action === 'add_tickets') {
+      const { userId, amount } = payload || {};
+      if (!userId || !amount) return NextResponse.json({ error: 'userId and amount are required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('pack_tickets, username').eq('id', userId).single();
+      const newBalance = (user?.pack_tickets || 0) + Number(amount);
+
+      const { error } = await supabaseAdmin.from('users').update({ pack_tickets: newBalance }).eq('id', userId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'ADD_TICKETS', `Added ${amount} tickets to ${user?.username || userId} (new balance: ${newBalance})`, userId);
+      return NextResponse.json({ success: true, newBalance });
+    }
+
+    // ─── REMOVE TICKETS ──────────────────────────────────────────────────────
+    if (action === 'remove_tickets') {
+      const { userId, amount } = payload || {};
+      if (!userId || !amount) return NextResponse.json({ error: 'userId and amount are required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('pack_tickets, username').eq('id', userId).single();
+      const newBalance = Math.max(0, (user?.pack_tickets || 0) - Number(amount));
+
+      const { error } = await supabaseAdmin.from('users').update({ pack_tickets: newBalance }).eq('id', userId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'REMOVE_TICKETS', `Removed ${amount} tickets from ${user?.username || userId} (new balance: ${newBalance})`, userId);
+      return NextResponse.json({ success: true, newBalance });
+    }
+
+    // ─── RESET STREAK ────────────────────────────────────────────────────────
+    if (action === 'reset_streak') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ login_streak: 0, last_login_date: null })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'RESET_STREAK', `Reset login streak for ${user?.username || userId}`, userId);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── BAN USER ────────────────────────────────────────────────────────────
+    if (action === 'ban_user') {
+      const { userId, reason } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ is_banned: true, banned_at: new Date().toISOString(), ban_reason: reason || 'Admin action' })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'BAN_USER', `Banned user ${user?.username || userId}: ${reason || 'No reason'}`, userId);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── UNBAN USER ──────────────────────────────────────────────────────────
+    if (action === 'unban_user') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ is_banned: false, banned_at: null, ban_reason: null })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'UNBAN_USER', `Unbanned user ${user?.username || userId}`, userId);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── USER DELETE ─────────────────────────────────────────────────────────
     if (action === 'user_delete') {
       const { userId } = payload || {};
       if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
-      // Fetch username before deleting for audit logs
       const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
-
-      const { error } = await supabaseAdmin
-        .from('users')
-        .delete()
-        .eq('id', userId);
+      const { error } = await supabaseAdmin.from('users').delete().eq('id', userId);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-      addAuditLog('USER_DELETE', `Deleted trainer account for username: ${user?.username || userId}`);
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'USER_DELETE', `Deleted account for ${user?.username || userId}`);
       return NextResponse.json({ success: true });
     }
 
-    // 6. USER CLEAR COLLECTION ACTION
+    // ─── USER CLEAR COLLECTION ───────────────────────────────────────────────
     if (action === 'user_clear') {
       const { userId } = payload || {};
       if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
-      const { error } = await supabaseAdmin
-        .from('user_cards')
-        .delete()
-        .eq('user_id', userId);
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      const { error } = await supabaseAdmin.from('user_cards').delete().eq('user_id', userId);
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-      addAuditLog('USER_CLEAR', `Cleared all collection cards for user ID: ${userId}`);
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'USER_CLEAR', `Cleared all cards for ${user?.username || userId}`, userId);
       return NextResponse.json({ success: true });
     }
 
-    // 7. USER GRANT RANDOM CARDS ACTION
+    // ─── USER GRANT CARDS ────────────────────────────────────────────────────
     if (action === 'user_grant') {
       const { userId, count = 10, setId } = payload || {};
       if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
       const cards = readJsonFile(CARDS_FILE_PATH);
-      let pool = cards;
-      if (setId) {
-        pool = cards.filter((c: any) => c.setId === setId);
-      }
-
-      if (pool.length === 0) {
-        return NextResponse.json({ error: 'No cards available to grant' }, { status: 400 });
-      }
+      let pool = setId ? cards.filter((c: any) => c.setId === setId) : cards;
+      if (pool.length === 0) return NextResponse.json({ error: 'No cards available to grant' }, { status: 400 });
 
       const inserts = [];
       for (let i = 0; i < count; i++) {
         const randCard = pool[Math.floor(Math.random() * pool.length)];
-        inserts.push({
-          user_id: userId,
-          card_id: randCard.id,
-          source_set_id: randCard.setId,
-          obtained_at: new Date().toISOString()
-        });
+        inserts.push({ user_id: userId, card_id: randCard.id, source_set_id: randCard.setId, obtained_at: new Date().toISOString() });
       }
 
       const { error } = await supabaseAdmin.from('user_cards').insert(inserts);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      addAuditLog('USER_GRANT', `Granted ${count} random cards to user ID: ${userId}`);
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'USER_GRANT', `Granted ${count} cards to ${user?.username || userId}`, userId);
       return NextResponse.json({ success: true, grantedCount: count });
     }
 
-    // 8. CARD UPDATE ACTION
+    // ─── PACK LIST ───────────────────────────────────────────────────────────
+    if (action === 'pack_list') {
+      const sets = readJsonFile(SETS_FILE_PATH);
+
+      // Get settings from DB
+      const { data: settings } = await supabaseAdmin.from('pack_settings').select('*');
+      const settingsMap = new Map((settings || []).map((s: any) => [s.set_id, s]));
+
+      const packsWithSettings = sets.map((set: any) => {
+        const setting = settingsMap.get(set.id) || { pack_enabled: true, featured_pack: false };
+        return { ...set, pack_enabled: setting.pack_enabled, featured_pack: setting.featured_pack };
+      });
+
+      return NextResponse.json({ packs: packsWithSettings });
+    }
+
+    // ─── PACK UPDATE ─────────────────────────────────────────────────────────
+    if (action === 'pack_update') {
+      const { setId, pack_enabled, featured_pack } = payload || {};
+      if (!setId) return NextResponse.json({ error: 'setId is required' }, { status: 400 });
+
+      const { error } = await supabaseAdmin
+        .from('pack_settings')
+        .upsert({ set_id: setId, pack_enabled, featured_pack, updated_at: new Date().toISOString() }, { onConflict: 'set_id' });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'PACK_UPDATE', `Updated pack ${setId}: enabled=${pack_enabled}, featured=${featured_pack}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── EVENT LIST ──────────────────────────────────────────────────────────
+    if (action === 'event_list') {
+      const { data: events, error } = await supabaseAdmin
+        .from('event_packs').select('*').order('created_at', { ascending: false });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ events: events || [] });
+    }
+
+    // ─── EVENT CREATE ────────────────────────────────────────────────────────
+    if (action === 'event_create') {
+      const { name, description, start_date, end_date, bonus_drop_rate } = payload || {};
+      if (!name || !start_date || !end_date) {
+        return NextResponse.json({ error: 'name, start_date, end_date are required' }, { status: 400 });
+      }
+
+      const { data: event, error } = await supabaseAdmin
+        .from('event_packs')
+        .insert({ name, description, start_date, end_date, bonus_drop_rate: bonus_drop_rate || 1.0, is_active: true })
+        .select('*').single();
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'EVENT_CREATE', `Created event pack: ${name}`);
+      return NextResponse.json({ success: true, event });
+    }
+
+    // ─── EVENT UPDATE ────────────────────────────────────────────────────────
+    if (action === 'event_update') {
+      const { eventId, name, description, start_date, end_date, bonus_drop_rate, is_active } = payload || {};
+      if (!eventId) return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
+
+      const { data: event, error } = await supabaseAdmin
+        .from('event_packs')
+        .update({ name, description, start_date, end_date, bonus_drop_rate, is_active })
+        .eq('id', eventId).select('*').single();
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'EVENT_UPDATE', `Updated event pack: ${name || eventId}`);
+      return NextResponse.json({ success: true, event });
+    }
+
+    // ─── EVENT DELETE ────────────────────────────────────────────────────────
+    if (action === 'event_delete') {
+      const { eventId } = payload || {};
+      if (!eventId) return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
+
+      const { data: ev } = await supabaseAdmin.from('event_packs').select('name').eq('id', eventId).single();
+      const { error } = await supabaseAdmin.from('event_packs').delete().eq('id', eventId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'EVENT_DELETE', `Deleted event pack: ${ev?.name || eventId}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── CARD UPDATE ─────────────────────────────────────────────────────────
     if (action === 'card_update') {
       const { cardId, updatedFields } = payload || {};
-      if (!cardId || !updatedFields) {
-        return NextResponse.json({ error: 'cardId and updatedFields are required' }, { status: 400 });
-      }
+      if (!cardId || !updatedFields) return NextResponse.json({ error: 'cardId and updatedFields are required' }, { status: 400 });
 
       const cards = readJsonFile(CARDS_FILE_PATH);
       const cardIndex = cards.findIndex((c: any) => c.id === cardId);
+      if (cardIndex === -1) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
 
-      if (cardIndex === -1) {
-        return NextResponse.json({ error: 'Card not found' }, { status: 404 });
-      }
-
-      cards[cardIndex] = {
-        ...cards[cardIndex],
-        ...updatedFields
-      };
-
+      cards[cardIndex] = { ...cards[cardIndex], ...updatedFields };
       const success = writeJsonFile(CARDS_FILE_PATH, cards);
       if (!success) return NextResponse.json({ error: 'Failed to write card updates' }, { status: 500 });
 
-      addAuditLog('CARD_UPDATE', `Modified card: ${cards[cardIndex].name} (#${cards[cardIndex].number})`);
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'CARD_UPDATE', `Updated card: ${cards[cardIndex].name}`);
       return NextResponse.json({ success: true, card: cards[cardIndex] });
     }
 
-    // 9. SET UPDATE ACTION
+    // ─── CARD HIDE / UNHIDE ──────────────────────────────────────────────────
+    if (action === 'card_hide' || action === 'card_unhide') {
+      const { cardId } = payload || {};
+      if (!cardId) return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
+
+      const cards = readJsonFile(CARDS_FILE_PATH);
+      const cardIndex = cards.findIndex((c: any) => c.id === cardId);
+      if (cardIndex === -1) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+
+      cards[cardIndex].hidden = action === 'card_hide';
+      const success = writeJsonFile(CARDS_FILE_PATH, cards);
+      if (!success) return NextResponse.json({ error: 'Failed to write card updates' }, { status: 500 });
+
+      const verb = action === 'card_hide' ? 'Hidden' : 'Unhidden';
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, action.toUpperCase(), `${verb} card: ${cards[cardIndex].name}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── SET UPDATE ──────────────────────────────────────────────────────────
     if (action === 'set_update') {
       const { setId, updatedFields } = payload || {};
-      if (!setId || !updatedFields) {
-        return NextResponse.json({ error: 'setId and updatedFields are required' }, { status: 400 });
-      }
+      if (!setId || !updatedFields) return NextResponse.json({ error: 'setId and updatedFields are required' }, { status: 400 });
 
       const sets = readJsonFile(SETS_FILE_PATH);
       const setIndex = sets.findIndex((s: any) => s.id === setId);
+      if (setIndex === -1) return NextResponse.json({ error: 'Set not found' }, { status: 404 });
 
-      if (setIndex === -1) {
-        return NextResponse.json({ error: 'Set not found' }, { status: 404 });
-      }
-
-      sets[setIndex] = {
-        ...sets[setIndex],
-        ...updatedFields
-      };
-
+      sets[setIndex] = { ...sets[setIndex], ...updatedFields };
       const success = writeJsonFile(SETS_FILE_PATH, sets);
       if (!success) return NextResponse.json({ error: 'Failed to write set updates' }, { status: 500 });
 
-      addAuditLog('SET_UPDATE', `Modified set: ${sets[setIndex].name} (${sets[setIndex].id.toUpperCase()})`);
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'SET_UPDATE', `Updated set: ${sets[setIndex].name}`);
       return NextResponse.json({ success: true, set: sets[setIndex] });
     }
 
-    // 10. SIMULATE PACK PULLS ACTION (10,000 pulls to verify probabilities)
+    // ─── ANALYTICS ───────────────────────────────────────────────────────────
+    if (action === 'analytics') {
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Daily active users (last 7 days)
+      const dauData = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+        const { count } = await supabaseAdmin
+          .from('users').select('*', { count: 'exact', head: true }).eq('last_login_date', d);
+        dauData.push({ date: d, users: count || 0 });
+      }
+
+      // New users today
+      const { count: newToday } = await supabaseAdmin
+        .from('users').select('*', { count: 'exact', head: true })
+        .gte('created_at', `${todayStr}T00:00:00.000Z`);
+
+      // Packs opened today (users whose last login_streak update was today - approximate)
+      const { data: recentRewards } = await supabaseAdmin
+        .from('login_rewards').select('user_id')
+        .gte('claimed_at', `${todayStr}T00:00:00.000Z`);
+      const packsToday = recentRewards?.length || 0;
+
+      // Most collected card (top by count in user_cards)
+      const { data: topCardsRaw } = await supabaseAdmin
+        .from('user_cards').select('card_id');
+
+      const cardCounts: Record<string, number> = {};
+      (topCardsRaw || []).forEach((r: any) => {
+        cardCounts[r.card_id] = (cardCounts[r.card_id] || 0) + 1;
+      });
+      const topCardId = Object.entries(cardCounts).sort((a, b) => b[1] - a[1])[0];
+
+      // Most wishlisted card
+      const { data: topWishRaw } = await supabaseAdmin.from('user_wishlist').select('card_id');
+      const wishCounts: Record<string, number> = {};
+      (topWishRaw || []).forEach((r: any) => {
+        wishCounts[r.card_id] = (wishCounts[r.card_id] || 0) + 1;
+      });
+      const topWishId = Object.entries(wishCounts).sort((a, b) => b[1] - a[1])[0];
+
+      // Most opened set (by user_cards source_set_id)
+      const { data: packRaw } = await supabaseAdmin.from('user_cards').select('source_set_id');
+      const packCounts: Record<string, number> = {};
+      (packRaw || []).forEach((r: any) => {
+        if (r.source_set_id) packCounts[r.source_set_id] = (packCounts[r.source_set_id] || 0) + 1;
+      });
+      const topPackId = Object.entries(packCounts).sort((a, b) => b[1] - a[1])[0];
+
+      // Resolve card names from local JSON
+      const cards = readJsonFile(CARDS_FILE_PATH);
+      const cardMap = new Map(cards.map((c: any) => [c.id, c]));
+      const sets = readJsonFile(SETS_FILE_PATH);
+      const setMap = new Map(sets.map((s: any) => [s.id, s]));
+
+      return NextResponse.json({
+        dauData,
+        newUsersToday: newToday || 0,
+        packsOpenedToday: packsToday,
+        mostOpenedPack: topPackId ? { id: topPackId[0], count: topPackId[1], name: (setMap.get(topPackId[0]) as any)?.name || topPackId[0] } : null,
+        mostCollectedCard: topCardId ? { id: topCardId[0], count: topCardId[1], card: cardMap.get(topCardId[0]) || null } : null,
+        mostWishlistedCard: topWishId ? { id: topWishId[0], count: topWishId[1], card: cardMap.get(topWishId[0]) || null } : null,
+      });
+    }
+
+    // ─── AUDIT LOGS ──────────────────────────────────────────────────────────
+    if (action === 'audit_logs') {
+      const { limit = 100 } = payload || {};
+      const { data: logs, error } = await supabaseAdmin
+        .from('admin_logs')
+        .select('*, admin:admin_user_id(username), target:target_user_id(username)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ logs: logs || [] });
+    }
+
+    // ─── SIMULATE PACKS ──────────────────────────────────────────────────────
     if (action === 'simulate_packs') {
       const { setId } = payload || {};
       if (!setId) return NextResponse.json({ error: 'setId is required' }, { status: 400 });
 
       const cards = readJsonFile(CARDS_FILE_PATH);
       const setCards = cards.filter((c: any) => c.setId === setId);
-
-      if (setCards.length === 0) {
-        return NextResponse.json({ error: 'No cards found in set' }, { status: 404 });
-      }
+      if (setCards.length === 0) return NextResponse.json({ error: 'No cards found in set' }, { status: 404 });
 
       const rarePool = setCards.filter((c: any) => c.rarity !== 'Common' && c.rarity !== 'Uncommon' && c.rarity);
-
-      // Perform 5,000 mock rare pulls to build distribution map
       const rarityCounts: Record<string, number> = {};
-      let totalPulls = 5000;
+      const totalPulls = 5000;
 
       function getRarityWeight(rarity: string): number {
         const r = rarity.toLowerCase();
@@ -327,11 +571,7 @@ export async function POST(request: Request) {
           poolsByRarity[rarityName].push(c);
         });
 
-        const poolWeights = Object.keys(poolsByRarity).map(rarityName => ({
-          rarityName,
-          weight: getRarityWeight(rarityName)
-        }));
-
+        const poolWeights = Object.keys(poolsByRarity).map(rarityName => ({ rarityName, weight: getRarityWeight(rarityName) }));
         const totalWeight = poolWeights.reduce((sum, item) => sum + item.weight, 0);
 
         for (let i = 0; i < totalPulls; i++) {
@@ -339,32 +579,22 @@ export async function POST(request: Request) {
           let selectedRarity = poolWeights[0].rarityName;
           for (const item of poolWeights) {
             roll -= item.weight;
-            if (roll <= 0) {
-              selectedRarity = item.rarityName;
-              break;
-            }
+            if (roll <= 0) { selectedRarity = item.rarityName; break; }
           }
           rarityCounts[selectedRarity] = (rarityCounts[selectedRarity] || 0) + 1;
         }
       }
 
       const distribution = Object.entries(rarityCounts).map(([rarity, count]) => ({
-        rarity,
-        count,
-        percentage: ((count / totalPulls) * 100).toFixed(2)
+        rarity, count, percentage: ((count / totalPulls) * 100).toFixed(2)
       }));
 
       return NextResponse.json({ distribution, totalSimulatedPulls: totalPulls });
     }
 
-    // 11. AUDIT LOGS ACTION
-    if (action === 'audit_logs') {
-      return NextResponse.json({ logs: auditLogs });
-    }
-
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error: any) {
-    console.error('Unified Admin API Error:', error);
+    console.error('Admin API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

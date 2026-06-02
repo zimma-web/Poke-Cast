@@ -1,40 +1,134 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import { 
-  BarChart3, 
-  Layers, 
-  PackageOpen, 
-  Search, 
-  Settings, 
-  ShieldAlert, 
-  Sliders, 
-  Sparkles, 
-  Trash2, 
-  UserCheck, 
-  Users, 
-  Database, 
-  Activity, 
-  Clock, 
-  RefreshCw, 
-  FileSpreadsheet, 
-  Cpu, 
-  HelpCircle,
+import { useEffect, useState, useCallback } from "react";
+import {
+  BarChart3,
+  Layers,
+  PackageOpen,
+  Search,
+  Settings,
+  ShieldAlert,
+  Sparkles,
+  Trash2,
+  UserCheck,
+  Users,
+  Database,
+  Activity,
+  Clock,
+  RefreshCw,
+  FileSpreadsheet,
+  Cpu,
   Plus,
   Save,
   CheckCircle,
   AlertCircle,
   Lock,
-  LogOut
+  LogOut,
+  ShieldCheck,
+  Ban,
+  Ticket,
+  Star,
+  Calendar,
+  TrendingUp,
+  Eye,
+  EyeOff,
+  Edit3,
+  ChevronDown,
+  ChevronUp,
+  X,
+  Flame,
+  Trophy,
+  Heart,
+  Package,
+  RotateCcw,
+  ArrowLeftRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
+
+type Tab = "overview" | "users" | "packs" | "events" | "cards" | "analytics" | "audit" | "market";
+
+// ─── Small helper components ──────────────────────────────────────────────────
+
+function StatCard({ icon, label, value, sub, accent }: {
+  icon: React.ReactNode; label: string; value: string | number; sub?: string; accent?: string;
+}) {
+  return (
+    <div className={`bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm hover:border-zinc-700 transition-colors`}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accent || "bg-fuchsia-500/10 text-fuchsia-400"}`}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
+        <p className="text-2xl font-black text-white leading-none">{typeof value === "number" ? value.toLocaleString() : value}</p>
+        {sub && <p className="text-[11px] text-zinc-500 mt-1">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Toast({ message, type, onClose }: { message: string; type: "success" | "error" | "info"; onClose: () => void }) {
+  const colors = {
+    success: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300",
+    error: "bg-rose-500/15 border-rose-500/30 text-rose-300",
+    info: "bg-sky-500/15 border-sky-500/30 text-sky-300",
+  };
+  return (
+    <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl max-w-sm animate-in slide-in-from-right-4 ${colors[type]}`}>
+      {type === "success" && <CheckCircle className="w-4 h-4 shrink-0" />}
+      {type === "error" && <AlertCircle className="w-4 h-4 shrink-0" />}
+      {type === "info" && <Clock className="w-4 h-4 shrink-0" />}
+      <span className="text-sm font-medium">{message}</span>
+      <button onClick={onClose} className="ml-auto opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
+    </div>
+  );
+}
+
+function Badge({ children, color = "zinc" }: { children: React.ReactNode; color?: "zinc" | "fuchsia" | "emerald" | "rose" | "amber" | "sky" }) {
+  const colors = {
+    zinc: "bg-zinc-800 text-zinc-300",
+    fuchsia: "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/20",
+    emerald: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
+    rose: "bg-rose-500/15 text-rose-300 border border-rose-500/20",
+    amber: "bg-amber-500/15 text-amber-300 border border-amber-500/20",
+    sky: "bg-sky-500/15 text-sky-300 border border-sky-500/20",
+  };
+  return <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full ${colors[color]}`}>{children}</span>;
+}
+
+function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="text-base font-bold text-zinc-100">{title}</h2>
+      {action}
+    </div>
+  );
+}
+
+// ─── Mini bar chart for DAU ───────────────────────────────────────────────────
+function BarChart({ data }: { data: { date: string; users: number }[] }) {
+  const max = Math.max(...data.map(d => d.users), 1);
+  return (
+    <div className="flex items-end gap-1.5 h-24 w-full">
+      {data.map((d, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+          <div
+            className="w-full bg-fuchsia-500/30 rounded-t-lg transition-all duration-500 group-hover:bg-fuchsia-500/60 relative"
+            style={{ height: `${Math.max(4, (d.users / max) * 88)}px` }}
+          >
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-zinc-200 text-[9px] font-mono px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              {d.users} users
+            </div>
+          </div>
+          <span className="text-[9px] text-zinc-600 font-mono">{d.date.slice(5)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "cards" | "sets" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
@@ -43,184 +137,251 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedUserCards, setSelectedUserCards] = useState<any[]>([]);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
-  
-  // Card database search state
   const [cards, setCards] = useState<any[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
   const [cardSearch, setCardSearch] = useState("");
   const [sets, setSets] = useState<any[]>([]);
   const [selectedSetFilter, setSelectedSetFilter] = useState("");
-  const [selectedCardEdit, setSelectedCardEdit] = useState<any>(null);
-
-  // Set manager state
-  const [selectedSetEdit, setSelectedSetEdit] = useState<any>(null);
+  const [packs, setPacks] = useState<any[]>([]);
+  const [loadingPacks, setLoadingPacks] = useState(false);
+  const [events, setEvents] = useState<any[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [grantCardCount, setGrantCardCount] = useState(10);
+  const [ticketAmount, setTicketAmount] = useState(10);
+  const [banReason, setBanReason] = useState("");
   const [simResults, setSimResults] = useState<any[]>([]);
   const [simulating, setSimulating] = useState(false);
+  const [eventForm, setEventForm] = useState<any>(null);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  // Marketplace admin state
+  const [marketListings, setMarketListings] = useState<any[]>([]);
+  const [marketReports, setMarketReports] = useState<any[]>([]);
+  const [marketStats, setMarketStats] = useState<{ totalActive: number; totalOffers: number; unresolvedReports: number } | null>(null);
+  const [loadingMarket, setLoadingMarket] = useState(false);
+  const [marketSearch, setMarketSearch] = useState("");
 
-  // Settings states
-  const [guestBypass, setGuestBypass] = useState(false);
-  const [debugLogs, setDebugLogs] = useState(false);
-  const [simulatedLatency, setSimulatedLatency] = useState(0);
-  const [cacheStatus, setCacheStatus] = useState("Optimal");
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [dbSyncing, setDbSyncing] = useState(false);
-  const [grantCardCount, setGrantCardCount] = useState(10);
-  
-  // Security Password Gate states
+  // Auth state: dual-mode (role-based via FID or legacy password)
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean | null>(null);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [adminPassword, setAdminPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [authMode, setAuthMode] = useState<"farcaster" | "password">("password");
 
-  // Alerts and notices
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
-  // Centralized authenticated Admin Fetch helper
-  const adminFetch = async (action: string, payload?: any) => {
-    const currentPassword = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
+  // ─── Centralized admin fetch (supports both auth modes) ───────────────────
+  const adminFetch = useCallback(async (action: string, payload?: any) => {
+    const storedPwd = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
+    const storedAdminId = adminUserId || sessionStorage.getItem("pokecast_admin_id") || null;
+
     const res = await fetch("/api/admin", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-password": currentPassword
-      },
-      body: JSON.stringify({ action, payload })
+      headers: { "Content-Type": "application/json", "x-admin-password": storedPwd },
+      body: JSON.stringify({ action, payload, adminUserId: storedAdminId }),
     });
-    
     if (res.status === 401) {
       setIsAdminAuthorized(false);
       sessionStorage.removeItem("pokecast_admin_password");
-      throw new Error("Unauthorized access. Please login again.");
+      sessionStorage.removeItem("pokecast_admin_id");
+      throw new Error("Session expired. Please login again.");
     }
-    
     return res;
-  };
+  }, [adminPassword, adminUserId]);
 
-  // 1. Fetch system statistics
-  const fetchStats = async () => {
+  // ─── Data fetchers ────────────────────────────────────────────────────────
+  const fetchStats = useCallback(async () => {
     setLoadingStats(true);
     try {
       const res = await adminFetch("stats");
       const data = await res.json();
       setStats(data);
-    } catch (e: any) {
-      console.error(e);
-      showToast(e.message || "Failed to fetch dashboard statistics", "error");
-    } finally {
-      setLoadingStats(false);
-    }
-  };
+    } catch (e: any) { showToast(e.message || "Failed to fetch stats", "error"); }
+    finally { setLoadingStats(false); }
+  }, [adminFetch, showToast]);
 
-  // 2. Fetch users list
-  const fetchUsers = async (searchQuery = "") => {
+  const fetchUsers = useCallback(async (q = "") => {
     setLoadingUsers(true);
     try {
-      const res = await adminFetch("users_list", { search: searchQuery });
+      const res = await adminFetch("users_list", { search: q });
       const data = await res.json();
       setUsers(data.users || []);
-    } catch (e: any) {
-      console.error(e);
-      showToast(e.message || "Failed to load user list", "error");
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
+    } catch (e: any) { showToast(e.message || "Failed to load users", "error"); }
+    finally { setLoadingUsers(false); }
+  }, [adminFetch, showToast]);
 
-  // 3. Fetch user detail
-  const fetchUserDetail = async (userId: string) => {
+  const fetchUserDetail = useCallback(async (userId: string) => {
     setLoadingUserDetail(true);
     try {
       const res = await adminFetch("user_detail", { userId });
       const data = await res.json();
       setSelectedUser(data.user);
       setSelectedUserCards(data.cards || []);
-    } catch (e: any) {
-      console.error(e);
-      showToast(e.message || "Failed to load user collection data", "error");
-    } finally {
-      setLoadingUserDetail(false);
-    }
-  };
+    } catch (e: any) { showToast(e.message || "Failed to load user detail", "error"); }
+    finally { setLoadingUserDetail(false); }
+  }, [adminFetch, showToast]);
 
-  // 4. Fetch sets
-  const fetchSets = async () => {
+  const fetchSets = useCallback(async () => {
     try {
       const res = await fetch("/api/sets");
       const data = await res.json();
       setSets(data.sets || []);
-      if (data.sets && data.sets.length > 0 && !selectedSetFilter) {
-        setSelectedSetFilter(data.sets[0].id);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+      if (data.sets?.length > 0 && !selectedSetFilter) setSelectedSetFilter(data.sets[0].id);
+    } catch (e) { console.error(e); }
+  }, [selectedSetFilter]);
 
-  // 5. Fetch cards based on search and filters
-  const fetchCards = async () => {
+  const fetchCards = useCallback(async () => {
     if (!selectedSetFilter) return;
     setLoadingCards(true);
     try {
-      const res = await fetch(`/api/cards?set=${selectedSetFilter}&limit=100&q=${cardSearch}`);
+      const res = await fetch(`/api/cards?set=${selectedSetFilter}&limit=200&q=${cardSearch}`);
       const data = await res.json();
       setCards(data.cards || []);
-    } catch (e) {
-      console.error(e);
-      showToast("Failed to load card list", "error");
-    } finally {
-      setLoadingCards(false);
-    }
-  };
+    } catch (e) { showToast("Failed to load cards", "error"); }
+    finally { setLoadingCards(false); }
+  }, [selectedSetFilter, cardSearch, showToast]);
 
-  // 6. Fetch audit logs
-  const fetchAuditLogs = async () => {
+  const fetchPacks = useCallback(async () => {
+    setLoadingPacks(true);
+    try {
+      const res = await adminFetch("pack_list");
+      const data = await res.json();
+      setPacks(data.packs || []);
+    } catch (e: any) { showToast(e.message || "Failed to load packs", "error"); }
+    finally { setLoadingPacks(false); }
+  }, [adminFetch, showToast]);
+
+  const fetchEvents = useCallback(async () => {
+    setLoadingEvents(true);
+    try {
+      const res = await adminFetch("event_list");
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch (e: any) { showToast(e.message || "Failed to load events", "error"); }
+    finally { setLoadingEvents(false); }
+  }, [adminFetch, showToast]);
+
+  const fetchAnalytics = useCallback(async () => {
+    setLoadingAnalytics(true);
+    try {
+      const res = await adminFetch("analytics");
+      const data = await res.json();
+      setAnalytics(data);
+    } catch (e: any) { showToast(e.message || "Failed to load analytics", "error"); }
+    finally { setLoadingAnalytics(false); }
+  }, [adminFetch, showToast]);
+
+  const fetchAuditLogs = useCallback(async () => {
+    setLoadingAudit(true);
     try {
       const res = await adminFetch("audit_logs");
       const data = await res.json();
       setAuditLogs(data.logs || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+    } catch (e) { console.error(e); }
+    finally { setLoadingAudit(false); }
+  }, [adminFetch]);
 
-  // Check storage session on mount
+  // ─── Auth init ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const storedPassword = sessionStorage.getItem("pokecast_admin_password");
-    if (storedPassword) {
-      setAdminPassword(storedPassword);
+    const storedPwd = sessionStorage.getItem("pokecast_admin_password");
+    const storedAdminId = sessionStorage.getItem("pokecast_admin_id");
+    if (storedPwd) {
+      setAdminPassword(storedPwd);
+      if (storedAdminId) setAdminUserId(storedAdminId);
       setIsAdminAuthorized(true);
     } else {
+      // Try to get FID from localStorage (set by Farcaster auth)
+      const fid = localStorage.getItem("farcaster_user_id") || localStorage.getItem("pokecast_user_id");
+      if (fid) { setAuthMode("farcaster"); }
       setIsAdminAuthorized(false);
     }
   }, []);
 
-  // Fetch initial data when authorized
+  // ─── Auto-load on authorization ──────────────────────────────────────────
   useEffect(() => {
     if (isAdminAuthorized === true) {
       fetchStats();
       fetchSets();
-      fetchAuditLogs();
     }
   }, [isAdminAuthorized]);
 
-  // Tab dynamic loading
+  // ─── Tab-based data loading ───────────────────────────────────────────────
+  const fetchMarketAdmin = useCallback(async () => {
+    setLoadingMarket(true);
+    try {
+      const storedPwd = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
+      const res = await fetch("/api/marketplace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-password": storedPwd },
+        body: JSON.stringify({ action: "admin_listings", payload: { limit: 50 } }),
+      });
+      const data = await res.json();
+      setMarketListings(data.listings || []);
+      setMarketReports(data.reports || []);
+      setMarketStats(data.stats || null);
+    } catch (e: any) { showToast(e.message || "Failed to load marketplace data", "error"); }
+    finally { setLoadingMarket(false); }
+  }, [adminPassword, showToast]);
+
+  const handleMarketRemoveListing = async (listingId: string) => {
+    if (!confirm("Remove this listing?")) return;
+    const storedPwd = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
+    try {
+      const res = await fetch("/api/marketplace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-password": storedPwd },
+        body: JSON.stringify({ action: "admin_remove_listing", payload: { listingId } }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Listing removed");
+      fetchMarketAdmin();
+    } catch (e: any) { showToast(e.message, "error"); }
+  };
+
+  const handleMarketResolveReport = async (reportId: string) => {
+    const storedPwd = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
+    try {
+      const res = await fetch("/api/marketplace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-password": storedPwd },
+        body: JSON.stringify({ action: "admin_resolve_report", payload: { reportId } }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Report resolved", "info");
+      fetchMarketAdmin();
+    } catch (e: any) { showToast(e.message, "error"); }
+  };
+
   useEffect(() => {
     if (isAdminAuthorized !== true) return;
-    if (activeTab === "users") {
-      fetchUsers(userSearch);
-    } else if (activeTab === "cards") {
-      fetchCards();
-    } else if (activeTab === "settings") {
-      fetchAuditLogs();
-    }
-  }, [activeTab, selectedSetFilter, userSearch, isAdminAuthorized]);
+    if (activeTab === "users") fetchUsers(userSearch);
+    else if (activeTab === "packs") fetchPacks();
+    else if (activeTab === "events") fetchEvents();
+    else if (activeTab === "cards") fetchCards();
+    else if (activeTab === "analytics") fetchAnalytics();
+    else if (activeTab === "audit") fetchAuditLogs();
+    else if (activeTab === "market") fetchMarketAdmin();
+  }, [activeTab, isAdminAuthorized]);
 
-  // Handle Admin Login submission
+  useEffect(() => {
+    if (activeTab === "cards" && isAdminAuthorized === true) fetchCards();
+  }, [selectedSetFilter, cardSearch]);
+
+  useEffect(() => {
+    if (activeTab === "users" && isAdminAuthorized === true) fetchUsers(userSearch);
+  }, [userSearch]);
+
+  // ─── Login handler ────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -229,81 +390,104 @@ export default function AdminDashboard() {
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "login",
-          payload: { password: adminPassword }
-        })
+        body: JSON.stringify({ action: "login", payload: { password: adminPassword } }),
       });
       const data = await res.json();
-      if (res.status === 401 || data.error) {
-        throw new Error(data.error || "Incorrect password");
-      }
-      
+      if (!res.ok || data.error) throw new Error(data.error || "Incorrect password");
       sessionStorage.setItem("pokecast_admin_password", adminPassword);
       setIsAdminAuthorized(true);
       showToast("Access granted. Welcome to Admin Control Room!");
     } catch (err: any) {
-      setLoginError(err.message || "Failed to authenticate.");
-      showToast(err.message || "Invalid credentials", "error");
-    } finally {
-      setLoginLoading(false);
-    }
+      setLoginError(err.message || "Authentication failed");
+    } finally { setLoginLoading(false); }
   };
 
   const handleLogout = () => {
     sessionStorage.removeItem("pokecast_admin_password");
+    sessionStorage.removeItem("pokecast_admin_id");
     setAdminPassword("");
+    setAdminUserId(null);
     setIsAdminAuthorized(false);
-    showToast("Logged out successfully.", "info");
+    showToast("Logged out", "info");
   };
 
-  // Handler for user changes
-  const handleUserUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedUser) return;
+  // ─── User action handlers ─────────────────────────────────────────────────
+  const handleAddTickets = async (userId: string) => {
     try {
-      const res = await adminFetch("user_update", {
-        userId: selectedUser.id,
-        username: selectedUser.username,
-        avatar: selectedUser.avatar,
-        packsOpened: Number(selectedUser.packs_opened)
-      });
+      const res = await adminFetch("add_tickets", { userId, amount: ticketAmount });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("Trainer details updated successfully!");
+      showToast(`Added ${ticketAmount} tickets! New balance: ${data.newBalance}`);
+      fetchUserDetail(userId);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleRemoveTickets = async (userId: string) => {
+    try {
+      const res = await adminFetch("remove_tickets", { userId, amount: ticketAmount });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(`Removed ${ticketAmount} tickets. New balance: ${data.newBalance}`);
+      fetchUserDetail(userId);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleBanUser = async (userId: string) => {
+    if (!confirm(`Ban this user? Reason: ${banReason || "Admin action"}`)) return;
+    try {
+      const res = await adminFetch("ban_user", { userId, reason: banReason });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("User banned successfully");
+      fetchUserDetail(userId);
       fetchUsers(userSearch);
-    } catch (err: any) {
-      showToast(err.message || "Failed to update trainer details", "error");
-    }
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleUnbanUser = async (userId: string) => {
+    try {
+      const res = await adminFetch("unban_user", { userId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("User unbanned successfully");
+      fetchUserDetail(userId);
+      fetchUsers(userSearch);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleResetStreak = async (userId: string) => {
+    if (!confirm("Reset this user's login streak to 0?")) return;
+    try {
+      const res = await adminFetch("reset_streak", { userId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Login streak reset to 0");
+      fetchUserDetail(userId);
+    } catch (err: any) { showToast(err.message, "error"); }
   };
 
   const handleUserDelete = async (userId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this user account? This will also wipe their card collections!")) return;
+    if (!confirm("Permanently delete this user and all their data? This cannot be undone!")) return;
     try {
       const res = await adminFetch("user_delete", { userId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("Trainer account deleted successfully.");
+      showToast("User deleted permanently");
       setSelectedUser(null);
       fetchUsers(userSearch);
       fetchStats();
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete trainer", "error");
-    }
+    } catch (err: any) { showToast(err.message, "error"); }
   };
 
   const handleUserClearCollection = async (userId: string) => {
-    if (!confirm("Wipe all obtained cards for this user? This cannot be undone!")) return;
+    if (!confirm("Wipe ALL cards from this user's collection? This cannot be undone!")) return;
     try {
       const res = await adminFetch("user_clear", { userId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("Trainer card collections wiped.");
+      showToast("Collection cleared");
       fetchUserDetail(userId);
-      fetchStats();
-    } catch (err: any) {
-      showToast(err.message || "Failed to clear collection", "error");
-    }
+    } catch (err: any) { showToast(err.message, "error"); }
   };
 
   const handleUserGrantCards = async (userId: string) => {
@@ -311,64 +495,85 @@ export default function AdminDashboard() {
       const res = await adminFetch("user_grant", { userId, count: grantCardCount, setId: selectedSetFilter });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast(`Granted ${data.grantedCount} cards to collection!`);
+      showToast(`Granted ${data.grantedCount} cards!`);
       fetchUserDetail(userId);
-      fetchStats();
-    } catch (err: any) {
-      showToast(err.message || "Failed to grant cards", "error");
-    }
+    } catch (err: any) { showToast(err.message, "error"); }
   };
 
-  // Card update handler
-  const handleCardUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCardEdit) return;
+  // ─── Pack action handlers ─────────────────────────────────────────────────
+  const handlePackUpdate = async (setId: string, pack_enabled: boolean, featured_pack: boolean) => {
     try {
-      const res = await adminFetch("card_update", {
-        cardId: selectedCardEdit.id,
-        updatedFields: {
-          name: selectedCardEdit.name,
-          number: selectedCardEdit.number,
-          rarity: selectedCardEdit.rarity,
-          hp: selectedCardEdit.hp ? Number(selectedCardEdit.hp) : null
-        }
-      });
+      const res = await adminFetch("pack_update", { setId, pack_enabled, featured_pack });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("Card data saved locally.");
-      setSelectedCardEdit(null);
+      showToast("Pack settings saved");
+      fetchPacks();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  // ─── Event handlers ───────────────────────────────────────────────────────
+  const handleEventSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+    const payload = {
+      name: fd.get("name") as string,
+      description: fd.get("description") as string,
+      start_date: new Date(fd.get("start_date") as string).toISOString(),
+      end_date: new Date(fd.get("end_date") as string).toISOString(),
+      bonus_drop_rate: parseFloat(fd.get("bonus_drop_rate") as string) || 1.0,
+    };
+    try {
+      if (editingEvent) {
+        const res = await adminFetch("event_update", { eventId: editingEvent.id, ...payload, is_active: editingEvent.is_active });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        showToast("Event updated");
+      } else {
+        const res = await adminFetch("event_create", payload);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        showToast("Event created!");
+      }
+      setEditingEvent(null);
+      setEventForm(null);
+      fetchEvents();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleEventDelete = async (eventId: string) => {
+    if (!confirm("Delete this event pack?")) return;
+    try {
+      const res = await adminFetch("event_delete", { eventId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Event deleted");
+      fetchEvents();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleToggleEventActive = async (event: any) => {
+    try {
+      const res = await adminFetch("event_update", { eventId: event.id, is_active: !event.is_active });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(event.is_active ? "Event disabled" : "Event activated");
+      fetchEvents();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  // ─── Card handlers ────────────────────────────────────────────────────────
+  const handleToggleCardHide = async (card: any) => {
+    const action = card.hidden ? "card_unhide" : "card_hide";
+    try {
+      const res = await adminFetch(action, { cardId: card.id });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(card.hidden ? "Card unhidden" : "Card hidden from players");
       fetchCards();
-    } catch (err: any) {
-      showToast(err.message || "Failed to update card", "error");
-    }
+    } catch (err: any) { showToast(err.message, "error"); }
   };
 
-  // Set update handler
-  const handleSetUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSetEdit) return;
-    try {
-      const res = await adminFetch("set_update", {
-        setId: selectedSetEdit.id,
-        updatedFields: {
-          name: selectedSetEdit.name,
-          series: selectedSetEdit.series,
-          releaseDate: selectedSetEdit.releaseDate,
-          logo: selectedSetEdit.logo,
-          symbol: selectedSetEdit.symbol
-        }
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      showToast("Set configuration saved locally.");
-      setSelectedSetEdit(null);
-      fetchSets();
-    } catch (err: any) {
-      showToast(err.message || "Failed to update set", "error");
-    }
-  };
-
-  // Probability pack simulator
   const handleSimulatePacks = async (setId: string) => {
     setSimulating(true);
     try {
@@ -376,1029 +581,873 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setSimResults(data.distribution || []);
-      showToast(`Completed simulation check over ${data.totalSimulatedPulls.toLocaleString()} rolls!`);
-    } catch (err: any) {
-      showToast(err.message || "Simulation failed", "error");
-    } finally {
-      setSimulating(false);
-    }
+      showToast(`Simulated ${data.totalSimulatedPulls.toLocaleString()} pulls!`);
+    } catch (err: any) { showToast(err.message, "error"); }
+    finally { setSimulating(false); }
   };
 
-  // Settings tools
-  const handleResetRecalculate = async () => {
-    setDbSyncing(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      showToast("All user collection completion stats scanned and synchronized!");
-      fetchStats();
-    } catch (e) {
-      showToast("Scan failed", "error");
-    } finally {
-      setDbSyncing(false);
-    }
-  };
-
-  const exportCollectionCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,Trainer,FID,PacksOpened,CardID,obtained_at\n";
+  const exportCSV = () => {
+    let csv = "Username,FID,PacksOpened,PackTickets,LoginStreak,TotalCards,IsBanned\n";
     users.forEach(u => {
-      csvContent += `"${u.username}","${u.fid}","${u.packs_opened}","",""\n`;
+      csv += `"${u.username}","${u.fid}","${u.packs_opened}","${u.pack_tickets}","${u.login_streak}","${u.totalCards}","${u.is_banned}"\n`;
     });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `pokecast_trainers_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Trainers database CSV export downloaded.");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pokecast_users_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    showToast("CSV exported");
   };
 
-  // RENDER PASSWORD GATE LOGIN SCREEN
+  // ─── Login Gate ───────────────────────────────────────────────────────────
+  if (isAdminAuthorized === null) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (isAdminAuthorized === false) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6 select-none relative overflow-hidden font-sans">
-        {/* Glow filters */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-500/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/8 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-md bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-8 backdrop-blur-xl shadow-2xl relative z-10 space-y-6">
+        <div className="w-full max-w-sm bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-8 backdrop-blur-xl shadow-2xl space-y-6 relative z-10">
           <div className="text-center space-y-2">
-            <div className="mx-auto w-12 h-12 bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 rounded-2xl flex items-center justify-center text-xl mb-2">
-              <Lock className="w-5 h-5 animate-pulse" />
+            <div className="mx-auto w-14 h-14 bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 rounded-2xl flex items-center justify-center mb-3">
+              <ShieldCheck className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-zinc-100">PokéCast Admin Access</h1>
-            <p className="text-xs text-zinc-500">Please authenticate with the password gate</p>
+            <h1 className="text-xl font-black tracking-tight text-zinc-100">PokéCast Admin</h1>
+            <p className="text-xs text-zinc-500">Restricted access — authorized personnel only</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Admin Password</label>
-              <Input 
+              <input
                 type="password"
                 placeholder="Enter password..."
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
-                className="h-11 bg-zinc-950 border-zinc-850 rounded-xl text-center text-sm font-mono tracking-wider focus-visible:ring-fuchsia-500"
+                className="w-full h-11 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-center text-sm font-mono tracking-wider text-zinc-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-500/50 transition-all"
                 autoFocus
               />
             </div>
 
             {loginError && (
-              <p className="text-xs text-rose-400 text-center font-medium bg-rose-500/5 border border-rose-500/10 p-2.5 rounded-xl">
-                {loginError}
-              </p>
+              <p className="text-xs text-rose-400 text-center bg-rose-500/5 border border-rose-500/10 p-2.5 rounded-xl">{loginError}</p>
             )}
 
-            <Button 
-              type="submit" 
-              className="w-full h-11 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-fuchsia-500/10"
-              disabled={loginLoading}
+            <button
+              type="submit"
+              disabled={loginLoading || !adminPassword}
+              className="w-full h-11 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
             >
-              {loginLoading ? "Verifying..." : "Access Control Room"}
-            </Button>
+              {loginLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Lock className="w-4 h-4" />}
+              {loginLoading ? "Authenticating..." : "Access Admin Panel"}
+            </button>
           </form>
         </div>
       </div>
     );
   }
 
-  // RENDER LOADING STATE ON INITIAL BOOTSTRAP
-  if (isAdminAuthorized === null) {
-    return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center font-sans">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-fuchsia-500 border-r-2 border-r-transparent" />
-      </div>
-    );
-  }
+  // ─── Tab config ───────────────────────────────────────────────────────────
+  const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: "overview", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "users", label: "Users", icon: <Users className="w-4 h-4" />, badge: stats?.totalUsers },
+    { id: "packs", label: "Packs", icon: <Package className="w-4 h-4" /> },
+    { id: "events", label: "Events", icon: <Calendar className="w-4 h-4" /> },
+    { id: "cards", label: "Cards", icon: <Layers className="w-4 h-4" /> },
+    { id: "analytics", label: "Analytics", icon: <TrendingUp className="w-4 h-4" /> },
+    { id: "audit", label: "Audit Log", icon: <Clock className="w-4 h-4" /> },
+    { id: "market", label: "Market", icon: <ShieldAlert className="w-4 h-4" />, badge: marketStats?.unresolvedReports || undefined },
+  ];
 
-  // RENDER FULL-SCREEN RESPONSIBLE ADMIN DASHBOARD
+  // ─── MAIN ADMIN PANEL ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-zinc-950 text-white font-sans selection:bg-fuchsia-500/30">
-      
-      {/* Toast Alert Notice */}
-      {toast && (
-        <div className={`fixed bottom-4 right-4 z-50 p-4 rounded-xl flex items-center space-x-2 shadow-2xl border transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 ${
-          toast.type === "success" ? "bg-emerald-950/80 border-emerald-500 text-emerald-300" :
-          toast.type === "error" ? "bg-rose-950/80 border-rose-500 text-rose-300" :
-          "bg-blue-950/80 border-blue-500 text-blue-300"
-        }`}>
-          {toast.type === "success" ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-          <span className="text-sm font-medium">{toast.message}</span>
-        </div>
-      )}
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Main Admin Content Container */}
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-        
-        {/* Title Header */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-6 backdrop-blur-xl gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2 flex-wrap">
-              <span className="text-2xl">⚡</span>
-              <h1 className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-violet-400 to-indigo-400">
-                PokéCast Admin Panel
-              </h1>
-              <Badge className="bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30 font-mono text-[10px]">
-                v1.2.0
-              </Badge>
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-zinc-800/60 bg-zinc-950/90 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-7 h-7 bg-fuchsia-500/15 border border-fuchsia-500/30 rounded-lg flex items-center justify-center">
+              <ShieldCheck className="w-3.5 h-3.5 text-fuchsia-400" />
             </div>
-            <p className="text-xs text-zinc-500 font-mono">Secure administrative control room</p>
+            <span className="font-black text-sm tracking-tight text-zinc-100 hidden sm:block">PokéCast Admin</span>
           </div>
-          
-          <div className="flex items-center space-x-2 shrink-0">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="border-zinc-800 hover:bg-zinc-800 text-zinc-300 h-9 rounded-xl font-mono text-xs"
-              onClick={fetchStats}
-            >
-              <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh Stats
-            </Button>
-            <Button 
-              size="sm" 
-              variant="destructive"
-              className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-rose-400 text-zinc-400 h-9 rounded-xl font-mono text-xs"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-3.5 h-3.5 mr-1" /> Logout
-            </Button>
-          </div>
-        </header>
 
-        {/* Tab Selector Links */}
-        <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-2">
-          {[
-            { id: "overview", label: "Overview", icon: Activity },
-            { id: "users", label: "Trainer Manager", icon: Users },
-            { id: "cards", label: "Card Editor", icon: Layers },
-            { id: "sets", label: "Set Manager", icon: PackageOpen },
-            { id: "settings", label: "System Config", icon: Settings },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
+          {/* Tab Navigation (desktop) */}
+          <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto">
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all border ${
-                  isActive 
-                    ? "bg-gradient-to-r from-fuchsia-600 to-violet-600 border-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.2)]"
-                    : "bg-zinc-900/20 border-zinc-900/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-                }`}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${activeTab === tab.id ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/20" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"}`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                {tab.icon}
+                {tab.label}
               </button>
-            );
-          })}
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { fetchStats(); showToast("Stats refreshed", "info"); }}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              title="Refresh stats"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-rose-400 hover:bg-rose-500/5 transition-all border border-transparent hover:border-rose-500/20"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:block">Logout</span>
+            </button>
+          </div>
         </div>
 
-        {/* TAB 1: OVERVIEW SCREEN */}
+        {/* Mobile Tab Bar */}
+        <div className="lg:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${activeTab === tab.id ? "bg-fuchsia-500/15 text-fuchsia-300" : "text-zinc-500 hover:text-zinc-300"}`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
         {activeTab === "overview" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Core Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="bg-zinc-900/30 border-zinc-800/80 rounded-2xl">
-                <CardContent className="p-4 flex flex-col space-y-1">
-                  <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Total Registered</span>
-                  <div className="flex items-baseline space-x-2">
-                    <span className="text-3xl font-black">{loadingStats ? "..." : stats?.totalUsers}</span>
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Trainers</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-zinc-900/30 border-zinc-800/80 rounded-2xl">
-                <CardContent className="p-4 flex flex-col space-y-1">
-                  <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Total Claims</span>
-                  <div className="flex items-baseline space-x-2">
-                    <span className="text-3xl font-black">{loadingStats ? "..." : stats?.totalCardsClaimed}</span>
-                    <span className="text-[10px] font-mono text-fuchsia-400 font-bold">Cards</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-zinc-900/30 border-zinc-800/80 rounded-2xl">
-                <CardContent className="p-4 flex flex-col space-y-1">
-                  <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Packs Opened</span>
-                  <div className="flex items-baseline space-x-2">
-                    <span className="text-3xl font-black">{loadingStats ? "..." : stats?.totalPacksOpened}</span>
-                    <span className="text-[10px] font-mono text-violet-400 font-bold">Boosters</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-zinc-900/30 border-zinc-800/80 rounded-2xl">
-                <CardContent className="p-4 flex flex-col space-y-1">
-                  <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Database Status</span>
-                  <div className="flex items-center space-x-2 h-9">
-                    {loadingStats ? (
-                      <span className="text-zinc-500 font-mono text-sm">Loading...</span>
-                    ) : (
-                      <>
-                        <span className={`w-2.5 h-2.5 rounded-full ${stats?.databaseStatus === "Healthy" ? "bg-emerald-400 animate-pulse" : "bg-rose-500"}`} />
-                        <span className="text-sm font-bold font-mono uppercase tracking-wider">{stats?.databaseStatus}</span>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Performance Indicators */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-zinc-900/20 border-zinc-800/60 rounded-3xl p-6 space-y-4">
-                <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 flex items-center">
-                  <Clock className="w-4 h-4 mr-2 text-violet-400" /> Database Latency Tracker
-                </h3>
-                <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-                  <span className="text-xs text-zinc-500">Supabase Connection Latency</span>
-                  <span className="font-mono text-sm font-bold text-violet-400">{loadingStats ? "..." : stats?.databaseLatencyMs} ms</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-                  <span className="text-xs text-zinc-500">Active Query Handlers</span>
-                  <span className="font-mono text-sm font-bold text-zinc-300">Supabase REST-V1</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">Avg pack opening rate</span>
-                  <span className="font-mono text-xs font-bold text-zinc-300">~ 4.8 packs / min</span>
-                </div>
-              </Card>
-
-              <Card className="bg-zinc-900/20 border-zinc-800/60 rounded-3xl p-6 space-y-4">
-                <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 flex items-center">
-                  <Database className="w-4 h-4 mr-2 text-fuchsia-400" /> Local Database Config
-                </h3>
-                <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-                  <span className="text-xs text-zinc-500">Total Sets Loaded</span>
-                  <span className="font-mono text-sm font-bold text-fuchsia-400">{loadingStats ? "..." : stats?.totalAvailableSets} sets</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-                  <span className="text-xs text-zinc-500">Total Cards Indexed</span>
-                  <span className="font-mono text-sm font-bold text-fuchsia-400">{loadingStats ? "..." : stats?.totalAvailableCards.toLocaleString()} cards</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">Database File Size</span>
-                  <span className="font-mono text-xs font-bold text-zinc-300">8.12 Megabytes (JSON)</span>
-                </div>
-              </Card>
-            </div>
-
-            {/* Additional Health check stats */}
-            <div className="bg-zinc-900/10 border border-zinc-800/50 rounded-3xl p-6 space-y-4">
-              <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400">Database Health Checks</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div className="p-3 bg-zinc-900/40 border border-zinc-800/60 rounded-xl">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">User Table RLS</p>
-                  <p className="text-xs font-bold text-amber-400 mt-1 font-mono">Bypassed (Admin)</p>
-                </div>
-                <div className="p-3 bg-zinc-900/40 border border-zinc-800/60 rounded-xl">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Avg Cards / User</p>
-                  <p className="text-xs font-bold text-zinc-300 mt-1 font-mono">
-                    {loadingStats || !stats?.totalUsers ? "..." : (stats.totalCardsClaimed / stats.totalUsers).toFixed(1)}
-                  </p>
-                </div>
-                <div className="p-3 bg-zinc-900/40 border border-zinc-800/60 rounded-xl">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Completion Avg</p>
-                  <p className="text-xs font-bold text-zinc-300 mt-1 font-mono">
-                    {loadingStats || !stats?.totalUsers ? "..." : ((stats.totalCardsClaimed / (stats.totalUsers * stats.totalAvailableCards)) * 100).toFixed(4)}%
-                  </p>
-                </div>
-                <div className="p-3 bg-zinc-900/40 border border-zinc-800/60 rounded-xl">
-                  <p className="text-[10px] text-zinc-500 font-mono uppercase">Server Timezone</p>
-                  <p className="text-xs font-bold text-zinc-300 mt-1 font-mono truncate">{loadingStats ? "..." : stats?.serverTime.split('T')[1].substring(0, 8)} UTC</p>
-                </div>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Admin Dashboard</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">System overview & live metrics</p>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: TRAINER MANAGER */}
-        {activeTab === "users" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Search and actions bar */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <Input 
-                  placeholder="Search trainers by Username or FID..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="pl-10 h-11 bg-zinc-900/50 border-zinc-800 text-zinc-100 rounded-xl placeholder:text-zinc-500 focus-visible:ring-fuchsia-500"
-                />
-              </div>
-              <Button 
-                onClick={exportCollectionCSV} 
-                className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-200 h-11 px-5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider"
-              >
-                <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-400" /> Export CSV
-              </Button>
-            </div>
-
-            {/* Users Table List */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Left Column: Users List */}
-              <div className="md:col-span-2 bg-zinc-900/30 border border-zinc-800/80 rounded-3xl overflow-hidden flex flex-col h-[500px]">
-                <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex justify-between items-center">
-                  <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Trainer Database</h3>
-                  <Badge variant="outline" className="font-mono text-[10px] text-zinc-400 border-zinc-800">
-                    {users.length} registered
-                  </Badge>
+              {stats && (
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${stats.databaseStatus === "Healthy" ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+                  <span className="text-xs font-mono text-zinc-400">{stats.databaseStatus} · {stats.databaseLatencyMs}ms</span>
                 </div>
-                
-                <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/40 no-scrollbar">
-                  {loadingUsers ? (
-                    <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                      <RefreshCw className="w-6 h-6 animate-spin mb-2" />
-                      <span className="text-xs font-mono uppercase">Loading Trainers...</span>
-                    </div>
-                  ) : users.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-zinc-500 text-xs font-mono">
-                      No trainers found matching queries.
-                    </div>
-                  ) : (
-                    users.map((user) => (
-                      <div 
-                        key={user.id}
-                        onClick={() => fetchUserDetail(user.id)}
-                        className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${
-                          selectedUser?.id === user.id ? "bg-fuchsia-600/10" : "hover:bg-zinc-900/40"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 min-w-0">
-                          <div className="relative w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
-                            {user.avatar ? (
-                              <Image src={user.avatar} alt="" fill className="object-cover" />
-                            ) : (
-                              <Users className="w-5 h-5 text-zinc-600" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-sm text-zinc-200 truncate">{user.username}</p>
-                            <p className="text-[10px] font-mono text-zinc-500">FID: {user.fid}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-3 shrink-0">
-                          <div className="text-right">
-                            <p className="font-mono text-xs font-bold text-zinc-300">{user.packs_opened} packs</p>
-                            <p className="text-[9px] font-mono text-zinc-600">Joined {new Date(user.created_at).toLocaleDateString()}</p>
-                          </div>
-                          <Button 
-                            size="icon-xs" 
-                            variant="destructive" 
-                            className="w-7 h-7 rounded-lg"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUserDelete(user.id);
-                            }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Selected User Manager Detail view */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[500px] overflow-y-auto no-scrollbar">
-                {loadingUserDetail ? (
-                  <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mb-2" />
-                    <span className="text-xs font-mono uppercase">Retrieving detail...</span>
-                  </div>
-                ) : !selectedUser ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-zinc-500 space-y-3">
-                    <UserCheck className="w-10 h-10 text-zinc-700" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold uppercase tracking-wider font-mono">No Trainer Selected</p>
-                      <p className="text-[11px] text-zinc-600">Click a user in the list to manage their profile, cards, and metadata.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* User Edit Metadata form */}
-                    <form onSubmit={handleUserUpdate} className="space-y-4">
-                      <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400 border-b border-zinc-800 pb-2">
-                        Manage Profile
-                      </h3>
-                      
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">Username</label>
-                        <Input 
-                          value={selectedUser.username || ""} 
-                          onChange={(e) => setSelectedUser({ ...selectedUser, username: e.target.value })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">Avatar Image URL</label>
-                        <Input 
-                          value={selectedUser.avatar || ""} 
-                          onChange={(e) => setSelectedUser({ ...selectedUser, avatar: e.target.value })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl text-xs font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">Packs Opened count</label>
-                        <Input 
-                          type="number"
-                          value={selectedUser.packs_opened || 0} 
-                          onChange={(e) => setSelectedUser({ ...selectedUser, packs_opened: Number(e.target.value) })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl font-mono"
-                        />
-                      </div>
-
-                      <Button size="sm" type="submit" className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl h-10 font-bold text-xs uppercase tracking-wider">
-                        <Save className="w-4 h-4 mr-2" /> Save Profile Details
-                      </Button>
-                    </form>
-
-                    {/* Actions and collection overview */}
-                    <div className="space-y-4 pt-4 border-t border-zinc-800">
-                      <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">
-                        Admin Actions
-                      </h3>
-
-                      <div className="flex items-center justify-between text-xs py-1 border-b border-zinc-800/40">
-                        <span className="text-zinc-500 font-mono">Owned cards:</span>
-                        <span className="font-mono font-bold text-fuchsia-400">{selectedUserCards.length} items</span>
-                      </div>
-
-                      {/* Grant tool */}
-                      <div className="space-y-2 p-3 bg-zinc-950 border border-zinc-850 rounded-xl">
-                        <p className="text-[10px] font-mono uppercase text-zinc-500">Grant Random cards</p>
-                        <div className="flex items-center space-x-2">
-                          <Input 
-                            type="number" 
-                            value={grantCardCount} 
-                            onChange={(e) => setGrantCardCount(Number(e.target.value))}
-                            className="h-9 w-16 bg-zinc-900 border-zinc-800 font-mono text-center"
-                          />
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleUserGrantCards(selectedUser.id)}
-                            className="flex-1 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs h-9 rounded-lg"
-                          >
-                            Grant cards
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="destructive" 
-                          onClick={() => handleUserClearCollection(selectedUser.id)}
-                          className="bg-amber-600/10 hover:bg-amber-600/20 text-amber-500 border border-amber-500/20 text-xs rounded-xl h-9 font-mono"
-                        >
-                          Wipe cards
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => handleUserDelete(selectedUser.id)}
-                          className="bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 border border-rose-500/20 text-xs rounded-xl h-9 font-mono"
-                        >
-                          Delete User
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
+              )}
             </div>
-          </div>
-        )}
 
-        {/* TAB 3: CARD EDITOR */}
-        {activeTab === "cards" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Filter and selection bar */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="w-full sm:w-[280px]">
-                <select
-                  value={selectedSetFilter}
-                  onChange={(e) => setSelectedSetFilter(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-xl h-11 px-4 text-xs font-mono uppercase focus:outline-none focus:border-fuchsia-500 transition-colors"
+            {loadingStats ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {Array(8).fill(0).map((_, i) => <div key={i} className="h-24 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}
+              </div>
+            ) : stats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <StatCard icon={<Users className="w-5 h-5" />} label="Total Users" value={stats.totalUsers} sub="All-time registrations" />
+                <StatCard icon={<Activity className="w-5 h-5" />} label="Daily Active" value={stats.dailyActiveUsers} sub="Last 24 hours" accent="bg-emerald-500/10 text-emerald-400" />
+                <StatCard icon={<Sparkles className="w-5 h-5" />} label="New Today" value={stats.newUsersToday} sub="New signups today" accent="bg-sky-500/10 text-sky-400" />
+                <StatCard icon={<Layers className="w-5 h-5" />} label="Cards Owned" value={stats.totalCardsClaimed} sub="Total across all users" accent="bg-violet-500/10 text-violet-400" />
+                <StatCard icon={<Package className="w-5 h-5" />} label="Packs Opened" value={stats.totalPacksOpened} sub="All-time pack opens" accent="bg-amber-500/10 text-amber-400" />
+                <StatCard icon={<Heart className="w-5 h-5" />} label="Wishlist Entries" value={stats.totalWishlists} sub="Cards being wished for" accent="bg-rose-500/10 text-rose-400" />
+                <StatCard icon={<RefreshCw className="w-5 h-5" />} label="Trade Offers" value={stats.totalTrades} sub="All-time trade attempts" accent="bg-teal-500/10 text-teal-400" />
+                <StatCard icon={<Database className="w-5 h-5" />} label="Card DB" value={stats.totalAvailableCards} sub={`Across ${stats.totalAvailableSets} sets`} />
+              </div>
+            )}
+
+            {/* Quick actions */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: "Manage Users", desc: "Search, ban, & ticket management", tab: "users" as Tab, icon: <Users className="w-4 h-4" />, color: "fuchsia" },
+                { label: "Pack Settings", desc: "Enable/disable & feature packs", tab: "packs" as Tab, icon: <Package className="w-4 h-4" />, color: "amber" },
+                { label: "Create Event", desc: "Launch limited-time events", tab: "events" as Tab, icon: <Calendar className="w-4 h-4" />, color: "sky" },
+                { label: "View Analytics", desc: "DAU trends & top cards", tab: "analytics" as Tab, icon: <TrendingUp className="w-4 h-4" />, color: "emerald" },
+              ].map((qa) => (
+                <button
+                  key={qa.tab}
+                  onClick={() => setActiveTab(qa.tab)}
+                  className="bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-4 text-left transition-all group"
                 >
-                  <option value="">Select set...</option>
-                  {sets.map((set) => (
-                    <option key={set.id} value={set.id}>
-                      {set.name} ({set.id.toUpperCase()})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <Input 
-                  placeholder="Filter cards in set by name..."
-                  value={cardSearch}
-                  onChange={(e) => setCardSearch(e.target.value)}
-                  className="pl-10 h-11 bg-zinc-900/50 border-zinc-800 text-zinc-100 rounded-xl"
-                />
-              </div>
-
-              <Button 
-                onClick={fetchCards}
-                className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white h-11 px-6 rounded-xl text-xs font-mono font-bold uppercase tracking-wider"
-              >
-                Search
-              </Button>
-            </div>
-
-            {/* List and editor layout */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Cards database list */}
-              <div className="md:col-span-2 bg-zinc-900/30 border border-zinc-800/80 rounded-3xl overflow-hidden flex flex-col h-[500px]">
-                <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex justify-between items-center">
-                  <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Card indexes</h3>
-                  <Badge variant="outline" className="font-mono text-[10px] text-zinc-400 border-zinc-800">
-                    {cards.length} listed
-                  </Badge>
-                </div>
-
-                <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/40 no-scrollbar">
-                  {loadingCards ? (
-                    <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                      <RefreshCw className="w-6 h-6 animate-spin mb-2" />
-                      <span className="text-xs font-mono uppercase">Loading cards...</span>
-                    </div>
-                  ) : cards.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-zinc-500 text-xs font-mono">
-                      No cards found. Choose a set and click Search.
-                    </div>
-                  ) : (
-                    <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {cards.map((card) => (
-                        <div 
-                          key={card.id}
-                          onClick={() => setSelectedCardEdit(card)}
-                          className={`p-2 bg-zinc-900/40 border rounded-xl flex flex-col items-center cursor-pointer transition-all ${
-                            selectedCardEdit?.id === card.id ? "border-fuchsia-500 bg-fuchsia-500/5" : "border-zinc-800 hover:border-zinc-700"
-                          }`}
-                        >
-                          <div className="relative w-full aspect-[2.5/3.5] rounded-lg overflow-hidden bg-zinc-950 mb-2">
-                            {card.smallImage ? (
-                              <Image src={card.smallImage} alt="" fill className="object-contain" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-600">No Image</div>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-bold text-zinc-200 truncate w-full text-center">{card.name}</span>
-                          <span className="text-[9px] font-mono text-zinc-500">#{card.number} · {card.rarity || 'Common'}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Card modification form */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[500px] overflow-y-auto no-scrollbar">
-                {!selectedCardEdit ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-zinc-500 space-y-3">
-                    <Sliders className="w-10 h-10 text-zinc-700" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold uppercase tracking-wider font-mono">Select Card to Edit</p>
-                      <p className="text-[11px] text-zinc-600">Click any card index preview to inspect details and edit metadata locally.</p>
-                    </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 bg-${qa.color}-500/10 text-${qa.color}-400 group-hover:bg-${qa.color}-500/20 transition-colors`}>
+                    {qa.icon}
                   </div>
-                ) : (
-                  <form onSubmit={handleCardUpdate} className="space-y-5">
-                    <div className="border-b border-zinc-800 pb-3 flex justify-between items-center">
-                      <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">
-                        Card details
-                      </h3>
-                      <Badge variant="outline" className="font-mono text-[9px] text-fuchsia-400 border-fuchsia-500/20">
-                        {selectedCardEdit.id.toUpperCase()}
-                      </Badge>
-                    </div>
-
-                    <div className="flex justify-center mb-4">
-                      <div className="relative w-28 aspect-[2.5/3.5] rounded-lg overflow-hidden bg-zinc-950 border border-zinc-800">
-                        {selectedCardEdit.largeImage ? (
-                          <Image src={selectedCardEdit.largeImage} alt="" fill className="object-contain" />
-                        ) : selectedCardEdit.smallImage ? (
-                          <Image src={selectedCardEdit.smallImage} alt="" fill className="object-contain" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-zinc-600">No Image</div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-zinc-500">Card Name</label>
-                      <Input 
-                        value={selectedCardEdit.name || ""} 
-                        onChange={(e) => setSelectedCardEdit({ ...selectedCardEdit, name: e.target.value })}
-                        className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">Set Number</label>
-                        <Input 
-                          value={selectedCardEdit.number || ""} 
-                          onChange={(e) => setSelectedCardEdit({ ...selectedCardEdit, number: e.target.value })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl font-mono"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">HP</label>
-                        <Input 
-                          type="number"
-                          value={selectedCardEdit.hp || ""} 
-                          onChange={(e) => setSelectedCardEdit({ ...selectedCardEdit, hp: e.target.value })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-zinc-500">Rarity Tier</label>
-                      <select
-                        value={selectedCardEdit.rarity || ""}
-                        onChange={(e) => setSelectedCardEdit({ ...selectedCardEdit, rarity: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-850 text-zinc-200 rounded-xl h-10 px-3 text-xs focus:outline-none focus:border-fuchsia-500"
-                      >
-                        <option value="Common">Common</option>
-                        <option value="Uncommon">Uncommon</option>
-                        <option value="Rare">Rare</option>
-                        <option value="Rare Holo">Rare Holo</option>
-                        <option value="Rare Ultra">Rare Ultra</option>
-                        <option value="Rare Secret">Rare Secret</option>
-                        <option value="Illustration Rare">Illustration Rare</option>
-                        <option value="Special Illustration Rare">Special Illustration Rare</option>
-                        <option value="Double Rare">Double Rare</option>
-                        <option value="Hyper Rare">Hyper Rare</option>
-                      </select>
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => setSelectedCardEdit(null)}
-                        className="flex-1 border-zinc-800 hover:bg-zinc-800 text-zinc-400 rounded-xl h-10"
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        type="submit" 
-                        className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl h-10 font-bold text-xs"
-                      >
-                        Save Card
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </div>
-
+                  <p className="text-sm font-bold text-zinc-200">{qa.label}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{qa.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 4: SET & PACK MANAGER */}
-        {activeTab === "sets" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* List and editor layout */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Set Database Grid */}
-              <div className="md:col-span-2 bg-zinc-900/30 border border-zinc-800/80 rounded-3xl overflow-hidden flex flex-col h-[550px]">
-                <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex justify-between items-center">
-                  <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">Expansion databases</h3>
-                  <Badge variant="outline" className="font-mono text-[10px] text-zinc-400 border-zinc-800">
-                    {sets.length} sets total
-                  </Badge>
-                </div>
+        {/* ── USERS TAB ────────────────────────────────────────────────── */}
+        {activeTab === "users" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">User Management</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">{users.length} trainers loaded</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-colors">
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Export CSV
+                </button>
+              </div>
+            </div>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/30 no-scrollbar p-4 space-y-3">
-                  {sets.map((set) => (
-                    <div 
-                      key={set.id}
-                      onClick={() => setSelectedSetEdit(set)}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
-                        selectedSetEdit?.id === set.id ? "bg-fuchsia-600/10 border-fuchsia-500" : "bg-zinc-900/20 border-zinc-800/80 hover:border-zinc-700"
-                      }`}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search by username or FID..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full h-10 pl-9 pr-4 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 focus:border-fuchsia-500/40 transition-all"
+              />
+            </div>
+
+            <div className="grid lg:grid-cols-5 gap-4">
+              {/* User List */}
+              <div className="lg:col-span-2 space-y-2">
+                {loadingUsers ? (
+                  Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)
+                ) : users.length === 0 ? (
+                  <div className="text-center py-12 text-zinc-600 text-sm">No trainers found</div>
+                ) : (
+                  users.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => fetchUserDetail(user.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${selectedUser?.id === user.id ? "bg-fuchsia-500/10 border-fuchsia-500/30" : "bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700"}`}
                     >
-                      <div className="flex items-center space-x-4 min-w-0">
-                        <div className="relative w-12 h-12 bg-zinc-950 p-1 rounded-xl backdrop-blur-xs shrink-0 flex items-center justify-center">
-                          {set.logo ? (
-                            <Image src={set.logo} alt="" fill className="object-contain" />
-                          ) : (
-                            <PackageOpen className="w-6 h-6 text-zinc-700" />
-                          )}
+                      <div className="w-10 h-10 rounded-xl overflow-hidden bg-zinc-800 shrink-0">
+                        {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm font-bold">{user.username?.[0]?.toUpperCase() || "?"}</div>}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-zinc-100 truncate">{user.username || `FID ${user.fid}`}</span>
+                          {user.is_admin && <Badge color="fuchsia">Admin</Badge>}
+                          {user.is_banned && <Badge color="rose">Banned</Badge>}
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-sm text-zinc-200 truncate">{set.name}</h4>
-                          <p className="text-[10px] font-mono text-zinc-500">
-                            ID: {set.id.toUpperCase()} · Series: {set.series} · Cards: {set.totalCards}
-                          </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-zinc-500">FID {user.fid}</span>
+                          <span className="text-[11px] text-zinc-600">·</span>
+                          <span className="text-[11px] text-zinc-500">{user.totalCards} cards</span>
+                          <span className="text-[11px] text-zinc-600">·</span>
+                          <span className="text-[11px] text-amber-500">🎟 {user.pack_tickets}</span>
                         </div>
                       </div>
-
-                      <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs h-8 rounded-lg font-mono"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSimulatePacks(set.id);
-                          }}
-                          disabled={simulating}
-                        >
-                          {simulating ? "Simulating..." : "Test Probabilities"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Set details edit OR probability simulator dashboard view */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[550px] overflow-y-auto no-scrollbar">
-                
-                {/* Probability Simulation chart */}
-                {simResults.length > 0 && !selectedSetEdit && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-                      <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">
-                        Simulation check (5,000 packs)
-                      </h3>
-                      <button 
-                        onClick={() => setSimResults([])} 
-                        className="text-xs font-mono text-zinc-500 hover:text-zinc-300"
-                      >
-                        Clear
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {simResults.map((res) => (
-                        <div key={res.rarity} className="space-y-1.5">
-                          <div className="flex justify-between text-xs font-mono">
-                            <span className="text-zinc-300 truncate max-w-[150px]">{res.rarity}</span>
-                            <span className="text-fuchsia-400 font-bold">{res.percentage}% ({res.count})</span>
-                          </div>
-                          <div className="w-full bg-zinc-950 rounded-full h-2 overflow-hidden border border-zinc-850">
-                            <div 
-                              className="bg-gradient-to-r from-fuchsia-500 to-violet-500 h-full rounded-full transition-all duration-500"
-                              style={{ width: `${res.percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <p className="text-[10px] text-zinc-500 leading-relaxed pt-2">
-                      Rarity weight distributions verified. Rarity slots roll Common weights, Uncommon pools, and weighted Rare odds correctly according to the local database file settings.
-                    </p>
-                  </div>
-                )}
-
-                {/* Set updates form */}
-                {!simResults.length && selectedSetEdit && (
-                  <form onSubmit={handleSetUpdate} className="space-y-5">
-                    <div className="border-b border-zinc-800 pb-3 flex justify-between items-center">
-                      <h3 className="text-xs font-mono font-black uppercase tracking-wider text-zinc-400">
-                        Expansion details
-                      </h3>
-                      <Badge variant="outline" className="font-mono text-[9px] text-fuchsia-400 border-fuchsia-500/20">
-                        {selectedSetEdit.id.toUpperCase()}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-zinc-500">Expansion Name</label>
-                      <Input 
-                        value={selectedSetEdit.name || ""} 
-                        onChange={(e) => setSelectedSetEdit({ ...selectedSetEdit, name: e.target.value })}
-                        className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">Series</label>
-                        <Input 
-                          value={selectedSetEdit.series || ""} 
-                          onChange={(e) => setSelectedSetEdit({ ...selectedSetEdit, series: e.target.value })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500">Release Date</label>
-                        <Input 
-                          value={selectedSetEdit.releaseDate || ""} 
-                          onChange={(e) => setSelectedSetEdit({ ...selectedSetEdit, releaseDate: e.target.value })}
-                          className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-zinc-500">Logo Image URL</label>
-                      <Input 
-                        value={selectedSetEdit.logo || ""} 
-                        onChange={(e) => setSelectedSetEdit({ ...selectedSetEdit, logo: e.target.value })}
-                        className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl text-xs font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-mono uppercase text-zinc-500">Symbol Image URL</label>
-                      <Input 
-                        value={selectedSetEdit.symbol || ""} 
-                        onChange={(e) => setSelectedSetEdit({ ...selectedSetEdit, symbol: e.target.value })}
-                        className="h-10 bg-zinc-950 border-zinc-850 text-zinc-100 rounded-xl text-xs font-mono"
-                      />
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => setSelectedSetEdit(null)}
-                        className="flex-1 border-zinc-800 hover:bg-zinc-800 text-zinc-400 rounded-xl h-10"
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        type="submit" 
-                        className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl h-10 font-bold text-xs"
-                      >
-                        Save Configuration
-                      </Button>
-                    </div>
-                  </form>
-                )}
-
-                {/* Default placeholder state */}
-                {!simResults.length && !selectedSetEdit && (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-zinc-500 space-y-3">
-                    <PackageOpen className="w-10 h-10 text-zinc-700" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold uppercase tracking-wider font-mono">Select Set to Manage</p>
-                      <p className="text-[11px] text-zinc-600">Select any set inside the list to edit metadata or trigger pack simulations.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: SYSTEM SETTINGS */}
-        {activeTab === "settings" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* System config cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-                <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 border-b border-zinc-800 pb-2">
-                  System Config Flags
-                </h3>
-
-                {/* Bypass mode */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-zinc-200 font-mono">GUEST BYPASS MODE</p>
-                    <p className="text-[10px] text-zinc-500 max-w-[200px]">Allows test accounts to play in regular browsers.</p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setGuestBypass(!guestBypass);
-                      showToast(`Guest Bypass Mode turned ${!guestBypass ? "ON" : "OFF"}`);
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      guestBypass ? "bg-fuchsia-600" : "bg-zinc-800"
-                    }`}
-                  >
-                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      guestBypass ? "translate-x-5" : "translate-x-0"
-                    }`} />
-                  </button>
-                </div>
-
-                {/* Debug logging */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-zinc-200 font-mono">DEBUG CONSOLE LOGS</p>
-                    <p className="text-[10px] text-zinc-500 max-w-[200px]">Enables verbose logs for database queries.</p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setDebugLogs(!debugLogs);
-                      showToast(`Debug Logging turned ${!debugLogs ? "ON" : "OFF"}`);
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      debugLogs ? "bg-fuchsia-600" : "bg-zinc-800"
-                    }`}
-                  >
-                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      debugLogs ? "translate-x-5" : "translate-x-0"
-                    }`} />
-                  </button>
-                </div>
-
-                {/* Simulated Latency */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-zinc-400">SIMULATED DEV LATENCY</span>
-                    <span className="text-fuchsia-400 font-bold">{simulatedLatency} ms</span>
-                  </div>
-                  <input 
-                    type="range"
-                    min="0"
-                    max="1000"
-                    step="50"
-                    value={simulatedLatency}
-                    onChange={(e) => setSimulatedLatency(Number(e.target.value))}
-                    className="w-full h-1.5 bg-zinc-950 rounded-lg appearance-none cursor-pointer accent-fuchsia-500"
-                  />
-                </div>
-              </div>
-
-              {/* Database tools */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-                <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 border-b border-zinc-800 pb-2">
-                  System Database Tools
-                </h3>
-
-                <div className="flex items-center justify-between text-xs py-1 border-b border-zinc-800/40">
-                  <span className="text-zinc-500 font-mono">App Cache Status:</span>
-                  <span className="font-mono font-bold text-emerald-400">{cacheStatus} (98.4% Hit)</span>
-                </div>
-
-                <div className="flex flex-col gap-2.5">
-                  <Button 
-                    onClick={handleResetRecalculate}
-                    disabled={dbSyncing}
-                    className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-200 h-10 rounded-xl text-xs font-mono"
-                  >
-                    {dbSyncing ? "Scanning..." : "Recalculate User Completion statistics"}
-                  </Button>
-
-                  <Button 
-                    onClick={() => {
-                      setCacheStatus("Flushed & Rebuilt");
-                      showToast("API responses and cards cache records flushed successfully.");
-                    }}
-                    className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-200 h-10 rounded-xl text-xs font-mono"
-                  >
-                    Clear Server Cache
-                  </Button>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Audit Trail view */}
-            <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-              <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 border-b border-zinc-800 pb-2">
-                Administrative Audit Trail Log
-              </h3>
-
-              <div className="bg-zinc-950 border border-zinc-850 rounded-2xl p-4 h-48 overflow-y-auto no-scrollbar font-mono text-xs text-zinc-400 space-y-2">
-                {auditLogs.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-zinc-600 text-xs">
-                    No actions logged in this session yet.
-                  </div>
-                ) : (
-                  auditLogs.map((log, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-900/60 pb-1.5 gap-1.5 font-sans">
-                      <div className="flex items-start sm:items-center gap-2">
-                        <span className="text-[10px] text-zinc-650 font-mono shrink-0">{log.timestamp.substring(11, 19)}</span>
-                        <Badge className="bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/10 font-mono text-[9px] uppercase px-1.5 py-0 shrink-0">
-                          {log.action}
-                        </Badge>
-                        <span className="text-zinc-300 text-xs truncate max-w-[400px] sm:max-w-none">{log.details}</span>
-                      </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
+
+              {/* User Detail Panel */}
+              <div className="lg:col-span-3">
+                {!selectedUser ? (
+                  <div className="h-full min-h-[200px] flex items-center justify-center bg-zinc-900/40 border border-zinc-800/40 border-dashed rounded-2xl">
+                    <div className="text-center space-y-2">
+                      <UserCheck className="w-8 h-8 text-zinc-700 mx-auto" />
+                      <p className="text-sm text-zinc-600">Select a trainer to view details</p>
+                    </div>
+                  </div>
+                ) : loadingUserDetail ? (
+                  <div className="h-64 bg-zinc-900/40 border border-zinc-800/40 rounded-2xl animate-pulse" />
+                ) : (
+                  <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5 space-y-5">
+                    {/* Profile header */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-800 shrink-0">
+                        {selectedUser.avatar ? <img src={selectedUser.avatar} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-400 text-xl font-bold">{selectedUser.username?.[0]?.toUpperCase()}</div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-black text-zinc-100">{selectedUser.username}</h3>
+                          {selectedUser.is_admin && <Badge color="fuchsia">Admin</Badge>}
+                          {selectedUser.is_banned && <Badge color="rose">Banned</Badge>}
+                        </div>
+                        <p className="text-xs text-zinc-500 mt-0.5">FID {selectedUser.fid} · Joined {new Date(selectedUser.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+
+                    {/* Stats grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Pack Tickets", value: selectedUser.pack_tickets || 0, icon: "🎟" },
+                        { label: "Packs Opened", value: selectedUser.packs_opened || 0, icon: "📦" },
+                        { label: "Login Streak", value: selectedUser.login_streak || 0, icon: "🔥" },
+                        { label: "Best Streak", value: selectedUser.highest_streak || 0, icon: "🏆" },
+                        { label: "Total Cards", value: selectedUserCards.length, icon: "🃏" },
+                        { label: "Unique Cards", value: new Set(selectedUserCards.map((c: any) => c.card_id)).size, icon: "✨" },
+                      ].map((s) => (
+                        <div key={s.label} className="bg-zinc-950/60 rounded-xl p-2.5 text-center">
+                          <div className="text-lg mb-0.5">{s.icon}</div>
+                          <div className="text-lg font-black text-zinc-100">{s.value.toLocaleString()}</div>
+                          <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ticket management */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Ticket Management</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={9999}
+                          value={ticketAmount}
+                          onChange={(e) => setTicketAmount(Number(e.target.value))}
+                          className="w-20 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-sm text-zinc-200 text-center focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50"
+                        />
+                        <button onClick={() => handleAddTickets(selectedUser.id)} className="flex-1 h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                          <Plus className="w-3.5 h-3.5" /> Add
+                        </button>
+                        <button onClick={() => handleRemoveTickets(selectedUser.id)} className="flex-1 h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                          <X className="w-3.5 h-3.5" /> Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Grant cards */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Grant Cards</p>
+                      <div className="flex gap-2">
+                        <input type="number" min={1} max={100} value={grantCardCount} onChange={(e) => setGrantCardCount(Number(e.target.value))}
+                          className="w-20 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-sm text-zinc-200 text-center focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50" />
+                        <select value={selectedSetFilter} onChange={(e) => setSelectedSetFilter(e.target.value)}
+                          className="flex-1 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-xs text-zinc-300 focus:outline-none min-w-0">
+                          {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <button onClick={() => handleUserGrantCards(selectedUser.id)}
+                          className="h-9 px-3 bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border border-violet-500/20 rounded-lg text-xs font-semibold transition-all flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5" /> Grant
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Ban reason */}
+                    {!selectedUser.is_banned && (
+                      <input type="text" placeholder="Ban reason (optional)..." value={banReason} onChange={(e) => setBanReason(e.target.value)}
+                        className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-3 text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50" />
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedUser.is_banned ? (
+                        <button onClick={() => handleUnbanUser(selectedUser.id)}
+                          className="col-span-2 h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Unban User
+                        </button>
+                      ) : (
+                        <button onClick={() => handleBanUser(selectedUser.id)}
+                          className="h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          <Ban className="w-3.5 h-3.5" /> Ban
+                        </button>
+                      )}
+                      <button onClick={() => handleResetStreak(selectedUser.id)}
+                        className="h-9 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        <RotateCcw className="w-3.5 h-3.5" /> Reset Streak
+                      </button>
+                      <button onClick={() => handleUserClearCollection(selectedUser.id)}
+                        className="h-9 bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5" /> Clear Cards
+                      </button>
+                      <button onClick={() => handleUserDelete(selectedUser.id)}
+                        className="col-span-2 h-9 bg-rose-900/30 hover:bg-rose-800/40 text-rose-400 border border-rose-900/50 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5" /> Delete Account Permanently
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-      </div>
+        {/* ── PACKS TAB ────────────────────────────────────────────────── */}
+        {activeTab === "packs" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Pack Management</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Enable, disable, and feature expansion packs</p>
+              </div>
+              <button onClick={fetchPacks} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {loadingPacks ? (
+              <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+            ) : (
+              <div className="space-y-2">
+                {packs.map((pack) => (
+                  <div key={pack.id} className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${pack.pack_enabled ? "bg-zinc-900/60 border-zinc-800/60" : "bg-zinc-900/30 border-zinc-800/30 opacity-60"}`}>
+                    {pack.logo && (
+                      <img src={pack.logo} alt={pack.name} className="w-10 h-10 object-contain rounded-xl bg-zinc-800 p-1 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-zinc-100 truncate">{pack.name}</span>
+                        {pack.featured_pack && <Badge color="amber">⭐ Featured</Badge>}
+                        {!pack.pack_enabled && <Badge color="rose">Disabled</Badge>}
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">{pack.series || "—"} · {pack.id}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Featured toggle */}
+                      <button
+                        onClick={() => handlePackUpdate(pack.id, pack.pack_enabled, !pack.featured_pack)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${pack.featured_pack ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-zinc-800 text-zinc-400 hover:text-amber-300 border border-zinc-700"}`}
+                      >
+                        <Star className="w-3 h-3" /> {pack.featured_pack ? "Featured" : "Feature"}
+                      </button>
+                      {/* Enable/Disable toggle */}
+                      <button
+                        onClick={() => handlePackUpdate(pack.id, !pack.pack_enabled, pack.featured_pack)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${pack.pack_enabled ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 hover:bg-rose-500/15 hover:text-rose-300 hover:border-rose-500/20" : "bg-zinc-800 text-zinc-400 hover:text-emerald-300 border border-zinc-700"}`}
+                      >
+                        {pack.pack_enabled ? "Enabled" : "Enable"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pack Simulator */}
+            <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 space-y-3">
+              <SectionHeader title="Pack Pull Simulator" />
+              <div className="flex gap-2">
+                <select value={selectedSetFilter} onChange={(e) => setSelectedSetFilter(e.target.value)}
+                  className="flex-1 h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-xs text-zinc-300 focus:outline-none">
+                  {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button onClick={() => handleSimulatePacks(selectedSetFilter)} disabled={simulating}
+                  className="flex items-center gap-1.5 px-4 h-9 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 text-white rounded-xl text-xs font-semibold transition-all">
+                  {simulating ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Cpu className="w-3.5 h-3.5" />}
+                  Simulate 5,000 Pulls
+                </button>
+              </div>
+              {simResults.length > 0 && (
+                <div className="space-y-1.5">
+                  {simResults.sort((a, b) => b.count - a.count).map((r) => (
+                    <div key={r.rarity} className="flex items-center gap-2">
+                      <div className="w-32 text-[11px] text-zinc-400 truncate">{r.rarity}</div>
+                      <div className="flex-1 h-5 bg-zinc-950 rounded-full overflow-hidden">
+                        <div className="h-full bg-fuchsia-500/40 rounded-full transition-all" style={{ width: `${r.percentage}%` }} />
+                      </div>
+                      <div className="w-10 text-[11px] text-zinc-400 text-right">{r.percentage}%</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── EVENTS TAB ───────────────────────────────────────────────── */}
+        {activeTab === "events" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Event Management</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Create and manage limited-time event packs</p>
+              </div>
+              <button onClick={() => { setEditingEvent(null); setEventForm(true); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold transition-all">
+                <Plus className="w-3.5 h-3.5" /> New Event
+              </button>
+            </div>
+
+            {/* Event Create/Edit Form */}
+            {eventForm && (
+              <form onSubmit={handleEventSave} className="bg-zinc-900/60 border border-fuchsia-500/20 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-zinc-100">{editingEvent ? "Edit Event" : "Create New Event"}</h3>
+                  <button type="button" onClick={() => { setEventForm(null); setEditingEvent(null); }} className="text-zinc-500 hover:text-zinc-300 transition-colors"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Event Name *</label>
+                    <input name="name" required defaultValue={editingEvent?.name} placeholder="e.g. Summer Festival Event"
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Bonus Drop Rate (×)</label>
+                    <input name="bonus_drop_rate" type="number" min="0.1" max="10" step="0.1" defaultValue={editingEvent?.bonus_drop_rate || 1.0}
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Start Date *</label>
+                    <input name="start_date" type="datetime-local" required defaultValue={editingEvent?.start_date?.slice(0, 16)}
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">End Date *</label>
+                    <input name="end_date" type="datetime-local" required defaultValue={editingEvent?.end_date?.slice(0, 16)}
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Description</label>
+                    <textarea name="description" defaultValue={editingEvent?.description} rows={2} placeholder="Optional event description..."
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-200 resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button type="button" onClick={() => { setEventForm(null); setEditingEvent(null); }}
+                    className="h-9 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-all">Cancel</button>
+                  <button type="submit" className="h-9 px-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    <Save className="w-3.5 h-3.5" /> {editingEvent ? "Save Changes" : "Create Event"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {loadingEvents ? (
+              <div className="space-y-2">{Array(3).fill(0).map((_, i) => <div key={i} className="h-20 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+            ) : events.length === 0 ? (
+              <div className="text-center py-16 space-y-3">
+                <Calendar className="w-8 h-8 text-zinc-700 mx-auto" />
+                <p className="text-sm text-zinc-600">No events yet. Create your first event pack!</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {events.map((ev) => {
+                  const now = new Date();
+                  const isLive = ev.is_active && new Date(ev.start_date) <= now && new Date(ev.end_date) >= now;
+                  const isExpired = new Date(ev.end_date) < now;
+                  return (
+                    <div key={ev.id} className={`bg-zinc-900/60 border rounded-2xl p-4 transition-all ${isLive ? "border-emerald-500/30" : isExpired ? "border-zinc-800/30 opacity-50" : "border-zinc-800/60"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-zinc-100">{ev.name}</span>
+                            {isLive && <Badge color="emerald">🟢 Live</Badge>}
+                            {isExpired && <Badge color="zinc">Expired</Badge>}
+                            {!ev.is_active && !isExpired && <Badge color="zinc">Disabled</Badge>}
+                            <Badge color="sky">{ev.bonus_drop_rate}× Drop Rate</Badge>
+                          </div>
+                          {ev.description && <p className="text-xs text-zinc-500 mt-1">{ev.description}</p>}
+                          <p className="text-[11px] text-zinc-600 mt-1">
+                            {new Date(ev.start_date).toLocaleString()} → {new Date(ev.end_date).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button onClick={() => { setEditingEvent(ev); setEventForm(true); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors">
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleToggleEventActive(ev)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${ev.is_active ? "bg-emerald-500/15 text-emerald-400 hover:bg-rose-500/15 hover:text-rose-400" : "bg-zinc-800 text-zinc-500 hover:text-emerald-400"}`}>
+                            {ev.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+                          <button onClick={() => handleEventDelete(ev.id)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-rose-500/15 text-zinc-500 hover:text-rose-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── CARDS TAB ────────────────────────────────────────────────── */}
+        {activeTab === "cards" && (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-black text-zinc-100">Card Management</h1>
+              <p className="text-xs text-zinc-500 mt-0.5">Hide or unhide cards from player packs</p>
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input type="text" placeholder="Search cards..." value={cardSearch} onChange={(e) => setCardSearch(e.target.value)}
+                  className="w-full h-10 pl-9 pr-4 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 transition-all" />
+              </div>
+              <select value={selectedSetFilter} onChange={(e) => setSelectedSetFilter(e.target.value)}
+                className="h-10 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-xs text-zinc-300 focus:outline-none max-w-[180px]">
+                {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+
+            {loadingCards ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                {Array(10).fill(0).map((_, i) => <div key={i} className="aspect-[3/4] bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}
+              </div>
+            ) : cards.length === 0 ? (
+              <div className="text-center py-16 text-zinc-600 text-sm">No cards found</div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                {cards.map((card) => (
+                  <div key={card.id} className={`group relative bg-zinc-900/60 border rounded-2xl overflow-hidden transition-all ${card.hidden ? "border-rose-500/20 opacity-40" : "border-zinc-800/60 hover:border-zinc-700"}`}>
+                    <div className="relative">
+                      <img src={card.image || card.imageUrl} alt={card.name}
+                        className={`w-full aspect-[3/4] object-contain bg-zinc-900 p-2 transition-all ${card.hidden ? "grayscale" : ""}`}
+                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.pokemontcg.io/base1/1.png"; }} />
+                      {card.hidden && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-t-2xl">
+                          <EyeOff className="w-6 h-6 text-rose-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2 space-y-1">
+                      <p className="text-xs font-bold text-zinc-200 truncate">{card.name}</p>
+                      <p className="text-[10px] text-zinc-500">{card.rarity || "—"}</p>
+                    </div>
+                    <button onClick={() => handleToggleCardHide(card)}
+                      className={`absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all ${card.hidden ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                      {card.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ANALYTICS TAB ────────────────────────────────────────────── */}
+        {activeTab === "analytics" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Analytics</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Game activity and engagement metrics</p>
+              </div>
+              <button onClick={fetchAnalytics} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {loadingAnalytics ? (
+              <div className="space-y-4">{Array(3).fill(0).map((_, i) => <div key={i} className="h-32 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+            ) : analytics ? (
+              <>
+                {/* Quick stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <StatCard icon={<Users className="w-5 h-5" />} label="New Today" value={analytics.newUsersToday} accent="bg-sky-500/10 text-sky-400" />
+                  <StatCard icon={<Package className="w-5 h-5" />} label="Rewards Today" value={analytics.packsOpenedToday} accent="bg-amber-500/10 text-amber-400" />
+                  {analytics.mostOpenedPack && (
+                    <StatCard icon={<Trophy className="w-5 h-5" />} label="Top Pack" value={analytics.mostOpenedPack.name} sub={`${analytics.mostOpenedPack.count.toLocaleString()} cards pulled`} accent="bg-fuchsia-500/10 text-fuchsia-400" />
+                  )}
+                </div>
+
+                {/* DAU Chart */}
+                <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
+                  <SectionHeader title="Daily Active Users (Last 7 Days)" />
+                  <BarChart data={analytics.dauData} />
+                </div>
+
+                {/* Top cards */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {analytics.mostCollectedCard?.card && (
+                    <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
+                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">Most Collected Card</p>
+                      <div className="flex items-center gap-3">
+                        <img src={analytics.mostCollectedCard.card.image || analytics.mostCollectedCard.card.imageUrl} alt={analytics.mostCollectedCard.card.name}
+                          className="w-16 h-22 object-contain rounded-xl bg-zinc-800 p-1" />
+                        <div>
+                          <p className="font-bold text-zinc-100">{analytics.mostCollectedCard.card.name}</p>
+                          <p className="text-xs text-zinc-500">{analytics.mostCollectedCard.card.rarity}</p>
+                          <p className="text-2xl font-black text-fuchsia-400 mt-1">{analytics.mostCollectedCard.count.toLocaleString()}×</p>
+                          <p className="text-xs text-zinc-600">total copies owned</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {analytics.mostWishlistedCard?.card && (
+                    <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
+                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">Most Wishlisted Card</p>
+                      <div className="flex items-center gap-3">
+                        <img src={analytics.mostWishlistedCard.card.image || analytics.mostWishlistedCard.card.imageUrl} alt={analytics.mostWishlistedCard.card.name}
+                          className="w-16 h-22 object-contain rounded-xl bg-zinc-800 p-1" />
+                        <div>
+                          <p className="font-bold text-zinc-100">{analytics.mostWishlistedCard.card.name}</p>
+                          <p className="text-xs text-zinc-500">{analytics.mostWishlistedCard.card.rarity}</p>
+                          <p className="text-2xl font-black text-rose-400 mt-1">{analytics.mostWishlistedCard.count.toLocaleString()}×</p>
+                          <p className="text-xs text-zinc-600">on wishlists</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-zinc-600 text-sm">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-zinc-700" />
+                No analytics data yet
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── AUDIT LOG TAB ────────────────────────────────────────────── */}
+        {activeTab === "audit" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Audit Log</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">All admin actions — persistent database record</p>
+              </div>
+              <button onClick={fetchAuditLogs} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {loadingAudit ? (
+              <div className="space-y-2">{Array(8).fill(0).map((_, i) => <div key={i} className="h-12 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
+            ) : auditLogs.length === 0 ? (
+              <div className="text-center py-16">
+                <Clock className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                <p className="text-sm text-zinc-600">No audit logs yet. Actions will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {auditLogs.map((log, i) => {
+                  const actionColors: Record<string, string> = {
+                    BAN_USER: "text-rose-400 bg-rose-500/10",
+                    UNBAN_USER: "text-emerald-400 bg-emerald-500/10",
+                    USER_DELETE: "text-red-400 bg-red-500/10",
+                    ADD_TICKETS: "text-amber-400 bg-amber-500/10",
+                    REMOVE_TICKETS: "text-orange-400 bg-orange-500/10",
+                    RESET_STREAK: "text-sky-400 bg-sky-500/10",
+                    USER_GRANT: "text-violet-400 bg-violet-500/10",
+                    USER_CLEAR: "text-orange-400 bg-orange-500/10",
+                    PACK_UPDATE: "text-fuchsia-400 bg-fuchsia-500/10",
+                    EVENT_CREATE: "text-teal-400 bg-teal-500/10",
+                    EVENT_UPDATE: "text-teal-400 bg-teal-500/10",
+                    EVENT_DELETE: "text-rose-400 bg-rose-500/10",
+                  };
+                  const colorClass = actionColors[log.action] || "text-zinc-400 bg-zinc-800";
+                  return (
+                    <div key={log.id || i} className="flex items-start gap-3 px-3 py-2.5 bg-zinc-900/40 border border-zinc-800/40 rounded-xl hover:border-zinc-700 transition-colors">
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg shrink-0 ${colorClass}`}>{log.action}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-zinc-300 truncate">{log.details}</p>
+                        {log.admin && <p className="text-[10px] text-zinc-600 mt-0.5">by {log.admin.username || "Admin"}</p>}
+                      </div>
+                      <span className="text-[10px] text-zinc-600 shrink-0 font-mono">{new Date(log.created_at).toLocaleString()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── MARKET TAB ───────────────────────────────────────────────── */}
+        {activeTab === "market" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Marketplace Moderation</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Review listings, reports, and trade board activity</p>
+              </div>
+              <button onClick={fetchMarketAdmin} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Market Stats */}
+            {marketStats && (
+              <div className="grid grid-cols-3 gap-3">
+                <StatCard icon={<Package className="w-5 h-5" />} label="Active Listings" value={marketStats.totalActive} accent="bg-emerald-500/10 text-emerald-400" />
+                <StatCard icon={<ArrowLeftRight className="w-5 h-5" />} label="Total Offers" value={marketStats.totalOffers} accent="bg-sky-500/10 text-sky-400" />
+                <StatCard icon={<ShieldAlert className="w-5 h-5" />} label="Open Reports" value={marketStats.unresolvedReports} accent={marketStats.unresolvedReports > 0 ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-400"} />
+              </div>
+            )}
+
+            {/* Unresolved Reports */}
+            {marketReports.length > 0 && (
+              <div className="space-y-3">
+                <SectionHeader title={`🚨 Pending Reports (${marketReports.length})`} />
+                {marketReports.map((report: any) => (
+                  <div key={report.id} className="flex items-start gap-3 p-4 bg-rose-500/5 border border-rose-500/15 rounded-2xl">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className="text-xs font-semibold text-rose-300">Reported by: {report.reporter?.username || "Unknown"}</p>
+                      <p className="text-xs text-zinc-400">Reason: {report.reason}</p>
+                      {report.listing && <p className="text-[10px] font-mono text-zinc-600">Listing ID: {report.listing_id}</p>}
+                      <p className="text-[10px] text-zinc-600">{new Date(report.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {report.listing_id && (
+                        <button onClick={() => handleMarketRemoveListing(report.listing_id)}
+                          className="px-3 py-1.5 bg-rose-500/15 text-rose-400 text-xs font-semibold rounded-lg border border-rose-500/20 hover:bg-rose-500/25 transition-all">
+                          Remove
+                        </button>
+                      )}
+                      <button onClick={() => handleMarketResolveReport(report.id)}
+                        className="px-3 py-1.5 bg-zinc-800 text-zinc-400 text-xs font-semibold rounded-lg hover:bg-zinc-700 transition-all">
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* All Listings */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <SectionHeader title="All Active Listings" />
+                <input value={marketSearch} onChange={e => setMarketSearch(e.target.value)} placeholder="Filter by listing ID…"
+                  className="flex-1 h-8 bg-zinc-900 border border-zinc-800 rounded-lg px-3 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/40" />
+              </div>
+
+              {loadingMarket ? (
+                <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
+              ) : marketListings.length === 0 ? (
+                <div className="text-center py-12 text-zinc-600 text-sm">No listings found</div>
+              ) : (
+                <div className="space-y-2">
+                  {marketListings
+                    .filter((l: any) => !marketSearch || l.id.includes(marketSearch) || l.user?.username?.includes(marketSearch))
+                    .map((listing: any) => (
+                      <div key={listing.id} className="flex items-start gap-3 p-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl hover:border-zinc-700 transition-colors">
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-zinc-200">{listing.user?.username || "Unknown"}</span>
+                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
+                              listing.status === "active" ? "bg-emerald-500/15 text-emerald-300" :
+                              listing.status === "completed" ? "bg-sky-500/15 text-sky-300" :
+                              "bg-zinc-700/50 text-zinc-400"
+                            }`}>{listing.status}</span>
+                            <span className="text-[9px] text-zinc-600">{listing.offerCount} offer{listing.offerCount !== 1 ? "s" : ""}</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-500">
+                            Wants {listing.wantCards?.length || 0} cards · Offers {listing.offerCards?.length || 0} cards
+                          </p>
+                          <p className="text-[10px] font-mono text-zinc-700">{listing.id}</p>
+                        </div>
+                        {listing.status === "active" && (
+                          <button onClick={() => handleMarketRemoveListing(listing.id)}
+                            className="shrink-0 px-2.5 py-1 bg-rose-500/10 text-rose-400 text-[10px] font-semibold rounded-lg border border-rose-500/15 hover:bg-rose-500/20 transition-all">
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      </main>
     </div>
   );
 }
