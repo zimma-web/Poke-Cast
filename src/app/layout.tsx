@@ -15,8 +15,40 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "PokéCast",
-  description: "Farcaster Collectible Card Game",
+  description: "The ultimate Farcaster Pokémon TCG Mini App. Rip packs, collect cards, and trade on Base Chain!",
+  openGraph: {
+    title: "PokéCast",
+    description: "The ultimate Farcaster Pokémon TCG Mini App. Rip packs, collect cards, and trade on Base Chain!",
+    url: "https://poke-cast.vercel.app",
+    siteName: "PokéCast",
+    images: [
+      {
+        url: "https://poke-cast.vercel.app/PokeCast.png",
+        width: 1200,
+        height: 800,
+        alt: "PokéCast",
+      },
+    ],
+    type: "website",
+  },
+  other: {
+    "fc:frame": JSON.stringify({
+      version: "next",
+      imageUrl: "https://poke-cast.vercel.app/PokeCast.png",
+      button: {
+        title: "Open PokéCast",
+        action: {
+          type: "launch_frame",
+          name: "PokéCast",
+          url: "https://poke-cast.vercel.app",
+          splashImageUrl: "https://poke-cast.vercel.app/PokeCast.png",
+          splashBackgroundColor: "#09090b",
+        },
+      },
+    }),
+  },
 };
+
 
 export default function RootLayout({
   children,
