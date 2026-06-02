@@ -24,7 +24,9 @@ import {
   Plus,
   Save,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<"overview" | "users" | "cards" | "sets" | "settings">("overview");
   const [stats, setStats] = useState<any>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearch, setUserSearch] = useState("");
@@ -64,6 +66,12 @@ export default function AdminDashboard() {
   const [dbSyncing, setDbSyncing] = useState(false);
   const [grantCardCount, setGrantCardCount] = useState(10);
   
+  // Security Password Gate states
+  const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean | null>(null);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+
   // Alerts and notices
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
@@ -72,20 +80,37 @@ export default function AdminDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Centralized authenticated Admin Fetch helper
+  const adminFetch = async (action: string, payload?: any) => {
+    const currentPassword = adminPassword || sessionStorage.getItem("pokecast_admin_password") || "";
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": currentPassword
+      },
+      body: JSON.stringify({ action, payload })
+    });
+    
+    if (res.status === 401) {
+      setIsAdminAuthorized(false);
+      sessionStorage.removeItem("pokecast_admin_password");
+      throw new Error("Unauthorized access. Please login again.");
+    }
+    
+    return res;
+  };
+
   // 1. Fetch system statistics
   const fetchStats = async () => {
     setLoadingStats(true);
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "stats" })
-      });
+      const res = await adminFetch("stats");
       const data = await res.json();
       setStats(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast("Failed to fetch dashboard statistics", "error");
+      showToast(e.message || "Failed to fetch dashboard statistics", "error");
     } finally {
       setLoadingStats(false);
     }
@@ -95,19 +120,12 @@ export default function AdminDashboard() {
   const fetchUsers = async (searchQuery = "") => {
     setLoadingUsers(true);
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "users_list",
-          payload: { search: searchQuery }
-        })
-      });
+      const res = await adminFetch("users_list", { search: searchQuery });
       const data = await res.json();
       setUsers(data.users || []);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast("Failed to load user list", "error");
+      showToast(e.message || "Failed to load user list", "error");
     } finally {
       setLoadingUsers(false);
     }
@@ -117,20 +135,13 @@ export default function AdminDashboard() {
   const fetchUserDetail = async (userId: string) => {
     setLoadingUserDetail(true);
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "user_detail",
-          payload: { userId }
-        })
-      });
+      const res = await adminFetch("user_detail", { userId });
       const data = await res.json();
       setSelectedUser(data.user);
       setSelectedUserCards(data.cards || []);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast("Failed to load user collection data", "error");
+      showToast(e.message || "Failed to load user collection data", "error");
     } finally {
       setLoadingUserDetail(false);
     }
@@ -169,11 +180,7 @@ export default function AdminDashboard() {
   // 6. Fetch audit logs
   const fetchAuditLogs = async () => {
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "audit_logs" })
-      });
+      const res = await adminFetch("audit_logs");
       const data = await res.json();
       setAuditLogs(data.logs || []);
     } catch (e) {
@@ -181,13 +188,29 @@ export default function AdminDashboard() {
     }
   };
 
+  // Check storage session on mount
   useEffect(() => {
-    fetchStats();
-    fetchSets();
-    fetchAuditLogs();
+    const storedPassword = sessionStorage.getItem("pokecast_admin_password");
+    if (storedPassword) {
+      setAdminPassword(storedPassword);
+      setIsAdminAuthorized(true);
+    } else {
+      setIsAdminAuthorized(false);
+    }
   }, []);
 
+  // Fetch initial data when authorized
   useEffect(() => {
+    if (isAdminAuthorized === true) {
+      fetchStats();
+      fetchSets();
+      fetchAuditLogs();
+    }
+  }, [isAdminAuthorized]);
+
+  // Tab dynamic loading
+  useEffect(() => {
+    if (isAdminAuthorized !== true) return;
     if (activeTab === "users") {
       fetchUsers(userSearch);
     } else if (activeTab === "cards") {
@@ -195,25 +218,55 @@ export default function AdminDashboard() {
     } else if (activeTab === "settings") {
       fetchAuditLogs();
     }
-  }, [activeTab, selectedSetFilter, userSearch]);
+  }, [activeTab, selectedSetFilter, userSearch, isAdminAuthorized]);
+
+  // Handle Admin Login submission
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "login",
+          payload: { password: adminPassword }
+        })
+      });
+      const data = await res.json();
+      if (res.status === 401 || data.error) {
+        throw new Error(data.error || "Incorrect password");
+      }
+      
+      sessionStorage.setItem("pokecast_admin_password", adminPassword);
+      setIsAdminAuthorized(true);
+      showToast("Access granted. Welcome to Admin Control Room!");
+    } catch (err: any) {
+      setLoginError(err.message || "Failed to authenticate.");
+      showToast(err.message || "Invalid credentials", "error");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("pokecast_admin_password");
+    setAdminPassword("");
+    setIsAdminAuthorized(false);
+    showToast("Logged out successfully.", "info");
+  };
 
   // Handler for user changes
   const handleUserUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "user_update",
-          payload: {
-            userId: selectedUser.id,
-            username: selectedUser.username,
-            avatar: selectedUser.avatar,
-            packsOpened: Number(selectedUser.packs_opened)
-          }
-        })
+      const res = await adminFetch("user_update", {
+        userId: selectedUser.id,
+        username: selectedUser.username,
+        avatar: selectedUser.avatar,
+        packsOpened: Number(selectedUser.packs_opened)
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -227,14 +280,7 @@ export default function AdminDashboard() {
   const handleUserDelete = async (userId: string) => {
     if (!confirm("Are you sure you want to permanently delete this user account? This will also wipe their card collections!")) return;
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "user_delete",
-          payload: { userId }
-        })
-      });
+      const res = await adminFetch("user_delete", { userId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       showToast("Trainer account deleted successfully.");
@@ -249,14 +295,7 @@ export default function AdminDashboard() {
   const handleUserClearCollection = async (userId: string) => {
     if (!confirm("Wipe all obtained cards for this user? This cannot be undone!")) return;
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "user_clear",
-          payload: { userId }
-        })
-      });
+      const res = await adminFetch("user_clear", { userId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       showToast("Trainer card collections wiped.");
@@ -269,14 +308,7 @@ export default function AdminDashboard() {
 
   const handleUserGrantCards = async (userId: string) => {
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "user_grant",
-          payload: { userId, count: grantCardCount, setId: selectedSetFilter }
-        })
-      });
+      const res = await adminFetch("user_grant", { userId, count: grantCardCount, setId: selectedSetFilter });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       showToast(`Granted ${data.grantedCount} cards to collection!`);
@@ -292,21 +324,14 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!selectedCardEdit) return;
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "card_update",
-          payload: {
-            cardId: selectedCardEdit.id,
-            updatedFields: {
-              name: selectedCardEdit.name,
-              number: selectedCardEdit.number,
-              rarity: selectedCardEdit.rarity,
-              hp: selectedCardEdit.hp ? Number(selectedCardEdit.hp) : null
-            }
-          }
-        })
+      const res = await adminFetch("card_update", {
+        cardId: selectedCardEdit.id,
+        updatedFields: {
+          name: selectedCardEdit.name,
+          number: selectedCardEdit.number,
+          rarity: selectedCardEdit.rarity,
+          hp: selectedCardEdit.hp ? Number(selectedCardEdit.hp) : null
+        }
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -323,22 +348,15 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!selectedSetEdit) return;
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "set_update",
-          payload: {
-            setId: selectedSetEdit.id,
-            updatedFields: {
-              name: selectedSetEdit.name,
-              series: selectedSetEdit.series,
-              releaseDate: selectedSetEdit.releaseDate,
-              logo: selectedSetEdit.logo,
-              symbol: selectedSetEdit.symbol
-            }
-          }
-        })
+      const res = await adminFetch("set_update", {
+        setId: selectedSetEdit.id,
+        updatedFields: {
+          name: selectedSetEdit.name,
+          series: selectedSetEdit.series,
+          releaseDate: selectedSetEdit.releaseDate,
+          logo: selectedSetEdit.logo,
+          symbol: selectedSetEdit.symbol
+        }
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -354,14 +372,7 @@ export default function AdminDashboard() {
   const handleSimulatePacks = async (setId: string) => {
     setSimulating(true);
     try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "simulate_packs",
-          payload: { setId }
-        })
-      });
+      const res = await adminFetch("simulate_packs", { setId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setSimResults(data.distribution || []);
@@ -377,7 +388,6 @@ export default function AdminDashboard() {
   const handleResetRecalculate = async () => {
     setDbSyncing(true);
     try {
-      // Dummy timeout simulating statistical scans
       await new Promise(resolve => setTimeout(resolve, 1500));
       showToast("All user collection completion stats scanned and synchronized!");
       fetchStats();
@@ -389,7 +399,6 @@ export default function AdminDashboard() {
   };
 
   const exportCollectionCSV = () => {
-    // Generate dummy CSV file structure
     let csvContent = "data:text/csv;charset=utf-8,Trainer,FID,PacksOpened,CardID,obtained_at\n";
     users.forEach(u => {
       csvContent += `"${u.username}","${u.fid}","${u.packs_opened}","",""\n`;
@@ -404,6 +413,65 @@ export default function AdminDashboard() {
     showToast("Trainers database CSV export downloaded.");
   };
 
+  // RENDER PASSWORD GATE LOGIN SCREEN
+  if (isAdminAuthorized === false) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6 select-none relative overflow-hidden font-sans">
+        {/* Glow filters */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-8 backdrop-blur-xl shadow-2xl relative z-10 space-y-6">
+          <div className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 rounded-2xl flex items-center justify-center text-xl mb-2">
+              <Lock className="w-5 h-5 animate-pulse" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-zinc-100">PokéCast Admin Access</h1>
+            <p className="text-xs text-zinc-500">Please authenticate with the password gate</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Admin Password</label>
+              <Input 
+                type="password"
+                placeholder="Enter password..."
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="h-11 bg-zinc-950 border-zinc-850 rounded-xl text-center text-sm font-mono tracking-wider focus-visible:ring-fuchsia-500"
+                autoFocus
+              />
+            </div>
+
+            {loginError && (
+              <p className="text-xs text-rose-400 text-center font-medium bg-rose-500/5 border border-rose-500/10 p-2.5 rounded-xl">
+                {loginError}
+              </p>
+            )}
+
+            <Button 
+              type="submit" 
+              className="w-full h-11 bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-fuchsia-500/10"
+              disabled={loginLoading}
+            >
+              {loginLoading ? "Verifying..." : "Access Control Room"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // RENDER LOADING STATE ON INITIAL BOOTSTRAP
+  if (isAdminAuthorized === null) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center font-sans">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-fuchsia-500 border-r-2 border-r-transparent" />
+      </div>
+    );
+  }
+
+  // RENDER FULL-SCREEN RESPONSIBLE ADMIN DASHBOARD
   return (
     <div className="min-h-screen bg-zinc-950 text-white font-sans selection:bg-fuchsia-500/30">
       
@@ -425,7 +493,7 @@ export default function AdminDashboard() {
         {/* Title Header */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-6 backdrop-blur-xl gap-4">
           <div className="space-y-1">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-wrap">
               <span className="text-2xl">⚡</span>
               <h1 className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-violet-400 to-indigo-400">
                 PokéCast Admin Panel
@@ -446,10 +514,14 @@ export default function AdminDashboard() {
             >
               <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh Stats
             </Button>
-            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 h-9 px-3 flex items-center rounded-xl font-mono text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2" />
-              SYSTEM ONLINE
-            </Badge>
+            <Button 
+              size="sm" 
+              variant="destructive"
+              className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:text-rose-400 text-zinc-400 h-9 rounded-xl font-mono text-xs"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-3.5 h-3.5 mr-1" /> Logout
+            </Button>
           </div>
         </header>
 
@@ -484,7 +556,7 @@ export default function AdminDashboard() {
         {/* TAB 1: OVERVIEW SCREEN */}
         {activeTab === "overview" && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Core Stats Cards (Features 1 - 4) */}
+            {/* Core Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="bg-zinc-900/30 border-zinc-800/80 rounded-2xl">
                 <CardContent className="p-4 flex flex-col space-y-1">
@@ -533,7 +605,7 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* Performance Indicators (Features 5 - 8) */}
+            {/* Performance Indicators */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-zinc-900/20 border-zinc-800/60 rounded-3xl p-6 space-y-4">
                 <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 flex items-center">
@@ -572,7 +644,7 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* Additional Features List Grid (Features 9 - 10) */}
+            {/* Additional Health check stats */}
             <div className="bg-zinc-900/10 border border-zinc-800/50 rounded-3xl p-6 space-y-4">
               <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400">Database Health Checks</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
@@ -604,7 +676,7 @@ export default function AdminDashboard() {
         {/* TAB 2: TRAINER MANAGER */}
         {activeTab === "users" && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Search and actions bar (Features 11 - 12) */}
+            {/* Search and actions bar */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
@@ -623,7 +695,7 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
-            {/* Users Table List (Features 13 - 15) */}
+            {/* Users Table List */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* Left Column: Users List */}
@@ -691,7 +763,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Right Column: Selected User Manager Detail view (Features 16 - 20) */}
+              {/* Right Column: Selected User Manager Detail view */}
               <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[500px] overflow-y-auto no-scrollbar">
                 {loadingUserDetail ? (
                   <div className="flex flex-col items-center justify-center h-full text-zinc-500">
@@ -808,7 +880,7 @@ export default function AdminDashboard() {
         {/* TAB 3: CARD EDITOR */}
         {activeTab === "cards" && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Filter and selection bar (Features 21 - 23) */}
+            {/* Filter and selection bar */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="w-full sm:w-[280px]">
                 <select
@@ -843,7 +915,7 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
-            {/* List and editor layout (Features 24 - 30) */}
+            {/* List and editor layout */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* Cards database list */}
@@ -1001,7 +1073,7 @@ export default function AdminDashboard() {
         {/* TAB 4: SET & PACK MANAGER */}
         {activeTab === "sets" && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* List and editor layout (Features 31 - 40) */}
+            {/* List and editor layout */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* Set Database Grid */}
@@ -1060,7 +1132,7 @@ export default function AdminDashboard() {
               {/* Set details edit OR probability simulator dashboard view */}
               <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[550px] overflow-y-auto no-scrollbar">
                 
-                {/* Probability Simulation chart (Feature 36 - 37) */}
+                {/* Probability Simulation chart */}
                 {simResults.length > 0 && !selectedSetEdit && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
@@ -1098,7 +1170,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Set updates form (Feature 33 - 35) */}
+                {/* Set updates form */}
                 {!simResults.length && selectedSetEdit && (
                   <form onSubmit={handleSetUpdate} className="space-y-5">
                     <div className="border-b border-zinc-800 pb-3 flex justify-between items-center">
@@ -1195,7 +1267,7 @@ export default function AdminDashboard() {
         {/* TAB 5: SYSTEM SETTINGS */}
         {activeTab === "settings" && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* System config cards (Features 41 - 46) */}
+            {/* System config cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 space-y-6">
@@ -1297,7 +1369,7 @@ export default function AdminDashboard() {
 
             </div>
 
-            {/* Audit Trail view (Features 47 - 50) */}
+            {/* Audit Trail view */}
             <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-3xl p-6 space-y-4">
               <h3 className="text-sm font-black font-mono uppercase tracking-wider text-zinc-400 border-b border-zinc-800 pb-2">
                 Administrative Audit Trail Log
@@ -1310,13 +1382,13 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   auditLogs.map((log, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-900/60 pb-1.5 gap-1.5">
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-900/60 pb-1.5 gap-1.5 font-sans">
                       <div className="flex items-start sm:items-center gap-2">
-                        <span className="text-[10px] text-zinc-600 shrink-0">{log.timestamp.substring(11, 19)}</span>
-                        <Badge className="bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/10 font-mono text-[9px] uppercase px-1.5 py-0">
+                        <span className="text-[10px] text-zinc-650 font-mono shrink-0">{log.timestamp.substring(11, 19)}</span>
+                        <Badge className="bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/10 font-mono text-[9px] uppercase px-1.5 py-0 shrink-0">
                           {log.action}
                         </Badge>
-                        <span className="text-zinc-300 font-sans">{log.details}</span>
+                        <span className="text-zinc-300 text-xs truncate max-w-[400px] sm:max-w-none">{log.details}</span>
                       </div>
                     </div>
                   ))

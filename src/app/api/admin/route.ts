@@ -49,6 +49,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
     }
 
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+    // Handle Login Action
+    if (action === 'login') {
+      const { password } = payload || {};
+      if (password === expectedPassword) {
+        addAuditLog('ADMIN_LOGIN', 'Administrator logged in successfully.');
+        return NextResponse.json({ success: true });
+      } else {
+        return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+      }
+    }
+
+    // Protect all other admin actions
+    const adminPasswordHeader = request.headers.get('x-admin-password');
+    if (adminPasswordHeader !== expectedPassword) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const startTime = Date.now();
 
     // 1. STATS ACTION
