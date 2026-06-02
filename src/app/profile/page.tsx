@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { User, Trophy, PackageOpen, Layers } from "lucide-react";
 import { useCollectionStore } from "@/lib/store";
@@ -7,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function ProfileScreen() {
   const { 
+    userId,
     username, 
     avatar, 
     fid, 
@@ -14,11 +16,40 @@ export default function ProfileScreen() {
     uniqueCards, 
     collectionScore, 
     packsOpened,
-    wishlist = {}
+    wishlist = {},
+    achievements = [],
+    setAchievements
   } = useCollectionStore();
+
+  const [loadingAchievements, setLoadingAchievements] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    
+    const fetchAchievements = async () => {
+      setLoadingAchievements(true);
+      try {
+        const res = await fetch(`/api/achievements?userId=${userId}`);
+        const data = await res.json();
+        if (data.achievements) {
+          setAchievements(data.achievements);
+        }
+      } catch (err) {
+        console.error("Failed to fetch achievements on profile mount:", err);
+      } finally {
+        setLoadingAchievements(false);
+      }
+    };
+
+    fetchAchievements();
+  }, [userId, setAchievements]);
 
   const totalCards = Object.values(ownedCards).reduce((a, b) => a + b, 0);
   const displayName = username ? username.charAt(0).toUpperCase() + username.slice(1) : "Trainer";
+
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const totalCount = achievements.length || 9;
+  const progressPercent = Math.round((unlockedCount / totalCount) * 100);
 
   return (
     <div className="flex flex-col h-full px-4 pt-8 pb-4 space-y-6 bg-zinc-950 text-white min-h-[calc(100vh-64px)]">
@@ -103,32 +134,114 @@ export default function ProfileScreen() {
         </Card>
       </div>
 
-      <div className="pt-4 flex-1">
-        <h3 className="text-sm font-bold mb-3 px-1 text-zinc-300">Recent Achievements</h3>
-        <div className="space-y-3">
-          {packsOpened > 0 ? (
-            <div className="flex items-center space-x-3 bg-zinc-900/20 p-3 rounded-xl border border-zinc-800/40">
-              <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
-                <PackageOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-200">First Pack Opened</p>
-                <p className="text-[11px] text-zinc-500">The journey begins.</p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-500 px-1">Open a pack to earn achievements!</p>
-          )}
+      {/* Achievements Progress Card */}
+      <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800/80 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold flex items-center text-zinc-300">
+            <Trophy className="w-5 h-5 mr-2 text-fuchsia-500" />
+            Achievements Progress
+          </h2>
+          <span className="text-lg font-bold font-mono text-fuchsia-400">
+            {unlockedCount} / {totalCount}
+          </span>
+        </div>
+        
+        <div className="w-full bg-zinc-950 rounded-full h-3 overflow-hidden border border-zinc-800/80">
+          <div 
+            className="bg-gradient-to-r from-fuchsia-500 to-violet-600 h-full rounded-full transition-all duration-1000"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        
+        <div className="flex justify-between items-center text-[10px] font-mono text-zinc-500">
+          <span>{progressPercent}% Completed</span>
+          <span>
+            {(() => {
+              if (unlockedCount === totalCount && totalCount > 0) return "Grandmaster";
+              if (unlockedCount >= 6) return "Elite Trainer";
+              if (unlockedCount >= 3) return "Great Trainer";
+              if (unlockedCount >= 1) return "Novice Trainer";
+              return "Beginner";
+            })()}
+          </span>
+        </div>
+      </div>
 
-          {uniqueCards >= 10 && (
-            <div className="flex items-center space-x-3 bg-zinc-900/20 p-3 rounded-xl border border-zinc-800/40">
-              <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                <Layers className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-200">Collector I</p>
-                <p className="text-[11px] text-zinc-500">Obtain 10 unique cards.</p>
-              </div>
+      <div className="pt-2 flex-1 pb-8">
+        <h3 className="text-sm font-bold mb-4 px-1 text-zinc-300 flex items-center justify-between">
+          <span>All Achievements</span>
+          {loadingAchievements && (
+            <span className="text-[10px] text-zinc-500 font-mono animate-pulse uppercase">Syncing...</span>
+          )}
+        </h3>
+        <div className="space-y-3">
+          {achievements.length > 0 ? (
+            achievements.map((ach) => {
+              const isUnlocked = ach.unlocked;
+              return (
+                <div 
+                  key={ach.id} 
+                  className={`flex items-center space-x-3 p-3 rounded-xl border transition-all duration-300 ${
+                    isUnlocked 
+                      ? 'bg-zinc-900/30 border-fuchsia-500/20 shadow-[0_0_10px_rgba(217,70,239,0.05)]' 
+                      : 'bg-zinc-950/40 border-zinc-900 opacity-60'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-xl ${
+                    isUnlocked 
+                      ? 'bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 text-white border border-fuchsia-500/30' 
+                      : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
+                  }`}>
+                    {isUnlocked ? ach.icon : '🔒'}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm font-semibold truncate ${isUnlocked ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                        {ach.title}
+                      </p>
+                      {isUnlocked ? (
+                        <span className="text-[10px] text-emerald-400 font-mono font-bold flex items-center bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                          ✓ Claimed
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-zinc-600 font-mono">
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-xs mt-0.5 leading-normal ${isUnlocked ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                      {ach.description}
+                    </p>
+                    
+                    {/* Badge and Rewards */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {ach.badge_name && (
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors ${
+                          isUnlocked 
+                            ? 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20' 
+                            : 'bg-zinc-900/50 text-zinc-600 border-zinc-800/80'
+                        }`}>
+                          🏅 {ach.badge_name}
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold border transition-colors ${
+                        isUnlocked 
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/20' 
+                          : 'bg-zinc-900/50 text-zinc-600 border-zinc-800/80'
+                      }`}>
+                        🎟️ +{ach.reward_value} Tickets
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 bg-zinc-900/20 rounded-xl border border-zinc-800/40 text-center">
+              <span className="text-2xl mb-2">⚡</span>
+              <p className="text-sm text-zinc-400 font-medium">No achievements found</p>
+              <p className="text-xs text-zinc-600 mt-1">Start playing to load achievements!</p>
             </div>
           )}
         </div>

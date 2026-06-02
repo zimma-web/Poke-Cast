@@ -29,6 +29,7 @@ interface CollectionState {
   freePacksRemaining: number;
   lastDailyReset: string | null;
   wishlist: Record<string, boolean>; // cardId -> boolean
+  achievements: any[]; // achievements with unlocked status
   addCards: (cards: Card[]) => void;
   setAuth: (auth: { 
     userId: string; 
@@ -53,6 +54,7 @@ interface CollectionState {
   updateEconomy: (economy: { packTickets: number; freePacksRemaining: number; lastDailyReset: string | null }) => void;
   toggleWishlist: (cardId: string) => void;
   setWishlist: (wishlist: Record<string, boolean>) => void;
+  setAchievements: (achievements: any[]) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -90,6 +92,7 @@ export const useCollectionStore = create<CollectionState>()(
       freePacksRemaining: 2,
       lastDailyReset: null,
       wishlist: {},
+      achievements: [],
       setAuth: (auth) => set(() => {
         const wishlistRecord: Record<string, boolean> = {};
         if (auth.wishlist) {
@@ -141,6 +144,7 @@ export const useCollectionStore = create<CollectionState>()(
         return { wishlist: nextWishlist };
       }),
       setWishlist: (wishlist) => set(() => ({ wishlist })),
+      setAchievements: (achievements) => set(() => ({ achievements })),
       setLoading: (loading) => set(() => ({ loading })),
       addCards: (cards) => set((state) => {
         const newOwned = { ...state.ownedCards };
@@ -175,6 +179,7 @@ export const useCollectionStore = create<CollectionState>()(
         freePacksRemaining: state.freePacksRemaining,
         lastDailyReset: state.lastDailyReset,
         wishlist: state.wishlist,
+        achievements: state.achievements,
       }),
     }
   )

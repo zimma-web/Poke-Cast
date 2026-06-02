@@ -41,3 +41,47 @@ CREATE TABLE IF NOT EXISTS trade_offer_cards (
 
 CREATE INDEX IF NOT EXISTS idx_trade_offer_cards_offer ON trade_offer_cards(offer_id);
 
+-- SQL Database Migration: Achievement System
+
+-- 1. Create achievements table
+CREATE TABLE IF NOT EXISTS achievements (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  icon TEXT NOT NULL,
+  reward_type TEXT NOT NULL, -- 'tickets' or 'badge'
+  reward_value INTEGER DEFAULT 0 NOT NULL,
+  badge_name TEXT,
+  CONSTRAINT chk_reward_type CHECK (reward_type IN ('tickets', 'badge'))
+);
+
+-- 2. Create user_achievements table
+CREATE TABLE IF NOT EXISTS user_achievements (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  achievement_id TEXT NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
+  unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  PRIMARY KEY (user_id, achievement_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON user_achievements(user_id);
+
+-- 3. Seed achievements definitions
+INSERT INTO achievements (id, title, description, icon, reward_type, reward_value, badge_name) VALUES
+('first_pack', 'First Pack', 'Rip open your very first booster pack!', '📦', 'tickets', 2, 'Newbie Trainer'),
+('first_rare', 'First Rare Card', 'Pull a Rare or Holo Rare card from a pack!', '⭐', 'tickets', 5, 'Lucky Star'),
+('first_ultra_rare', 'First Ultra Rare', 'Pull an Ultra Rare or higher rarity card!', '✨', 'tickets', 10, 'Ultra Collector'),
+('collected_100', '100 Cards Collected', 'Amass 100 total card copies in your collection!', '💯', 'tickets', 10, 'Century Club'),
+('collected_500', '500 Cards Collected', 'Amass 500 total card copies in your collection!', '🛡️', 'tickets', 25, 'Half-Milestone'),
+('collected_1000', '1000 Cards Collected', 'Amass 1,000 total card copies in your collection!', '👑', 'tickets', 50, 'Grandmaster'),
+('complete_set_1', 'Complete First Set', 'Collect 100% of all cards in any single expansion set!', '🏆', 'tickets', 100, 'Set Completer'),
+('opened_50', 'Open 50 Packs', 'Open 50 total booster packs!', '🔥', 'tickets', 20, 'Booster Popper'),
+('opened_100', 'Open 100 Packs', 'Open 100 total booster packs!', '🌪️', 'tickets', 50, 'Booster Junkie')
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  reward_type = EXCLUDED.reward_type,
+  reward_value = EXCLUDED.reward_value,
+  badge_name = EXCLUDED.badge_name;
+
+

@@ -11,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [isFarcaster, setIsFarcaster] = useState<boolean | null>(null);
-  const { setAuth, setCollection, setLoading, loading } = useCollectionStore();
+  const { setAuth, setCollection, setAchievements, setLoading, loading } = useCollectionStore();
   const initializedRef = useRef(false);
 
   if (isAdminRoute) {
@@ -116,6 +116,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
             lastDailyReset: collectionData.lastDailyReset,
             wishlist: collectionData.wishlist
           });
+
+          // 4. Fetch achievements
+          try {
+            const achievementsRes = await fetch(`/api/achievements?userId=${authData.id}`);
+            const achievementsData = await achievementsRes.json();
+            if (achievementsData.achievements) {
+              setAchievements(achievementsData.achievements);
+            }
+          } catch (achError) {
+            console.error("Failed to fetch achievements on initial load:", achError);
+          }
         }
       } catch (e) {
         console.error("Failed to sync authenticated user collection:", e);

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { supabaseAdmin } from '@/lib/supabase';
+import { evaluateAchievements } from '@/lib/achievements';
 
 // Local utility to get card score from store logic
 const RARITY_SCORES: Record<string, number> = {
@@ -75,6 +76,20 @@ export async function GET(request: Request) {
       if (!updateResetError && refreshedUser) {
         updatedUser = refreshedUser;
       }
+    }
+
+    // Evaluate achievements dynamically (may award additional tickets)
+    await evaluateAchievements(userId);
+
+    // Fetch final user record to capture any achievement ticket rewards
+    const { data: finalUser } = await supabaseAdmin
+      .from('users')
+      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset')
+      .eq('id', userId)
+      .single();
+
+    if (finalUser) {
+      updatedUser = finalUser;
     }
 
     // 2. Fetch all cards owned by the user

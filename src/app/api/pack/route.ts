@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { supabaseAdmin } from '@/lib/supabase';
+import { evaluateAchievements } from '@/lib/achievements';
 
 function getRarityWeight(rarity: string): number {
   const r = rarity.toLowerCase();
@@ -199,9 +200,21 @@ export async function GET(request: Request) {
       console.error('Failed to update user pack stats:', updateError);
     }
 
+    // Evaluate achievements dynamically (may award additional tickets)
+    await evaluateAchievements(userId);
+
+    // Fetch final updated pack_tickets from database to keep frontend sync perfect
+    const { data: finalUser } = await supabaseAdmin
+      .from('users')
+      .select('pack_tickets')
+      .eq('id', userId)
+      .single();
+
+    const finalTickets = finalUser && finalUser.pack_tickets !== undefined ? finalUser.pack_tickets : currentTickets;
+
     return NextResponse.json({
       cards: packCards,
-      packTickets: currentTickets,
+      packTickets: finalTickets,
       freePacksRemaining: currentFreePacks,
       lastDailyReset: lastReset ? lastReset.toISOString() : null
     });
