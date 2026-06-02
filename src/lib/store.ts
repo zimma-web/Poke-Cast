@@ -25,9 +25,29 @@ interface CollectionState {
   packsOpened: number;
   collectionScore: number;
   uniqueCards: number;
+  packTickets: number;
+  freePacksRemaining: number;
+  lastDailyReset: string | null;
   addCards: (cards: Card[]) => void;
-  setAuth: (auth: { userId: string; fid: number; username: string; avatar: string }) => void;
-  setCollection: (collection: { ownedCards: Record<string, number>; uniqueCards: number; collectionScore: number; packsOpened: number }) => void;
+  setAuth: (auth: { 
+    userId: string; 
+    fid: number; 
+    username: string; 
+    avatar: string; 
+    packTickets?: number; 
+    freePacksRemaining?: number; 
+    lastDailyReset?: string | null;
+  }) => void;
+  setCollection: (collection: { 
+    ownedCards: Record<string, number>; 
+    uniqueCards: number; 
+    collectionScore: number; 
+    packsOpened: number;
+    packTickets?: number;
+    freePacksRemaining?: number;
+    lastDailyReset?: string | null;
+  }) => void;
+  updateEconomy: (economy: { packTickets: number; freePacksRemaining: number; lastDailyReset: string | null }) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -61,17 +81,31 @@ export const useCollectionStore = create<CollectionState>()(
       packsOpened: 0,
       collectionScore: 0,
       uniqueCards: 0,
+      packTickets: 10,
+      freePacksRemaining: 2,
+      lastDailyReset: null,
       setAuth: (auth) => set(() => ({
         userId: auth.userId,
         fid: auth.fid,
         username: auth.username,
-        avatar: auth.avatar
+        avatar: auth.avatar,
+        packTickets: auth.packTickets ?? 10,
+        freePacksRemaining: auth.freePacksRemaining ?? 2,
+        lastDailyReset: auth.lastDailyReset ?? null
       })),
       setCollection: (col) => set(() => ({
         ownedCards: col.ownedCards,
         uniqueCards: col.uniqueCards,
         collectionScore: col.collectionScore,
-        packsOpened: col.packsOpened
+        packsOpened: col.packsOpened,
+        ...(col.packTickets !== undefined ? { packTickets: col.packTickets } : {}),
+        ...(col.freePacksRemaining !== undefined ? { freePacksRemaining: col.freePacksRemaining } : {}),
+        ...(col.lastDailyReset !== undefined ? { lastDailyReset: col.lastDailyReset } : {}),
+      })),
+      updateEconomy: (economy) => set(() => ({
+        packTickets: economy.packTickets,
+        freePacksRemaining: economy.freePacksRemaining,
+        lastDailyReset: economy.lastDailyReset
       })),
       setLoading: (loading) => set(() => ({ loading })),
       addCards: (cards) => set((state) => {
@@ -103,6 +137,9 @@ export const useCollectionStore = create<CollectionState>()(
         packsOpened: state.packsOpened,
         collectionScore: state.collectionScore,
         uniqueCards: state.uniqueCards,
+        packTickets: state.packTickets,
+        freePacksRemaining: state.freePacksRemaining,
+        lastDailyReset: state.lastDailyReset,
       }),
     }
   )

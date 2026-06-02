@@ -15,10 +15,14 @@ export default function PackScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sets, setSets] = useState<any[]>([]);
   const [selectedSetId, setSelectedSetId] = useState<string>("");
+  const [error, setError] = useState<string>("");
   
   const addCards = useCollectionStore(state => state.addCards);
   const ownedCards = useCollectionStore(state => state.ownedCards);
   const userId = useCollectionStore(state => state.userId);
+  const packTickets = useCollectionStore(state => state.packTickets);
+  const freePacksRemaining = useCollectionStore(state => state.freePacksRemaining);
+  const updateEconomy = useCollectionStore(state => state.updateEconomy);
   const activeSet = sets.find(s => s.id === selectedSetId);
 
   useEffect(() => {
@@ -40,16 +44,39 @@ export default function PackScreen() {
 
   const openPack = async () => {
     if (!selectedSetId || !userId) return;
+
+    if (freePacksRemaining === 0 && packTickets === 0) {
+      setError("Not enough Pack Tickets");
+      return;
+    }
+
     setLoading(true);
+    setError("");
     try {
       const res = await fetch(`/api/pack?set=${selectedSetId}&userId=${userId}`);
       const data = await res.json();
+      
+      if (res.status === 400 || data.error) {
+        setError(data.error || "Not enough Pack Tickets");
+        return;
+      }
+
       setCards(data.cards);
       addCards(data.cards);
+      
+      if (data.packTickets !== undefined && data.freePacksRemaining !== undefined) {
+        updateEconomy({
+          packTickets: data.packTickets,
+          freePacksRemaining: data.freePacksRemaining,
+          lastDailyReset: data.lastDailyReset
+        });
+      }
+
       setOpened(true);
       setCurrentIndex(0);
     } catch (e) {
       console.error(e);
+      setError("Failed to open pack");
     } finally {
       setLoading(false);
     }
@@ -81,6 +108,19 @@ export default function PackScreen() {
   if (!opened) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] px-4">
+        {/* User Balance Economy Header */}
+        <div className="flex items-center justify-between w-full max-w-[280px] px-4 py-2.5 mb-6 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl backdrop-blur-md">
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Free Packs</span>
+            <span className="text-xs font-black text-fuchsia-400 font-mono mt-0.5">{freePacksRemaining} left</span>
+          </div>
+          <div className="h-6 w-[1px] bg-zinc-800" />
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Pack Tickets</span>
+            <span className="text-xs font-black text-amber-400 font-mono mt-0.5">🎟️ {packTickets}</span>
+          </div>
+        </div>
+
         {/* Set Selector Dropdown */}
         <div className="w-full max-w-[280px] mb-6">
           <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-2 text-center">
@@ -103,7 +143,7 @@ export default function PackScreen() {
           animate={{ y: [0, -15, 0], rotate: [0, -2, 2, 0] }}
           transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
           onClick={openPack}
-          className="relative w-full max-w-[280px] aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-800 to-zinc-900 border border-zinc-700/50 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.2)] flex flex-col items-center justify-center cursor-pointer mb-12 overflow-hidden"
+          className="relative w-full max-w-[280px] aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-800 to-zinc-900 border border-zinc-700/50 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.2)] flex flex-col items-center justify-center cursor-pointer mb-8 overflow-hidden"
         >
           <div className="absolute inset-0 bg-radial-gradient from-fuchsia-500/10 to-transparent pointer-events-none" />
           
@@ -129,13 +169,25 @@ export default function PackScreen() {
           </div>
         </motion.div>
 
+        {error && (
+          <div className="text-xs font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-4 py-2.5 rounded-xl mb-4 text-center w-full max-w-[280px]">
+            {error}
+          </div>
+        )}
+
         <Button 
           size="lg" 
-          className="w-full rounded-full h-14 font-bold text-lg" 
+          className="w-full max-w-[280px] rounded-full h-14 font-bold text-lg" 
           onClick={openPack}
-          disabled={loading || !selectedSetId}
+          disabled={loading || !selectedSetId || (freePacksRemaining === 0 && packTickets === 0)}
         >
-          {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Rip Open!"}
+          {loading ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (freePacksRemaining === 0 && packTickets === 0) ? (
+            "Not enough Pack Tickets"
+          ) : (
+            "Rip Open!"
+          )}
         </Button>
       </div>
     );

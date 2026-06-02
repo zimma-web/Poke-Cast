@@ -72,7 +72,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             userId: authData.id,
             fid: authData.fid,
             username: authData.username,
-            avatar: authData.avatar
+            avatar: authData.avatar,
+            packTickets: authData.pack_tickets,
+            freePacksRemaining: authData.free_packs_remaining,
+            lastDailyReset: authData.last_daily_reset
           });
 
           // 2. Sync legacy local collection once if it exists
@@ -106,7 +109,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             ownedCards: collectionData.ownedCards || {},
             uniqueCards: collectionData.uniqueCards || 0,
             collectionScore: collectionData.collectionScore || 0,
-            packsOpened: collectionData.packsOpened || 0
+            packsOpened: collectionData.packsOpened || 0,
+            packTickets: collectionData.packTickets,
+            freePacksRemaining: collectionData.freePacksRemaining,
+            lastDailyReset: collectionData.lastDailyReset
           });
         }
       } catch (e) {

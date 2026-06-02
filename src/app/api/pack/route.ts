@@ -34,6 +34,75 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
   }
 
+  // 1. Fetch user data first to validate economy
+  const { data: user, error: userError } = await supabaseAdmin
+    .from('users')
+    .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset')
+    .eq('id', userId)
+    .single();
+
+  if (userError || !user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+
+  // Daily reset check
+  const now = new Date();
+  let lastReset = user.last_daily_reset ? new Date(user.last_daily_reset) : null;
+  let currentTickets = user.pack_tickets !== null && user.pack_tickets !== undefined ? user.pack_tickets : 10;
+  let currentFreePacks = user.free_packs_remaining !== null && user.free_packs_remaining !== undefined ? user.free_packs_remaining : 2;
+  let resetApplied = false;
+
+  const timeSinceReset = lastReset ? now.getTime() - lastReset.getTime() : null;
+  const isDueForReset = lastReset === null || (timeSinceReset !== null && timeSinceReset >= 24 * 60 * 60 * 1000);
+
+  if (isDueForReset) {
+    currentFreePacks = 2;
+    currentTickets = (currentTickets || 0) + 2;
+    lastReset = now;
+    resetApplied = true;
+  }
+
+  // Future-ready pack cost configuration
+  interface PackCost {
+    cost: number;
+    currency: 'free_or_ticket' | 'ticket' | 'event_ticket';
+  }
+
+  const PACK_COSTS: Record<string, PackCost> = {
+    // Define set-specific costs if they differ from the default in the future.
+  };
+
+  const getPackCost = (id: string): PackCost => {
+    return PACK_COSTS[id] || { cost: 1, currency: 'free_or_ticket' };
+  };
+
+  const packCost = getPackCost(setId);
+
+  // Validate and deduct currency
+  if (packCost.currency === 'free_or_ticket') {
+    if (currentFreePacks > 0) {
+      currentFreePacks -= 1;
+    } else if (currentTickets >= packCost.cost) {
+      currentTickets -= packCost.cost;
+    } else {
+      // Not enough balance
+      if (resetApplied) {
+        // Persist daily reset state even if opening fails
+        await supabaseAdmin
+          .from('users')
+          .update({
+            free_packs_remaining: currentFreePacks,
+            pack_tickets: currentTickets,
+            last_daily_reset: lastReset ? lastReset.toISOString() : new Date().toISOString()
+          })
+          .eq('id', userId);
+      }
+      return NextResponse.json({ error: 'Not enough Pack Tickets' }, { status: 400 });
+    }
+  } else {
+    return NextResponse.json({ error: 'Unsupported pack currency type' }, { status: 400 });
+  }
+
   const filePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
   
   try {
@@ -115,22 +184,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Database save error' }, { status: 500 });
     }
 
-    // Fetch user details to increment packs_opened count
-    const { data: user, error: userError } = await supabaseAdmin
+    // Update user stats and pack economy details
+    const { error: updateError } = await supabaseAdmin
       .from('users')
-      .select('packs_opened')
-      .eq('id', userId)
-      .single();
-    
-    if (!userError && user) {
-      await supabaseAdmin
-        .from('users')
-        .update({ packs_opened: (user.packs_opened || 0) + 1 })
-        .eq('id', userId);
+      .update({
+        packs_opened: (user.packs_opened || 0) + 1,
+        free_packs_remaining: currentFreePacks,
+        pack_tickets: currentTickets,
+        last_daily_reset: lastReset ? lastReset.toISOString() : null
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Failed to update user pack stats:', updateError);
     }
 
     return NextResponse.json({
-      cards: packCards
+      cards: packCards,
+      packTickets: currentTickets,
+      freePacksRemaining: currentFreePacks,
+      lastDailyReset: lastReset ? lastReset.toISOString() : null
     });
   } catch (error) {
     console.error('Failed to generate/save pack:', error);
