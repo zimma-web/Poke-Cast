@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     // 1. Fetch user data
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset')
+      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date')
       .eq('id', userId)
       .maybeSingle();
 
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
           last_daily_reset: lastReset.toISOString()
         })
         .eq('id', userId)
-        .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset')
+        .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date')
         .single();
 
       if (!updateResetError && refreshedUser) {
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     // Fetch final user record to capture any achievement ticket rewards
     const { data: finalUser } = await supabaseAdmin
       .from('users')
-      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset')
+      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date')
       .eq('id', userId)
       .single();
 
@@ -139,6 +139,18 @@ export async function GET(request: Request) {
       }
     });
 
+    // Check if already claimed today
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: claimedRow } = await supabaseAdmin
+      .from('login_rewards')
+      .select('id')
+      .eq('user_id', userId)
+      .gte('claimed_at', `${todayStr}T00:00:00.000Z`)
+      .lte('claimed_at', `${todayStr}T23:59:59.999Z`)
+      .maybeSingle();
+
+    const claimedToday = !!claimedRow;
+
     return NextResponse.json({
       ownedCards,
       uniqueCards,
@@ -147,7 +159,10 @@ export async function GET(request: Request) {
       packTickets: updatedUser?.pack_tickets !== undefined ? updatedUser.pack_tickets : 10,
       freePacksRemaining: updatedUser?.free_packs_remaining !== undefined ? updatedUser.free_packs_remaining : 2,
       lastDailyReset: updatedUser?.last_daily_reset || null,
-      wishlist: wishlistData ? wishlistData.map((row: any) => row.card_id) : []
+      wishlist: wishlistData ? wishlistData.map((row: any) => row.card_id) : [],
+      login_streak: updatedUser?.login_streak !== undefined ? updatedUser.login_streak : 0,
+      highest_streak: updatedUser?.highest_streak !== undefined ? updatedUser.highest_streak : 0,
+      claimed_today: claimedToday
     });
   } catch (error) {
     console.error('Collection query error:', error);

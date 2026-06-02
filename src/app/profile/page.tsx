@@ -18,7 +18,9 @@ export default function ProfileScreen() {
     packsOpened,
     wishlist = {},
     achievements = [],
-    setAchievements
+    setAchievements,
+    loginStreak = 0,
+    highestStreak = 0
   } = useCollectionStore();
 
   const [loadingAchievements, setLoadingAchievements] = useState(false);
@@ -130,6 +132,22 @@ export default function ProfileScreen() {
             <PackageOpen className="w-5 h-5 text-purple-400 mb-1" />
             <span className="text-xl font-bold font-mono">{packsOpened}</span>
             <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Packs Opened</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900/40 border-zinc-800/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <span className="text-xl mb-1">🔥</span>
+            <span className="text-lg font-bold font-mono text-orange-400">{loginStreak} Days</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Current Streak</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900/40 border-zinc-800/80">
+          <CardContent className="p-4 flex flex-col items-center justify-center space-y-1 text-center">
+            <span className="text-xl mb-1">🏆</span>
+            <span className="text-lg font-bold font-mono text-yellow-400">{highestStreak} Days</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Highest Streak</span>
           </CardContent>
         </Card>
       </div>

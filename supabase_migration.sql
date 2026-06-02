@@ -85,3 +85,26 @@ ON CONFLICT (id) DO UPDATE SET
   badge_name = EXCLUDED.badge_name;
 
 
+-- SQL Database Migration: Daily Login Streak System
+
+-- 1. Add fields to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS login_streak INTEGER DEFAULT 0 NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS highest_streak INTEGER DEFAULT 0 NOT NULL;
+
+-- 2. Create login_rewards table
+CREATE TABLE IF NOT EXISTS login_rewards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  streak_day INTEGER NOT NULL,
+  reward_type TEXT NOT NULL,
+  reward_amount INTEGER NOT NULL DEFAULT 0,
+  claimed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_rewards_user ON login_rewards(user_id);
+
+-- 3. Create unique index to prevent duplicate claims on the same UTC calendar day
+CREATE UNIQUE INDEX IF NOT EXISTS idx_login_rewards_user_date ON login_rewards (user_id, (claimed_at::date));
+
+

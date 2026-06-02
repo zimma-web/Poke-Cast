@@ -76,7 +76,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             packTickets: authData.pack_tickets,
             freePacksRemaining: authData.free_packs_remaining,
             lastDailyReset: authData.last_daily_reset,
-            wishlist: authData.wishlist
+            wishlist: authData.wishlist,
+            loginStreak: authData.login_streak,
+            highestStreak: authData.highest_streak,
+            claimedToday: authData.claimed_today
           });
 
           // 2. Sync legacy local collection once if it exists
@@ -114,7 +117,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             packTickets: collectionData.packTickets,
             freePacksRemaining: collectionData.freePacksRemaining,
             lastDailyReset: collectionData.lastDailyReset,
-            wishlist: collectionData.wishlist
+            wishlist: collectionData.wishlist,
+            loginStreak: collectionData.login_streak,
+            highestStreak: collectionData.highest_streak,
+            claimedToday: collectionData.claimed_today
           });
 
           // 4. Fetch achievements
