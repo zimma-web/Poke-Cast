@@ -8,7 +8,7 @@
     "version": "1",
     "name": "Poke-Cast",
     "homeUrl": "https://poke-cast.vercel.app",
-    "iconUrl": "https://poke-cast.vercel.app/PokeCast.png",
+    "iconUrl": "https://poke-cast.vercel.app/icon_pokecast.png",
     "imageUrl": "https://poke-cast.vercel.app/PokeCast.png",
     "splashImageUrl": "https://poke-cast.vercel.app/PokeCast.png",
     "splashBackgroundColor": "#09090b",
