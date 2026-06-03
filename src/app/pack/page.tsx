@@ -37,6 +37,51 @@ export default function PackScreen() {
   const walletAddress = useCollectionStore(state => state.walletAddress);
   
   const activeSet = sets.find(s => s.id === selectedSetId);
+
+  // Determine dynamic gradient and glow based on set name/id
+  const getSetTheme = (setName: string = "") => {
+    const name = setName.toLowerCase();
+    if (name.includes("flames") || name.includes("fire") || name.includes("charizard") || name.includes("triumphant")) {
+      return {
+        bg: "from-zinc-950 via-red-950/40 to-zinc-950",
+        border: "border-red-500/30 hover:border-red-400/50",
+        glow: "shadow-[0_0_40px_rgba(239,68,68,0.2)]",
+        radial: "from-red-500/20 to-transparent",
+        beam: "from-red-500/5 via-orange-500/5 to-transparent",
+        accent: "text-red-400"
+      };
+    } else if (name.includes("primal") || name.includes("clash") || name.includes("storm") || name.includes("blue") || name.includes("water")) {
+      return {
+        bg: "from-zinc-950 via-blue-950/40 to-zinc-950",
+        border: "border-blue-500/30 hover:border-blue-400/50",
+        glow: "shadow-[0_0_40px_rgba(59,130,246,0.2)]",
+        radial: "from-blue-500/20 to-transparent",
+        beam: "from-blue-500/5 via-cyan-500/5 to-transparent",
+        accent: "text-blue-400"
+      };
+    } else if (name.includes("yellow") || name.includes("volt") || name.includes("thunder") || name.includes("lightning") || name.includes("spark")) {
+      return {
+        bg: "from-zinc-950 via-amber-950/40 to-zinc-950",
+        border: "border-amber-500/30 hover:border-amber-400/50",
+        glow: "shadow-[0_0_40px_rgba(245,158,11,0.2)]",
+        radial: "from-amber-500/20 to-transparent",
+        beam: "from-amber-500/5 via-yellow-500/5 to-transparent",
+        accent: "text-amber-400"
+      };
+    }
+    // Default: PokéCast Signature Purple/Fuchsia
+    return {
+      bg: "from-zinc-950 via-fuchsia-950/30 to-zinc-950",
+      border: "border-fuchsia-500/30 hover:border-fuchsia-400/50",
+      glow: "shadow-[0_0_40px_rgba(168,85,247,0.25)]",
+      radial: "from-fuchsia-500/20 to-transparent",
+      beam: "from-fuchsia-500/5 via-pink-500/5 to-transparent",
+      accent: "text-fuchsia-400"
+    };
+  };
+
+  const theme = getSetTheme(activeSet?.name);
+
   const totalAvailable = (freePacksRemaining ?? 0) + (packTickets ?? 0);
   const maxPacks = Math.min(5, totalAvailable);
 
@@ -427,44 +472,52 @@ export default function PackScreen() {
         animate={{ y: [0, -12, 0], rotate: [0, -1.5, 1.5, 0] }}
         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
         onClick={openPack}
-        className="relative w-full max-w-[210px] flex flex-col items-center justify-center cursor-pointer mb-3 aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.25)] overflow-hidden group transition-all duration-300"
+        className={`relative w-full max-w-[210px] flex flex-col items-center justify-between cursor-pointer mb-3 aspect-[2.5/3.5] bg-gradient-to-b ${theme.bg} border-2 ${theme.border} rounded-[24px] ${theme.glow} overflow-hidden group transition-all duration-300`}
       >
-        <div className="absolute inset-0 bg-radial-gradient from-fuchsia-500/10 to-transparent pointer-events-none" />
-        <div className="absolute inset-2 border border-white/5 rounded-[18px] flex flex-col items-center justify-center p-5 space-y-3 opacity-30">
-          {activeSet?.logo ? (
-            <div className="relative w-full h-20 drop-shadow-lg opacity-40">
-              <Image src={activeSet.logo} alt="" fill className="object-contain" priority />
-            </div>
-          ) : (
-            <span className="text-white/40 font-bold text-xl tracking-widest uppercase rotate-[-90deg]">Booster</span>
-          )}
-        </div>
+        {/* Dynamic theme background gradients */}
+        <div className={`absolute inset-0 bg-radial-gradient ${theme.radial} pointer-events-none`} />
+        <div className={`absolute inset-0 bg-gradient-to-tr ${theme.beam} pointer-events-none`} />
 
-        {/* Dynamic Set Symbol Logo (Floating top right) */}
+        {/* Glassmorphic/foil shimmer sheen */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
+
+        {/* Premium double border */}
+        <div className="absolute inset-2 border border-white/10 rounded-[18px] pointer-events-none" />
+        <div className="absolute inset-2.5 border border-white/5 rounded-[17px] pointer-events-none" />
+
+        {/* Floating Set Symbol (Top Right) */}
         {activeSet?.symbol && (
-          <div className="absolute top-3.5 right-3.5 w-6 h-6 opacity-35 bg-zinc-950/80 p-1 rounded-lg backdrop-blur-xs z-10 border border-zinc-800/50">
+          <div className="absolute top-4 right-4 w-6 h-6 opacity-60 bg-zinc-950/80 p-1.5 rounded-lg border border-white/10 backdrop-blur-xs z-20 transition-transform duration-300 group-hover:scale-105">
             <Image src={activeSet.symbol} alt="" fill className="object-contain" />
           </div>
         )}
 
-        {/* Dynamic PokéCast Logo (using local Text-PokeCast.png image) */}
-        <div className="absolute top-10 left-0 right-0 h-16 flex justify-center z-20 select-none pointer-events-none px-2">
-          <div className="relative w-full h-full max-w-[155px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
+        {/* PokéCast branding logo at top */}
+        <div className="absolute top-8 left-0 right-0 h-14 flex justify-center z-20 select-none pointer-events-none px-4">
+          <div className="relative w-full h-full max-w-[145px] drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)]">
             <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
           </div>
         </div>
 
-        {/* Dynamic Set Logo (Overlayed near the bottom using the set's official transparent logo) */}
-        <div className="absolute bottom-12 left-3 right-3 h-16 flex items-center justify-center z-20 select-none pointer-events-none">
-          {activeSet?.logo && (
-            <div className="relative w-full h-full drop-shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
-              <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
-            </div>
-          )}
+        {/* Main Artwork Portal in Center */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full px-5 pt-14 pb-8 z-10 select-none pointer-events-none">
+          <div className="relative w-full aspect-video flex items-center justify-center">
+            {/* Glowing magic ring behind the set logo */}
+            <div className={`absolute w-28 h-28 rounded-full bg-radial-gradient ${theme.radial} blur-xl opacity-75 animate-pulse`} />
+            {activeSet?.logo ? (
+              <div className="relative w-full h-20 drop-shadow-[0_8px_16px_rgba(0,0,0,0.85)] transition-transform duration-300 group-hover:scale-105">
+                <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
+              </div>
+            ) : (
+              <span className={`font-black text-xl tracking-widest uppercase ${theme.accent} drop-shadow-md`}>
+                {activeSet?.name || "BOOSTER"}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Standard Red Game Cards Footer Banner */}
-        <div className="absolute bottom-0 left-0 right-0 h-7 bg-rose-600/95 border-t border-rose-500/35 flex items-center justify-center z-25 select-none pointer-events-none">
+        <div className="w-full h-8 bg-rose-600 border-t border-rose-500/30 flex items-center justify-center z-20 select-none pointer-events-none">
           <span className="text-[8px] font-mono font-bold tracking-widest text-white uppercase flex items-center gap-1.5">
             <span className="inline-block w-4 h-4 rounded-full bg-white text-rose-600 text-[9px] font-black text-center leading-4 shadow-sm">5</span>
             ADDITIONAL GAME CARDS
