@@ -374,7 +374,7 @@ export default function AdminDashboard() {
     else if (activeTab === "analytics") fetchAnalytics();
     else if (activeTab === "audit") fetchAuditLogs();
     else if (activeTab === "market") fetchMarketAdmin();
-  }, [activeTab, isAdminAuthorized]);
+  }, [activeTab, isAdminAuthorized, fetchUsers, fetchPacks, fetchEvents, fetchCards, fetchAnalytics, fetchAuditLogs, fetchMarketAdmin, userSearch]);
 
   useEffect(() => {
     if (activeTab === "cards" && isAdminAuthorized === true) fetchCards();
