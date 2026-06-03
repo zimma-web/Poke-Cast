@@ -160,6 +160,12 @@ export default function PackScreen() {
           }]
         });
         txHash = tx as string;
+        
+        // CRITICAL FIX: Wait for Farcaster wallet modal to fully close before firing the API.
+        // Firing network requests/state updates exactly as the wallet modal animates down 
+        // causes WebView crashes (This page couldn't load) in Warpcast.
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
       } else {
         // Mock fallback for dev environments outside Farcaster
         console.warn("Wallet provider not found. Simulating transaction.");
