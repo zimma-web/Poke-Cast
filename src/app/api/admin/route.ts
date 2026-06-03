@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       const { search = '', limit = 100 } = payload || {};
       let query = supabaseAdmin
         .from('users')
-        .select('id, fid, username, avatar, created_at, packs_opened, pack_tickets, login_streak, highest_streak, is_admin, is_banned, ban_reason, pokepoints, lifetime_points')
+        .select('id, fid, username, avatar, created_at, packs_opened, pack_tickets, login_streak, highest_streak, is_admin, is_banned, ban_reason, pokepoints, lifetime_points, is_hidden')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -242,6 +242,38 @@ export async function POST(request: Request) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'RESET_STREAK', `Reset login streak for ${user?.username || userId}`, userId);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── HIDE USER ───────────────────────────────────────────────────────────
+    if (action === 'hide_user') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ is_hidden: true })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'HIDE_USER', `Hid user ${user?.username || userId} from leaderboard`, userId);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── UNHIDE USER ─────────────────────────────────────────────────────────
+    if (action === 'unhide_user') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ is_hidden: false })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'UNHIDE_USER', `Unhid user ${user?.username || userId} from leaderboard`, userId);
       return NextResponse.json({ success: true });
     }
 

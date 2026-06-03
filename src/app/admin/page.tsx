@@ -482,6 +482,28 @@ export default function AdminDashboard() {
     } catch (err: any) { showToast(err.message, "error"); }
   };
 
+  const handleHideUser = async (userId: string) => {
+    try {
+      const res = await adminFetch("hide_user", { userId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("User hidden from leaderboard");
+      fetchUserDetail(userId);
+      fetchUsers(userSearch);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleUnhideUser = async (userId: string) => {
+    try {
+      const res = await adminFetch("unhide_user", { userId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("User unhidden from leaderboard");
+      fetchUserDetail(userId);
+      fetchUsers(userSearch);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
   const handleResetStreak = async (userId: string) => {
     if (!confirm("Reset this user's login streak to 0?")) return;
     try {
@@ -885,6 +907,7 @@ export default function AdminDashboard() {
                           <span className="text-sm font-bold text-zinc-100 truncate">{user.username || `FID ${user.fid}`}</span>
                           {user.is_admin && <Badge color="fuchsia">Admin</Badge>}
                           {user.is_banned && <Badge color="rose">Banned</Badge>}
+                          {user.is_hidden && <Badge color="amber">Hidden</Badge>}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[11px] text-zinc-500">FID {user.fid}</span>
@@ -924,6 +947,7 @@ export default function AdminDashboard() {
                           <h3 className="font-black text-zinc-100">{selectedUser.username}</h3>
                           {selectedUser.is_admin && <Badge color="fuchsia">Admin</Badge>}
                           {selectedUser.is_banned && <Badge color="rose">Banned</Badge>}
+                          {selectedUser.is_hidden && <Badge color="amber">Hidden</Badge>}
                         </div>
                         <p className="text-xs text-zinc-500 mt-0.5">FID {selectedUser.fid} · Joined {new Date(selectedUser.created_at).toLocaleDateString()}</p>
                       </div>
@@ -1030,6 +1054,17 @@ export default function AdminDashboard() {
                         <button onClick={() => handleBanUser(selectedUser.id)}
                           className="h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
                           <Ban className="w-3.5 h-3.5" /> Ban
+                        </button>
+                      )}
+                      {selectedUser.is_hidden ? (
+                        <button onClick={() => handleUnhideUser(selectedUser.id)}
+                          className="h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5" /> Show in Leaderboard
+                        </button>
+                      ) : (
+                        <button onClick={() => handleHideUser(selectedUser.id)}
+                          className="h-9 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          <EyeOff className="w-3.5 h-3.5" /> Hide in Leaderboard
                         </button>
                       )}
                       <button onClick={() => handleResetStreak(selectedUser.id)}

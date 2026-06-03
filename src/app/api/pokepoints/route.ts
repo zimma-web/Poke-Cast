@@ -13,6 +13,7 @@ export async function GET(request: Request) {
       const { data: leaders, error } = await supabaseAdmin
         .from('users')
         .select('id, username, avatar, pokepoints, lifetime_points')
+        .or('is_hidden.is.null,is_hidden.eq.false')
         .order('pokepoints', { ascending: false })
         .limit(50);
 
