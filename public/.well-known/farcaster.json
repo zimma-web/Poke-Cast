@@ -1,0 +1,27 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjIyOTc1MzEsInR5cGUiOiJjdXRoIiwia2V5IjoiMHgzNTBiNDMzNkEwQ2M3ODBENDEzODk4YUU1ZTk3RGY2ZjBhODNhNjFEIn0",
+    "payload": "eyJkb21haW4iOiJwb2tlLWNhc3QudmVyY2VsLmFwcCJ9",
+    "signature": "4nd63rKKoOUM5vYFLBDyHuM+OzQypdA61QaIcGrcbWM10GGdyP68Rkf9+4vX+fFo19z3+zmgHN4/zJvcWHomWBw="
+  },
+  "frame": {
+    "version": "1",
+    "name": "PokeCast",
+    "homeUrl": "https://poke-cast.vercel.app",
+    "iconUrl": "https://poke-cast.vercel.app/icon.png",
+    "imageUrl": "https://poke-cast.vercel.app/image.png",
+    "splashImageUrl": "https://poke-cast.vercel.app/splash.png",
+    "splashBackgroundColor": "#09090b",
+    "webhookUrl": "https://poke-cast.vercel.app/api/webhook",
+    "subtitle": "Rip packs and collect cards",
+    "description": "Poke-Cast: The ultimate Farcaster Pokemon Trading Card Game and Auction House. Rip packs, complete your daily quests, build streaks, bid and buy on Base Chain!",
+    "primaryCategory": "games",
+    "tags": [
+      "farcaster",
+      "games",
+      "pokemon",
+      "tcg"
+    ],
+    "tagline": "Gotta Rip 'Em All!'"
+  }
+}
