@@ -94,9 +94,6 @@ export async function sendNativeEthOnBase(params: {
     throw new Error("Wallet not available. Open this app in a Farcaster client.");
   }
 
-  console.log("[wallet] ensuring Base network...");
-  await ensureBaseNetwork(provider);
-
   console.log("[wallet] requesting accounts...");
   const accounts = (await provider.request({
     method: "eth_requestAccounts",
@@ -110,6 +107,8 @@ export async function sendNativeEthOnBase(params: {
   const valueHex = `0x${params.valueWei.toString(16)}`;
 
   console.log("[wallet] sending transaction to", params.to, "value", valueHex);
+  
+  // Use minimal transaction params - let Warpcast handle gas estimation
   const txHash = (await withTimeout(
     provider.request({
       method: "eth_sendTransaction",
@@ -117,14 +116,12 @@ export async function sendNativeEthOnBase(params: {
         {
           from: from as `0x${string}`,
           to: params.to as `0x${string}`,
-          value: valueHex as `0x${string}`,
-          data: "0x",
-          gas: "0x5208", // 21000 gas for simple transfer
+          value: valueHex,
         },
       ],
     }),
-    45_000,
-    "Wallet confirmation timed out after 45 seconds. Close the modal and try again."
+    30_000,
+    "Wallet took too long. Close modal and tap 'Open Pack' again."
   )) as string;
 
   console.log("[wallet] transaction sent, txHash:", txHash);

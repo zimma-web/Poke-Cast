@@ -161,8 +161,8 @@ export default function PackScreen() {
             setError("Transaction cancelled. Pack fee was not paid.");
             return;
           }
-          if (msg.includes("timed out")) {
-            setError("Wallet took too long to respond. Please close the wallet modal and try again.");
+          if (msg.includes("too long") || msg.includes("timed out")) {
+            setError("Wallet modal not responding. Close it and tap 'Open Pack' again to retry.");
             return;
           }
           throw walletErr;
