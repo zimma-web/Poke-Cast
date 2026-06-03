@@ -22,6 +22,11 @@ export default function PackScreen() {
   const [error, setError] = useState<string>("");
   const [packCount, setPackCount] = useState(1); // 1-5 packs
   const [isOpen, setIsOpen] = useState(false);
+  const [packArtError, setPackArtError] = useState(false);
+
+  useEffect(() => {
+    setPackArtError(false);
+  }, [selectedSetId]);
   
   const addCards = useCollectionStore(state => state.addCards);
   const ownedCards = useCollectionStore(state => state.ownedCards);
@@ -422,33 +427,82 @@ export default function PackScreen() {
         animate={{ y: [0, -12, 0], rotate: [0, -1.5, 1.5, 0] }}
         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
         onClick={openPack}
-        className="relative w-full max-w-[240px] aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-800 to-zinc-900 border border-zinc-700/50 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.2)] flex flex-col items-center justify-center cursor-pointer mb-5 overflow-hidden"
+        className="relative w-full max-w-[240px] aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.25)] flex flex-col items-center justify-center cursor-pointer mb-5 overflow-hidden group"
       >
-        <div className="absolute inset-0 bg-radial-gradient from-fuchsia-500/10 to-transparent pointer-events-none" />
-        
+        {/* Dynamic Background Image overlay if available */}
+        {!packArtError ? (
+          <div className="absolute inset-0 w-full h-full">
+            <Image 
+              src={`/images/packs/${selectedSetId}.png`} 
+              alt="" 
+              fill 
+              className="object-cover rounded-[24px] transition-transform duration-500 group-hover:scale-105"
+              onError={() => setPackArtError(true)}
+              priority
+            />
+            {/* Dark vignette gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-zinc-950/60 rounded-[24px]" />
+          </div>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-radial-gradient from-fuchsia-500/10 to-transparent pointer-events-none" />
+            <div className="absolute inset-2 border border-white/5 rounded-[18px] flex flex-col items-center justify-center p-5 space-y-3 opacity-30">
+              {activeSet?.logo ? (
+                <div className="relative w-full h-20 drop-shadow-lg opacity-40">
+                  <Image src={activeSet.logo} alt="" fill className="object-contain" priority />
+                </div>
+              ) : (
+                <span className="text-white/40 font-bold text-xl tracking-widest uppercase rotate-[-90deg]">Booster</span>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Dynamic Set Symbol Logo (Floating top right) */}
         {activeSet?.symbol && (
-          <div className="absolute top-3 right-3 w-7 h-7 opacity-25 bg-white/10 p-1 rounded-lg backdrop-blur-xs">
+          <div className="absolute top-3 right-3 w-6 h-6 opacity-35 bg-zinc-950/80 p-1 rounded-lg backdrop-blur-xs z-10 border border-zinc-800/50">
             <Image src={activeSet.symbol} alt="" fill className="object-contain" />
           </div>
         )}
-        
-        <div className="absolute inset-2 border border-white/10 rounded-[18px] flex flex-col items-center justify-center p-5 space-y-3">
-          {activeSet?.logo ? (
-            <div className="relative w-full h-20 drop-shadow-lg">
-              <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
-            </div>
-          ) : (
-            <span className="text-white/80 font-bold text-xl tracking-widest uppercase rotate-[-90deg]">Booster</span>
+
+        {/* Dynamic PokéCast Logo (Yellow/White bold letters with heavy blue shadow border) */}
+        <div className="absolute top-5 left-0 right-0 flex justify-center z-20 select-none pointer-events-none">
+          <span className="text-3xl tracking-tight font-extrabold flex items-center leading-none select-none">
+            <span className="text-yellow-400 font-extrabold uppercase" style={{ 
+              textShadow: "-2.5px -2.5px 0 #1d4ed8, 2.5px -2.5px 0 #1d4ed8, -2.5px 2.5px 0 #1d4ed8, 2.5px 2.5px 0 #1d4ed8, -3.5px 0 0 #1d4ed8, 3.5px 0 0 #1d4ed8, 0 3.5px 0 #1d4ed8, 0 -3.5px 0 #1d4ed8, 2px 2px 4px rgba(0,0,0,0.8)" 
+            }}>Poké</span>
+            <span className="text-white font-extrabold uppercase" style={{ 
+              textShadow: "-2.5px -2.5px 0 #1d4ed8, 2.5px -2.5px 0 #1d4ed8, -2.5px 2.5px 0 #1d4ed8, 2.5px 2.5px 0 #1d4ed8, -3.5px 0 0 #1d4ed8, 3.5px 0 0 #1d4ed8, 0 3.5px 0 #1d4ed8, 0 -3.5px 0 #1d4ed8, 2px 2px 4px rgba(0,0,0,0.8)" 
+            }}>Cast</span>
+          </span>
+        </div>
+
+        {/* Dynamic Set Titles (Overlayed near the bottom) */}
+        <div className="absolute bottom-11 left-3 right-3 flex flex-col items-center justify-center z-20 text-center select-none pointer-events-none">
+          {activeSet?.series && (
+            <span className="text-[8px] font-mono tracking-widest text-amber-300 font-bold uppercase drop-shadow-md bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800/40 mb-1.5">
+              {activeSet.series}
+            </span>
           )}
           
-          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest bg-zinc-950/80 px-2.5 py-1 rounded border border-zinc-800">
-            5 CARDS PACK
+          <div className="relative w-full bg-gradient-to-r from-transparent via-zinc-950/90 to-transparent border-y border-zinc-800/40 py-1.5 backdrop-blur-xs flex items-center justify-center">
+            <span className="text-xs font-black tracking-widest text-white uppercase text-center drop-shadow-lg leading-tight px-3">
+              {activeSet?.name || "Booster Pack"}
+            </span>
           </div>
+        </div>
+
+        {/* Standard Red Game Cards Footer Banner */}
+        <div className="absolute bottom-0 left-0 right-0 h-7 bg-rose-600/90 border-t border-rose-500/35 flex items-center justify-center z-25 select-none pointer-events-none">
+          <span className="text-[8px] font-mono font-bold tracking-widest text-white uppercase flex items-center gap-1.5">
+            <span className="inline-block w-4 h-4 rounded-full bg-white text-rose-600 text-[9px] font-black text-center leading-4 shadow-sm">5</span>
+            ADDITIONAL GAME CARDS
+          </span>
         </div>
 
         {/* Pack count badge */}
         {packCount > 1 && (
-          <div className="absolute -top-2 -right-2 w-7 h-7 bg-fuchsia-500 rounded-full flex items-center justify-center text-white text-xs font-black shadow-lg shadow-fuchsia-500/40">
+          <div className="absolute -top-2 -right-2 w-7 h-7 bg-fuchsia-500 rounded-full flex items-center justify-center text-white text-xs font-black shadow-lg shadow-fuchsia-500/40 z-30">
             ×{packCount}
           </div>
         )}
