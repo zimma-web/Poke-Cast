@@ -101,6 +101,14 @@ export default function PackScreen() {
     if (packCount > maxPacks && maxPacks > 0) setPackCount(maxPacks);
   }, [maxPacks]);
 
+  // Close dropdown on click outside (must stay above any conditional returns)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutsideClick = () => setIsOpen(false);
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, [isOpen]);
+
   const getSetProgress = (setId: string) => {
     const prefix = `${setId}-`;
     return Object.keys(ownedCards).filter(id => id.startsWith(prefix)).length;
@@ -285,15 +293,6 @@ export default function PackScreen() {
       </ErrorBoundary>
     );
   }
-
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleOutsideClick = () => setIsOpen(false);
-    window.addEventListener("click", handleOutsideClick);
-    return () => window.removeEventListener("click", handleOutsideClick);
-  }, [isOpen]);
 
   // ─── Pack selection screen ──────────────────────────────────────────────────
   return (
