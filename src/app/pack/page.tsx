@@ -124,10 +124,48 @@ export default function PackScreen() {
     setLoading(true);
     setError("");
 
+    let txHash = "";
+    const provider = sdk.wallet?.ethProvider;
+    const TREASURY_ADDRESS = '0xe251A3a0D23859157ef8041394279f7Ba46C90e3';
+    const FEE_PER_PACK_WEI = BigInt(1000000000000); // 0.000001 ETH
+
     try {
-      // Generate a unique ID for this pack opening session (no blockchain tx needed)
-      // Duplicate-open protection is handled by the DB uniqueness constraint on tx_hash
-      const txHash = `0xpack_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
+      if (provider) {
+        let senderAddress = walletAddress;
+        if (!senderAddress) {
+          try {
+            const ethAccounts = await provider.request({ method: 'eth_accounts' }) as string[];
+            if (Array.isArray(ethAccounts) && ethAccounts.length > 0) {
+              senderAddress = ethAccounts[0];
+            }
+          } catch (e) {
+            console.warn("Failed to get eth_accounts", e);
+          }
+        }
+
+        if (!senderAddress) {
+          throw new Error("Wallet not connected. Please open the app again.");
+        }
+
+        const totalWei = FEE_PER_PACK_WEI * BigInt(count);
+        
+        const tx = await provider.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: senderAddress as `0x${string}`,
+            to: TREASURY_ADDRESS,
+            value: `0x${totalWei.toString(16)}`,
+            data: '0x',
+            gas: '0x5208' // 21000 gas limit to prevent slow estimation hangs
+          }]
+        });
+        txHash = tx as string;
+      } else {
+        // Mock fallback for dev environments outside Farcaster
+        console.warn("Wallet provider not found. Simulating transaction.");
+        await new Promise(r => setTimeout(r, 800));
+        txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      }
 
       // Open all packs in one request
       const res = await fetch("/api/pack", {
@@ -206,14 +244,70 @@ export default function PackScreen() {
     const totalPacks = Math.ceil(cards.length / 5);
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-zinc-950 px-4 text-center text-white">
-        <h2 className="text-2xl font-bold text-fuchsia-400 mb-4">Pack Opened!</h2>
-        <p className="mb-8">You received {cards.length} cards.</p>
-        <p className="text-sm text-zinc-500 mb-8">{currentCard.name} ({currentCard.rarity || 'Common'})</p>
-        <Button size="lg" className="rounded-full h-14 font-bold px-8" onClick={() => { setOpened(false); setCards([]); }}>
-          Finish & Go Back
-        </Button>
-      </div>
+      <ErrorBoundary>
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-zinc-950 px-4 pt-8">
+          <div className="flex justify-between items-center mb-2 text-zinc-400 text-sm font-medium">
+            <span className="font-mono text-xs">
+              Pack {packNumber}/{totalPacks} · Card {cardInPack}/5
+            </span>
+            <span className="flex items-center text-amber-400 font-mono text-xs">
+              <Sparkles className="w-3.5 h-3.5 mr-1" />
+              {currentCard.rarity || 'Common'}
+            </span>
+          </div>
+
+          {/* Pack progress dots */}
+          <div className="flex justify-center gap-1 mb-4">
+            {cards.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  i === currentIndex ? 'w-4 bg-fuchsia-500' :
+                  i < currentIndex ? 'w-2 bg-fuchsia-500/40' : 'w-2 bg-zinc-700'
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="flex-1 flex items-center justify-center relative">
+            <div
+              key={currentIndex}
+              className="relative w-full max-w-[320px] aspect-[2.5/3.5] cursor-pointer animate-in fade-in zoom-in duration-500"
+              onClick={nextCard}
+            >
+              {currentCard.smallImage ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img 
+                  src={currentCard.smallImage} 
+                  alt={currentCard.name}
+                  className="w-full h-full object-contain drop-shadow-2xl"
+                  loading="eager"
+                />
+              ) : (
+                <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
+                  <span className="text-zinc-500">Image Missing</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pb-8 pt-4 flex space-x-3">
+            {currentIndex < cards.length - 1 ? (
+              <Button size="lg" className="flex-1 rounded-full h-14 font-bold" onClick={nextCard}>
+                Next Card
+              </Button>
+            ) : (
+              <Button size="lg" className="flex-1 rounded-full h-14 font-bold" onClick={() => { setOpened(false); setCards([]); }}>
+                Finish
+              </Button>
+            )}
+            
+            <Button size="lg" variant="secondary" className="w-14 h-14 rounded-full p-0" onClick={shareToFarcaster}>
+              <Share2 className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </ErrorBoundary>
     );
   }
 
