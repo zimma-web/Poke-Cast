@@ -114,6 +114,8 @@ export async function sendNativeEthOnBase(params: {
           from: from as `0x${string}`,
           to: params.to as `0x${string}`,
           value: valueHex as `0x${string}`,
+          data: "0x",
+          gas: "0x5208", // 21000 gas for simple transfer
           chainId: BASE_CHAIN_ID_HEX,
         },
       ],

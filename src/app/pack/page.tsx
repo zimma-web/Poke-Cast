@@ -144,14 +144,14 @@ export default function PackScreen() {
 
       if (hasFarcasterWallet()) {
         try {
-          setTxStatus("Konfirmasi pembayaran di wallet…");
+          setTxStatus("Confirming payment in wallet...");
           const result = await sendNativeEthOnBase({
             to: TREASURY_ADDRESS,
             valueWei: feeWei,
           });
           txHash = result.txHash;
           senderAddress = result.from;
-          setTxStatus("Memverifikasi transaksi di Base…");
+          setTxStatus("Verifying transaction on Base...");
         } catch (walletErr: any) {
           const msg = walletErr?.message?.toLowerCase() ?? "";
           if (walletErr?.code === 4001 || msg.includes("reject") || msg.includes("denied") || msg.includes("cancel")) {
