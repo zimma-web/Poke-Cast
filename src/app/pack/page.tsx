@@ -427,25 +427,23 @@ export default function PackScreen() {
         animate={{ y: [0, -12, 0], rotate: [0, -1.5, 1.5, 0] }}
         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
         onClick={openPack}
-        className={`relative w-full max-w-[245px] flex flex-col items-center justify-center cursor-pointer mb-5 overflow-hidden group transition-all duration-300 ${
+        className={`relative w-full max-w-[245px] flex flex-col items-center justify-center cursor-pointer mb-5 group transition-all duration-300 ${
           !packArtError 
-            ? "aspect-[780/1426] rounded-[8px] shadow-[0_20px_45px_rgba(0,0,0,0.7)]" 
-            : "aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.25)]"
+            ? "aspect-[780/1426]" 
+            : "aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.25)] overflow-hidden"
         }`}
       >
         {/* Dynamic Background Image overlay if available */}
         {!packArtError ? (
           <div className="absolute inset-0 w-full h-full">
             <Image 
-              src={`/images/packs/${selectedSetId}.webp`} 
+              src={`/images/packs/${selectedSetId}.png`} 
               alt="" 
               fill 
               className="object-contain transition-transform duration-500 group-hover:scale-103"
               onError={() => setPackArtError(true)}
               priority
             />
-            {/* Dark vignette gradient overlay for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/10 to-zinc-950/50 pointer-events-none" />
           </div>
         ) : (
           <>
@@ -462,36 +460,40 @@ export default function PackScreen() {
           </>
         )}
 
-        {/* Dynamic Set Symbol Logo (Floating top right) */}
-        {activeSet?.symbol && (
+        {/* Dynamic Set Symbol Logo (Floating top right) - Only show on fallback */}
+        {packArtError && activeSet?.symbol && (
           <div className="absolute top-3.5 right-3.5 w-6 h-6 opacity-35 bg-zinc-950/80 p-1 rounded-lg backdrop-blur-xs z-10 border border-zinc-800/50">
             <Image src={activeSet.symbol} alt="" fill className="object-contain" />
           </div>
         )}
 
-        {/* Dynamic PokéCast Logo (using local Text-PokeCast.png image) */}
-        <div className="absolute top-10 left-0 right-0 h-20 flex justify-center z-20 select-none pointer-events-none px-2">
-          <div className="relative w-full h-full max-w-[235px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
-            <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
+        {/* Dynamic PokéCast Logo (using local Text-PokeCast.png image) - Only show on fallback */}
+        {packArtError && (
+          <div className="absolute top-10 left-0 right-0 h-20 flex justify-center z-20 select-none pointer-events-none px-2">
+            <div className="relative w-full h-full max-w-[235px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
+              <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Dynamic Set Logo (Overlayed near the bottom using the set's official transparent logo) */}
-        <div className="absolute bottom-12 left-4 right-4 h-18 flex items-center justify-center z-20 select-none pointer-events-none">
-          {activeSet?.logo && (
+        {/* Dynamic Set Logo (Overlayed near the bottom using the set's official transparent logo) - Only show on fallback */}
+        {packArtError && activeSet?.logo && (
+          <div className="absolute bottom-12 left-4 right-4 h-18 flex items-center justify-center z-20 select-none pointer-events-none">
             <div className="relative w-full h-full drop-shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
               <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Standard Red Game Cards Footer Banner */}
-        <div className="absolute bottom-0 left-0 right-0 h-7 bg-rose-600/95 border-t border-rose-500/35 flex items-center justify-center z-25 select-none pointer-events-none">
-          <span className="text-[8px] font-mono font-bold tracking-widest text-white uppercase flex items-center gap-1.5">
-            <span className="inline-block w-4 h-4 rounded-full bg-white text-rose-600 text-[9px] font-black text-center leading-4 shadow-sm">5</span>
-            ADDITIONAL GAME CARDS
-          </span>
-        </div>
+        {/* Standard Red Game Cards Footer Banner - Only show on fallback */}
+        {packArtError && (
+          <div className="absolute bottom-0 left-0 right-0 h-7 bg-rose-600/95 border-t border-rose-500/35 flex items-center justify-center z-25 select-none pointer-events-none">
+            <span className="text-[8px] font-mono font-bold tracking-widest text-white uppercase flex items-center gap-1.5">
+              <span className="inline-block w-4 h-4 rounded-full bg-white text-rose-600 text-[9px] font-black text-center leading-4 shadow-sm">5</span>
+              ADDITIONAL GAME CARDS
+            </span>
+          </div>
+        )}
 
         {/* Pack count badge */}
         {packCount > 1 && (
