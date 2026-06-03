@@ -465,31 +465,20 @@ export default function PackScreen() {
           </div>
         )}
 
-        {/* Dynamic PokéCast Logo (Yellow/White bold letters with heavy blue shadow border) */}
-        <div className="absolute top-5 left-0 right-0 flex justify-center z-20 select-none pointer-events-none">
-          <span className="text-3xl tracking-tight font-extrabold flex items-center leading-none select-none">
-            <span className="text-yellow-400 font-extrabold uppercase" style={{ 
-              textShadow: "-2.5px -2.5px 0 #1d4ed8, 2.5px -2.5px 0 #1d4ed8, -2.5px 2.5px 0 #1d4ed8, 2.5px 2.5px 0 #1d4ed8, -3.5px 0 0 #1d4ed8, 3.5px 0 0 #1d4ed8, 0 3.5px 0 #1d4ed8, 0 -3.5px 0 #1d4ed8, 2px 2px 4px rgba(0,0,0,0.8)" 
-            }}>Poké</span>
-            <span className="text-white font-extrabold uppercase" style={{ 
-              textShadow: "-2.5px -2.5px 0 #1d4ed8, 2.5px -2.5px 0 #1d4ed8, -2.5px 2.5px 0 #1d4ed8, 2.5px 2.5px 0 #1d4ed8, -3.5px 0 0 #1d4ed8, 3.5px 0 0 #1d4ed8, 0 3.5px 0 #1d4ed8, 0 -3.5px 0 #1d4ed8, 2px 2px 4px rgba(0,0,0,0.8)" 
-            }}>Cast</span>
-          </span>
+        {/* Dynamic PokéCast Logo (using local Text-PokeCast.png image) */}
+        <div className="absolute top-5 left-0 right-0 h-14 flex justify-center z-20 select-none pointer-events-none px-6">
+          <div className="relative w-full h-full max-w-[190px] drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)]">
+            <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
+          </div>
         </div>
 
-        {/* Dynamic Set Titles (Overlayed near the bottom) */}
-        <div className="absolute bottom-11 left-3 right-3 flex flex-col items-center justify-center z-20 text-center select-none pointer-events-none">
-          {activeSet?.series && (
-            <span className="text-[8px] font-mono tracking-widest text-amber-300 font-bold uppercase drop-shadow-md bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800/40 mb-1.5">
-              {activeSet.series}
-            </span>
+        {/* Dynamic Set Logo (Overlayed near the bottom using the set's official transparent logo) */}
+        <div className="absolute bottom-11 left-4 right-4 h-16 flex items-center justify-center z-20 select-none pointer-events-none">
+          {activeSet?.logo && (
+            <div className="relative w-full h-full drop-shadow-[0_4px_8px_rgba(0,0,0,0.85)]">
+              <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
+            </div>
           )}
-          
-          <div className="relative w-full bg-gradient-to-r from-transparent via-zinc-950/90 to-transparent border-y border-zinc-800/40 py-1.5 backdrop-blur-xs flex items-center justify-center">
-            <span className="text-xs font-black tracking-widest text-white uppercase text-center drop-shadow-lg leading-tight px-3">
-              {activeSet?.name || "Booster Pack"}
-            </span>
-          </div>
         </div>
 
         {/* Standard Red Game Cards Footer Banner */}
