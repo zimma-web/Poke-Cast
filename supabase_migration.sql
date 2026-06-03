@@ -360,4 +360,8 @@ CREATE INDEX IF NOT EXISTS idx_referral_rewards_referrer ON referral_rewards(ref
 CREATE INDEX IF NOT EXISTS idx_referral_rewards_referee ON referral_rewards(referee_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_purchases_hash ON ticket_purchases(tx_hash);
 
+-- SQL Database Migration: Admin Hide Users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE NOT NULL;
+
+
 
