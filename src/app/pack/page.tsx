@@ -433,7 +433,7 @@ export default function PackScreen() {
         {!packArtError ? (
           <div className="absolute inset-0 w-full h-full">
             <Image 
-              src={`/images/packs/${selectedSetId}.png`} 
+              src={`/images/packs/${selectedSetId}.webp`} 
               alt="" 
               fill 
               className="object-cover rounded-[24px] transition-transform duration-500 group-hover:scale-105"
