@@ -440,7 +440,7 @@ export default function PackScreen() {
               src={`/images/packs/${selectedSetId}.png`} 
               alt="" 
               fill 
-              className="object-contain transition-transform duration-500 group-hover:scale-103"
+              className="object-contain"
               onError={() => setPackArtError(true)}
               priority
             />
@@ -468,14 +468,14 @@ export default function PackScreen() {
         )}
 
         {/* Dynamic PokéCast Logo (using local Text-PokeCast.png image) */}
-        <div className="absolute top-7 left-0 right-0 h-16 flex justify-center z-20 select-none pointer-events-none px-2">
-          <div className="relative w-full h-full max-w-[190px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
+        <div className="absolute top-[8%] left-0 right-0 h-28 flex justify-center z-20 select-none pointer-events-none px-2">
+          <div className="relative w-full h-full max-w-[170px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
             <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
           </div>
         </div>
 
         {/* Dynamic Set Logo (Overlayed near the bottom using the set's official transparent logo) */}
-        <div className="absolute bottom-10 left-3 right-3 h-16 flex items-center justify-center z-20 select-none pointer-events-none">
+        <div className="absolute bottom-[10%] left-3 right-3 h-20 flex items-center justify-center z-20 select-none pointer-events-none">
           {activeSet?.logo && (
             <div className="relative w-full h-full drop-shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
               <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
