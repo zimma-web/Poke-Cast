@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       const { search = '', limit = 100 } = payload || {};
       let query = supabaseAdmin
         .from('users')
-        .select('id, fid, username, avatar, created_at, packs_opened, pack_tickets, login_streak, highest_streak, is_admin, is_banned, ban_reason, pokepoints, lifetime_points, is_hidden')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(limit);
 
