@@ -9,11 +9,8 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useSendTransaction, useAccount } from "wagmi";
 
 export default function PackScreen() {
-  const { sendTransactionAsync } = useSendTransaction();
-  const { isConnected } = useAccount();
   const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [opened, setOpened] = useState(false);
