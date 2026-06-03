@@ -28,7 +28,8 @@ const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 
 export async function POST(request: Request) {
   try {
-    const { setId, userId, txHash } = await request.json();
+    const { setId, userId, txHash, count: rawCount } = await request.json();
+    const count = Math.max(1, Math.min(5, parseInt(rawCount) || 1)); // Clamp 1-5
 
     if (!setId || !userId || !txHash) {
       return NextResponse.json({ error: 'setId, userId, and txHash are required' }, { status: 400 });
@@ -84,31 +85,32 @@ export async function POST(request: Request) {
       resetApplied = true;
     }
 
-    // Cost validation & deduction
-    if (currentFreePacks > 0) {
-      currentFreePacks -= 1;
-    } else if (currentTickets >= 1) {
-      currentTickets -= 1;
-    } else {
-      // Not enough balance
-      if (resetApplied) {
-        // Persist daily reset state even if opening fails
-        await supabaseAdmin
-          .from('users')
-          .update({
-            free_packs_remaining: currentFreePacks,
-            pack_tickets: currentTickets,
-            last_daily_reset: lastReset ? lastReset.toISOString() : new Date().toISOString()
-          })
-          .eq('id', userId);
-      }
-      return NextResponse.json({ error: 'Not enough Pack Tickets or daily free packs remaining' }, { status: 400 });
+    // Cost validation & deduction (handle multiple packs at once)
+    const totalAvailable = currentFreePacks + currentTickets;
+    if (totalAvailable < count) {
+      return NextResponse.json({
+        error: `Not enough packs. You have ${currentFreePacks} free pack(s) and ${currentTickets} ticket(s), but requested ${count}.`
+      }, { status: 400 });
     }
 
-    // Log the pack opening transaction in the DB to prevent double claims / replays
+    // Deduct: use free packs first, then tickets
+    let packsToDeduct = count;
+    const freePacksUsed = Math.min(currentFreePacks, packsToDeduct);
+    currentFreePacks -= freePacksUsed;
+    packsToDeduct -= freePacksUsed;
+    if (packsToDeduct > 0) {
+      currentTickets -= packsToDeduct;
+    }
+
+    // Log each pack opening with a unique hash suffix to prevent replay attacks
+    const packInserts = Array.from({ length: count }, (_, i) => ({
+      user_id: userId,
+      set_id: setId,
+      tx_hash: count === 1 ? txHash : `${txHash}_pack${i + 1}`
+    }));
     const { error: logError } = await supabaseAdmin
       .from('pack_openings')
-      .insert({ user_id: userId, set_id: setId, tx_hash: txHash });
+      .insert(packInserts);
 
     if (logError) {
       return NextResponse.json({ error: 'Failed to record on-chain transaction log: ' + logError.message }, { status: 500 });
@@ -136,49 +138,37 @@ export async function POST(request: Request) {
       return activePool[randomIndex];
     };
 
-    // Pick 5 cards: 3 Commons, 1 Uncommon, 1 Rare
-    const packCards = [];
+    // Helper to draw one pack (3 commons, 1 uncommon, 1 rare)
+    const drawOnePack = (): any[] => {
+      const pack: any[] = [];
+      for (let i = 0; i < 3; i++) pack.push(getRandomCard(commonPool, setCards));
+      pack.push(getRandomCard(uncommonPool, setCards));
 
-    // 1. 3 Common slots
-    for (let i = 0; i < 3; i++) {
-      packCards.push(getRandomCard(commonPool, setCards));
-    }
-
-    // 2. 1 Uncommon slot
-    packCards.push(getRandomCard(uncommonPool, setCards));
-
-    // 3. 1 Rare slot with weighted rarity probabilities
-    const activeRarePool = rarePool.length > 0 ? rarePool : setCards;
-    
-    // Group rare cards by their exact rarity string
-    const poolsByRarity: Record<string, any[]> = {};
-    activeRarePool.forEach((c: any) => {
-      const rarityName = c.rarity || 'Rare';
-      if (!poolsByRarity[rarityName]) {
-        poolsByRarity[rarityName] = [];
+      const activeRarePool = rarePool.length > 0 ? rarePool : setCards;
+      const poolsByRarity: Record<string, any[]> = {};
+      activeRarePool.forEach((c: any) => {
+        const rarityName = c.rarity || 'Rare';
+        if (!poolsByRarity[rarityName]) poolsByRarity[rarityName] = [];
+        poolsByRarity[rarityName].push(c);
+      });
+      const poolWeights = Object.keys(poolsByRarity).map(r => ({ rarityName: r, weight: getRarityWeight(r) }));
+      const totalWeight = poolWeights.reduce((sum, item) => sum + item.weight, 0);
+      let roll = Math.random() * totalWeight;
+      let selectedRarity = poolWeights[0].rarityName;
+      for (const item of poolWeights) {
+        roll -= item.weight;
+        if (roll <= 0) { selectedRarity = item.rarityName; break; }
       }
-      poolsByRarity[rarityName].push(c);
-    });
+      const selectedPool = poolsByRarity[selectedRarity];
+      pack.push(selectedPool[Math.floor(Math.random() * selectedPool.length)]);
+      return pack;
+    };
 
-    const poolWeights = Object.keys(poolsByRarity).map(rarityName => ({
-      rarityName,
-      weight: getRarityWeight(rarityName)
-    }));
-
-    const totalWeight = poolWeights.reduce((sum, item) => sum + item.weight, 0);
-    let roll = Math.random() * totalWeight;
-    let selectedRarity = poolWeights[0].rarityName;
-    for (const item of poolWeights) {
-      roll -= item.weight;
-      if (roll <= 0) {
-        selectedRarity = item.rarityName;
-        break;
-      }
+    // Draw all packs
+    const packCards: any[] = [];
+    for (let p = 0; p < count; p++) {
+      packCards.push(...drawOnePack());
     }
-
-    const selectedPool = poolsByRarity[selectedRarity];
-    const rareCard = selectedPool[Math.floor(Math.random() * selectedPool.length)];
-    packCards.push(rareCard);
 
     // Save pulled cards to user_cards in Supabase
     const inserts = packCards.map((c: any) => ({
@@ -198,7 +188,7 @@ export async function POST(request: Request) {
     const { error: updateError } = await supabaseAdmin
       .from('users')
       .update({
-        packs_opened: (user.packs_opened || 0) + 1,
+        packs_opened: (user.packs_opened || 0) + count,
         free_packs_remaining: currentFreePacks,
         pack_tickets: currentTickets,
         last_daily_reset: lastReset ? lastReset.toISOString() : null
@@ -223,7 +213,7 @@ export async function POST(request: Request) {
       if (questRow) {
         await supabaseAdmin
           .from('user_quests')
-          .update({ progress: Math.min(questRow.target, questRow.progress + 1) })
+          .update({ progress: Math.min(questRow.target, questRow.progress + count) })
           .eq('user_id', userId)
           .eq('quest_id', 'open_pack')
           .eq('day', todayStr);
