@@ -193,7 +193,7 @@ export async function POST(request: Request) {
         .from('auctions')
         .select(`
           *,
-          seller:seller_id(id, username, avatar, fid, wallet_address)
+          seller:seller_id(id, username, avatar, fid, wallet_address, is_hidden)
         `, { count: 'exact' })
         .eq('status', 'active')
         .order('end_at', { ascending: true }) // ending soonest first
@@ -206,8 +206,11 @@ export async function POST(request: Request) {
       const { data: rawAuctions, count, error } = await query;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+      // Filter out auctions where seller is hidden
+      const activeAuctions = (rawAuctions || []).filter((a: any) => !a.seller || !a.seller.is_hidden);
+
       const wishlistSet = new Set<string>(wishlistCardIds);
-      let enriched = (rawAuctions || []).map((a: any) => enrichAuction(a, wishlistSet));
+      let enriched = activeAuctions.map((a: any) => enrichAuction(a, wishlistSet));
 
       // Search filter
       if (search) {

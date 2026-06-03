@@ -487,7 +487,7 @@ export default function AdminDashboard() {
       const res = await adminFetch("hide_user", { userId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("User hidden from leaderboard");
+      showToast("User hidden from public views");
       fetchUserDetail(userId);
       fetchUsers(userSearch);
     } catch (err: any) { showToast(err.message, "error"); }
@@ -498,7 +498,7 @@ export default function AdminDashboard() {
       const res = await adminFetch("unhide_user", { userId });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      showToast("User unhidden from leaderboard");
+      showToast("User unhidden from public views");
       fetchUserDetail(userId);
       fetchUsers(userSearch);
     } catch (err: any) { showToast(err.message, "error"); }
@@ -1059,12 +1059,12 @@ export default function AdminDashboard() {
                       {selectedUser.is_hidden ? (
                         <button onClick={() => handleUnhideUser(selectedUser.id)}
                           className="h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
-                          <Eye className="w-3.5 h-3.5" /> Show in Leaderboard
+                          <Eye className="w-3.5 h-3.5" /> Show to Public
                         </button>
                       ) : (
                         <button onClick={() => handleHideUser(selectedUser.id)}
                           className="h-9 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
-                          <EyeOff className="w-3.5 h-3.5" /> Hide in Leaderboard
+                          <EyeOff className="w-3.5 h-3.5" /> Hide from Public
                         </button>
                       )}
                       <button onClick={() => handleResetStreak(selectedUser.id)}
