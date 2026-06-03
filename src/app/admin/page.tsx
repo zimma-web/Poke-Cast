@@ -549,6 +549,17 @@ export default function AdminDashboard() {
     } catch (err: any) { showToast(err.message, "error"); }
   };
 
+  const handleEnableAllPacks = async () => {
+    if (!confirm("Are you sure you want to enable ALL booster packs? Players will be able to buy and open all packs.")) return;
+    try {
+      const res = await adminFetch("pack_enable_all");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Enabled all booster packs successfully");
+      fetchPacks();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
   // ─── Event handlers ───────────────────────────────────────────────────────
   const handleEventSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1064,6 +1075,12 @@ export default function AdminDashboard() {
                 />
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={handleEnableAllPacks}
+                  className="px-4 h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20 active:scale-95 shrink-0"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Enable All Packs
+                </button>
                 <button
                   onClick={handleDisableAllPacks}
                   className="px-4 h-10 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-rose-950/20 active:scale-95 shrink-0"
