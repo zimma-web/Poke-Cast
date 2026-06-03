@@ -116,7 +116,7 @@ export async function sendNativeEthOnBase(params: {
         {
           from: from as `0x${string}`,
           to: params.to as `0x${string}`,
-          value: valueHex,
+          value: valueHex as `0x${string}`,
         },
       ],
     }),
