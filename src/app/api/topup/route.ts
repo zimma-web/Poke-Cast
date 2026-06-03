@@ -6,7 +6,7 @@ import { verifyBaseETHTransfer, verifyBaseUSDCTransfer } from '@/lib/web3';
 export const maxDuration = 120;
 
 
-const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
+const TREASURY_ADDRESS = '0xe251A3a0D23859157ef8041394279f7Ba46C90e3';
 
 // Fetch the current price of ETH in USD to verify equivalent $1
 async function getEthPrice(): Promise<number> {

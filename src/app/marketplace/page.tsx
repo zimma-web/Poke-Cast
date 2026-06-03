@@ -41,7 +41,7 @@ interface BidHistory {
 type View = "feed" | "my_listings" | "my_bids";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
+const TREASURY_ADDRESS = '0xe251A3a0D23859157ef8041394279f7Ba46C90e3';
 const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

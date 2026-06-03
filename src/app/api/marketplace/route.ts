@@ -6,7 +6,7 @@ import { getBaseUSDCBalance, verifyBaseUSDCTransfer, verifyBaseETHTransfer } fro
 
 const CARDS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
 const SETS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
-const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
+const TREASURY_ADDRESS = '0xe251A3a0D23859157ef8041394279f7Ba46C90e3';
 
 // ─── Card metadata resolution ─────────────────────────────────────────────────
 let _cardMap: Map<string, any> | null = null;
