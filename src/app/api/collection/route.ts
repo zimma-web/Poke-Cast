@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     // 1. Fetch user data
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points')
+      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points, referral_code, referrer_id, total_referrals, successful_referrals, referral_tickets_earned')
       .eq('id', userId)
       .maybeSingle();
  
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
            last_daily_reset: lastReset.toISOString()
          })
          .eq('id', userId)
-         .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points')
+         .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points, referral_code, referrer_id, total_referrals, successful_referrals, referral_tickets_earned')
          .single();
  
       if (!updateResetError && refreshedUser) {
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     // Fetch final user record to capture any achievement ticket rewards
     const { data: finalUser } = await supabaseAdmin
        .from('users')
-       .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points')
+       .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points, referral_code, referrer_id, total_referrals, successful_referrals, referral_tickets_earned')
        .eq('id', userId)
        .single();
 
@@ -188,6 +188,11 @@ export async function GET(request: Request) {
       rarestPulls,
       pokepoints: updatedUser?.pokepoints !== undefined ? Number(updatedUser.pokepoints) : 0,
       lifetimePoints: updatedUser?.lifetime_points !== undefined ? Number(updatedUser.lifetime_points) : 0,
+      referral_code: updatedUser?.referral_code || null,
+      referrer_id: updatedUser?.referrer_id || null,
+      total_referrals: updatedUser?.total_referrals || 0,
+      successful_referrals: updatedUser?.successful_referrals || 0,
+      referral_tickets_earned: updatedUser?.referral_tickets_earned || 0,
     });
   } catch (error) {
     console.error('Collection query error:', error);

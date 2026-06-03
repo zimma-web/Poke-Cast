@@ -14,11 +14,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const { setAuth, setCollection, setAchievements, setLoading, loading } = useCollectionStore();
   const initializedRef = useRef(false);
 
-  if (isAdminRoute) {
-    return <>{children}</>;
-  }
-
   useEffect(() => {
+    if (isAdminRoute) {
+      setIsSDKLoaded(true);
+      setLoading(false);
+      return;
+    }
     if (initializedRef.current) return;
     initializedRef.current = true;
 
@@ -88,11 +89,35 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }
         }
 
+        // Prepare referral tracking from query parameters or stored values
+        let referralCode = null;
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const paramValue = params.get('ref') || params.get('referral');
+          if (paramValue) {
+            referralCode = paramValue.trim().toUpperCase();
+            localStorage.setItem('tcg_referral_code', referralCode);
+            localStorage.setItem('tcg_referral_source', window.location.href);
+          } else {
+            referralCode = localStorage.getItem('tcg_referral_code');
+          }
+        } catch (e) {
+          console.warn('Failed to read referral param:', e);
+          referralCode = localStorage.getItem('tcg_referral_code');
+        }
+
         // 1. Post to auth endpoint
         const authRes = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fid: userFid, username: userUsername, avatar: userAvatar, walletAddress })
+          body: JSON.stringify({
+            fid: userFid,
+            username: userUsername,
+            avatar: userAvatar,
+            walletAddress,
+            referralCode,
+            referralSource: localStorage.getItem('tcg_referral_source') || null
+          })
         });
         const authData = await authRes.json();
         
@@ -104,6 +129,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             avatar: authData.avatar,
             walletAddress: authData.wallet_address,
             usdcBalance: authData.usdc_balance || 0,
+            referralCode: authData.referral_code || null,
+            referrerId: authData.referrer_id || null,
             packTickets: authData.pack_tickets,
             freePacksRemaining: authData.free_packs_remaining,
             lastDailyReset: authData.last_daily_reset,
@@ -149,6 +176,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             packsOpened: collectionData.packsOpened || 0,
             walletAddress: collectionData.walletAddress,
             usdcBalance: collectionData.usdcBalance || 0,
+            referralCode: collectionData.referral_code || null,
+            referrerId: collectionData.referrer_id || null,
             packTickets: collectionData.packTickets,
             freePacksRemaining: collectionData.freePacksRemaining,
             lastDailyReset: collectionData.lastDailyReset,

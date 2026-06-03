@@ -23,6 +23,7 @@ function getRarityWeight(rarity: string): number {
 }
 
 import { verifyBaseETHTransfer } from '@/lib/web3';
+import { processReferralMilestones } from '@/lib/referrals';
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 
@@ -217,6 +218,8 @@ export async function POST(request: Request) {
     if (updateError) {
       console.error('Failed to update user pack stats:', updateError);
     }
+
+    await processReferralMilestones(userId, user.packs_opened || 0);
 
     // Increment open_pack quest progress
     try {

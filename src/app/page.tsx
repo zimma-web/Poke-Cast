@@ -40,6 +40,7 @@ export default function Home() {
     freePacksRemaining = 0,
     walletAddress = null,
     usdcBalance = 0,
+    referralCode = null,
     loginStreak,
     highestStreak,
     claimedToday,
@@ -248,8 +249,10 @@ export default function Home() {
   
   const completedAchievements = achievements.filter(a => a.unlocked).length;
 
+  const referralLink = referralCode ? `https://poke-cast.vercel.app/?ref=${encodeURIComponent(referralCode)}` : 'https://poke-cast.vercel.app';
+
   const shareCardToFarcaster = (card: any) => {
-    const text = `🔥 I just pulled ${card.name} (${card.rarity || 'Rare'}) in PokéCast! Look at my rarest collection milestone. Ripping packs and trading with real USDC on Base. #PokeCast`;
+    const text = `🔥 I just pulled ${card.name} (${card.rarity || 'Rare'}) in PokéCast! Join me and earn bonus tickets when you sign up with my code ${referralCode || 'POKE'}: ${referralLink}`;
     const embedUrl = card.largeImage || card.smallImage || "";
     
     sdk.actions.composeCast({
@@ -318,6 +321,52 @@ export default function Home() {
               className="bg-gradient-to-r from-fuchsia-500 to-violet-600 hover:from-fuchsia-600 hover:to-violet-700 text-white text-[10px] font-bold font-mono px-3.5 py-1.5 rounded-full shadow-[0_0_15px_rgba(217,70,239,0.2)] transform hover:scale-105 transition-all duration-300"
             >
               {claiming ? "Claiming..." : "Claim"}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Referral Share Panel */}
+      <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800/60 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Referral Rewards</p>
+            <h2 className="text-sm font-extrabold text-zinc-100 mt-1">Share your code, earn tickets</h2>
+            <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+              Invite friends with your referral link. They get bonus tickets on their first pack, and you earn extra tickets when they play.
+            </p>
+          </div>
+          <div className="flex-shrink-0 rounded-2xl bg-zinc-950/90 border border-fuchsia-500/20 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.3em] text-fuchsia-300">
+            {referralCode || 'PENDING'}
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              if (!referralCode) return;
+              navigator.clipboard.writeText(referralLink).catch(() => {});
+            }}
+          >
+            {referralCode ? 'Copy Referral Link' : 'Referral Link Pending'}
+          </Button>
+          {referralCode && (
+            <Button
+              size="sm"
+              className="w-full sm:w-auto bg-fuchsia-500 text-white hover:bg-fuchsia-600"
+              onClick={() => {
+                const text = `Join me on PokéCast and earn bonus tickets with code ${referralCode}: ${referralLink}`;
+                const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(referralLink)}`;
+                if (sdk && typeof sdk.actions.openUrl === 'function') {
+                  sdk.actions.openUrl(url).catch(() => window.open(url, '_blank'));
+                } else {
+                  window.open(url, '_blank');
+                }
+              }}
+            >
+              Share Referral
             </Button>
           )}
         </div>

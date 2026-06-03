@@ -32,6 +32,8 @@ interface CollectionState {
   achievements: any[]; // achievements with unlocked status
   walletAddress: string | null;
   usdcBalance: number;
+  referralCode: string | null;
+  referrerId: string | null;
   loginStreak: number;
   highestStreak: number;
   claimedToday: boolean;
@@ -45,6 +47,8 @@ interface CollectionState {
     avatar: string; 
     walletAddress?: string | null;
     usdcBalance?: number;
+    referralCode?: string | null;
+    referrerId?: string | null;
     packTickets?: number; 
     freePacksRemaining?: number; 
     lastDailyReset?: string | null;
@@ -62,6 +66,8 @@ interface CollectionState {
     packsOpened: number;
     walletAddress?: string | null;
     usdcBalance?: number;
+    referralCode?: string | null;
+    referrerId?: string | null;
     packTickets?: number;
     freePacksRemaining?: number;
     lastDailyReset?: string | null;
@@ -118,6 +124,8 @@ export const useCollectionStore = create<CollectionState>()(
       achievements: [],
       walletAddress: null,
       usdcBalance: 0,
+      referralCode: null,
+      referrerId: null,
       loginStreak: 0,
       highestStreak: 0,
       claimedToday: false,
@@ -137,6 +145,8 @@ export const useCollectionStore = create<CollectionState>()(
           avatar: auth.avatar,
           walletAddress: auth.walletAddress ?? null,
           usdcBalance: auth.usdcBalance ?? 0,
+          referralCode: auth.referralCode ?? null,
+          referrerId: auth.referrerId ?? null,
           packTickets: auth.packTickets ?? 10,
           freePacksRemaining: auth.freePacksRemaining ?? 2,
           lastDailyReset: auth.lastDailyReset ?? null,
@@ -162,6 +172,8 @@ export const useCollectionStore = create<CollectionState>()(
           packsOpened: col.packsOpened,
           ...(col.walletAddress !== undefined ? { walletAddress: col.walletAddress } : {}),
           ...(col.usdcBalance !== undefined ? { usdcBalance: col.usdcBalance } : {}),
+          ...(col.referralCode !== undefined ? { referralCode: col.referralCode } : {}),
+          ...(col.referrerId !== undefined ? { referrerId: col.referrerId } : {}),
           ...(col.packTickets !== undefined ? { packTickets: col.packTickets } : {}),
           ...(col.freePacksRemaining !== undefined ? { freePacksRemaining: col.freePacksRemaining } : {}),
           ...(col.lastDailyReset !== undefined ? { lastDailyReset: col.lastDailyReset } : {}),
@@ -233,6 +245,8 @@ export const useCollectionStore = create<CollectionState>()(
         lastDailyReset: state.lastDailyReset,
         wishlist: state.wishlist,
         achievements: state.achievements,
+        referralCode: state.referralCode,
+        referrerId: state.referrerId,
         loginStreak: state.loginStreak,
         highestStreak: state.highestStreak,
         claimedToday: state.claimedToday,

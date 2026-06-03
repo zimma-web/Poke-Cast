@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { awardReferralTradeComplete } from '@/lib/referrals';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -263,6 +264,10 @@ export async function POST(request: Request) {
       const { data: receiver } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
       await createNotification(trade.sender_id, 'trade_accepted', 'Trade Accepted! 🎉', `${receiver?.username || 'Someone'} accepted your trade!`, { tradeId });
 
+      await Promise.all([
+        awardReferralTradeComplete(trade.sender_id),
+        awardReferralTradeComplete(trade.receiver_id)
+      ]);
       await trackEvent(userId, 'trade_accepted', { tradeId });
       return NextResponse.json({ success: true });
     }

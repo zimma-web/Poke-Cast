@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { awardLoginStreakPoints } from '@/lib/pokepoints';
+import { createReferralCode, createReferralForNewUser } from '@/lib/referrals';
 
 export async function POST(request: Request) {
   try {
-    const { fid, username, avatar, walletAddress } = await request.json();
+    const { fid, username, avatar, walletAddress, referralCode, referralSource } = await request.json();
 
     if (fid === undefined || fid === null) {
       return NextResponse.json({ error: 'FID is required' }, { status: 400 });
@@ -23,6 +24,24 @@ export async function POST(request: Request) {
     }
 
     if (existingUser) {
+      const userReferralCode = existingUser.referral_code || createReferralCode(fid);
+      if (!existingUser.referral_code) {
+        await supabaseAdmin
+          .from('users')
+          .update({ referral_code: userReferralCode })
+          .eq('id', existingUser.id);
+        existingUser.referral_code = userReferralCode;
+      }
+
+      const normalizedReferrerCode = referralCode?.toString().trim().toUpperCase() || null;
+      if (normalizedReferrerCode && !existingUser.referrer_id) {
+        const referral = await createReferralForNewUser(normalizedReferrerCode, existingUser.id, fid, referralSource || null);
+        if (referral && referral.referrer_id) {
+          await supabaseAdmin.from('users').update({ referrer_id: referral.referrer_id }).eq('id', existingUser.id);
+          existingUser.referrer_id = referral.referrer_id;
+        }
+      }
+
       const now = new Date();
       let lastReset = existingUser.last_daily_reset ? new Date(existingUser.last_daily_reset) : null;
       let currentTickets = existingUser.pack_tickets !== null && existingUser.pack_tickets !== undefined ? existingUser.pack_tickets : 10;
@@ -155,6 +174,9 @@ export async function POST(request: Request) {
 
     // 2. Create new user
     const todayStr = new Date().toISOString().split('T')[0];
+    const userReferralCode = createReferralCode(fid);
+    const normalizedReferrerCode = referralCode?.toString().trim().toUpperCase() || null;
+
     const { data: newUser, error: insertError } = await supabaseAdmin
       .from('users')
       .insert({ 
@@ -168,7 +190,9 @@ export async function POST(request: Request) {
         login_streak: 1,
         highest_streak: 1,
         last_login_date: todayStr,
-        wallet_address: walletAddress || null
+        wallet_address: walletAddress || null,
+        referral_code: userReferralCode,
+        referrer_id: null
       })
       .select('*')
       .single();
@@ -176,6 +200,13 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('Create user error:', insertError);
       return NextResponse.json({ error: 'Database insert error' }, { status: 500 });
+    }
+
+    if (normalizedReferrerCode) {
+      const referral = await createReferralForNewUser(normalizedReferrerCode, newUser.id, fid, referralSource || null);
+      if (referral && referral.referrer_id) {
+        await supabaseAdmin.from('users').update({ referrer_id: referral.referrer_id }).eq('id', newUser.id);
+      }
     }
 
     await awardLoginStreakPoints(newUser.id, 1);

@@ -35,6 +35,7 @@ export default function PackScreen() {
   const freePacksRemaining = useCollectionStore(state => state.freePacksRemaining);
   const updateEconomy = useCollectionStore(state => state.updateEconomy);
   const walletAddress = useCollectionStore(state => state.walletAddress);
+  const referralCode = useCollectionStore(state => state.referralCode);
   
   const activeSet = sets.find(s => s.id === selectedSetId);
 
@@ -210,13 +211,13 @@ export default function PackScreen() {
 
   const shareToFarcaster = () => {
     const card = cards[currentIndex];
-    const text = `I just pulled ${card.name} (${card.rarity || 'Common'}) on PokéCast! 🎴✨`;
-    const url = "https://poke-cast.vercel.app";
+    const referralLink = referralCode ? `https://poke-cast.vercel.app/?ref=${encodeURIComponent(referralCode)}` : 'https://poke-cast.vercel.app';
+    const text = `I just pulled ${card.name} (${card.rarity || 'Common'}) on PokéCast! Join me and earn extra tickets when you sign up with my referral link: ${referralLink}`;
     try {
       if (sdk && typeof sdk.actions.openUrl === 'function') {
-        sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(url)}`);
+        sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(referralLink)}`);
       } else {
-        window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(url)}`, '_blank');
+        window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(referralLink)}`, '_blank');
       }
     } catch (e) {
       console.error(e);

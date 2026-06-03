@@ -316,6 +316,48 @@ CREATE TABLE IF NOT EXISTS ticket_purchases (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ticket_purchases_user ON ticket_purchases(user_id);
+
+-- SQL Database Migration: Referral Program
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referrer_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS total_referrals INTEGER DEFAULT 0 NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS successful_referrals INTEGER DEFAULT 0 NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_tickets_earned INTEGER DEFAULT 0 NOT NULL;
+
+CREATE TABLE IF NOT EXISTS referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  referee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  referee_fid TEXT NOT NULL,
+  referral_code TEXT NOT NULL,
+  source_url TEXT,
+  rewarded_first_pack BOOLEAN DEFAULT FALSE NOT NULL,
+  rewarded_50_cards BOOLEAN DEFAULT FALSE NOT NULL,
+  rewarded_100_cards BOOLEAN DEFAULT FALSE NOT NULL,
+  rewarded_trade_complete BOOLEAN DEFAULT FALSE NOT NULL,
+  last_reward_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  UNIQUE (referee_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_referee ON referrals(referee_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_code ON referrals(referral_code);
+
+CREATE TABLE IF NOT EXISTS referral_rewards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referral_id UUID NOT NULL REFERENCES referrals(id) ON DELETE CASCADE,
+  referrer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  referee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  reward_amount INTEGER NOT NULL DEFAULT 0,
+  reward_description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_referral_rewards_referral ON referral_rewards(referral_id);
+CREATE INDEX IF NOT EXISTS idx_referral_rewards_referrer ON referral_rewards(referrer_id);
+CREATE INDEX IF NOT EXISTS idx_referral_rewards_referee ON referral_rewards(referee_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_purchases_hash ON ticket_purchases(tx_hash);
 
 
