@@ -111,8 +111,10 @@ export async function sendNativeEthOnBase(params: {
       method: "eth_sendTransaction",
       params: [
         {
+          from: from as `0x${string}`,
           to: params.to as `0x${string}`,
           value: valueHex as `0x${string}`,
+          chainId: BASE_CHAIN_ID_HEX,
         },
       ],
     }),
