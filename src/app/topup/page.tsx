@@ -19,12 +19,12 @@ export default function TopUpPage() {
   const walletAddress = useCollectionStore(state => state.walletAddress);
   const updateEconomy = useCollectionStore(state => state.updateEconomy);
 
+  const [usdAmount, setUsdAmount] = useState<number>(1); // minimum $1
   const [paymentMethod, setPaymentMethod] = useState<'usdc' | 'eth'>('usdc');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [ethPrice, setEthPrice] = useState<number>(3000);
-  const [ethAmount, setEthAmount] = useState<string>("0.00033");
 
   // Fetch ETH price to show equivalent amount
   useEffect(() => {
@@ -33,12 +33,14 @@ export default function TopUpPage() {
       .then(data => {
         if (data.USD) {
           setEthPrice(data.USD);
-          const calculated = (1 / data.USD).toFixed(6);
-          setEthAmount(calculated);
         }
       })
       .catch(err => console.error("Failed to fetch ETH price:", err));
   }, []);
+
+  const ethAmount = (usdAmount / ethPrice).toFixed(6);
+  const ticketAmount = usdAmount * 10;
+  const pointsAwarded = usdAmount * 50;
 
   const handlePurchase = async () => {
     if (!userId) {
@@ -71,11 +73,12 @@ export default function TopUpPage() {
         }
 
         if (paymentMethod === 'usdc') {
-          // Send 1.00 USDC transfer transaction
+          // Send USDC transfer transaction for usdAmount
           // transfer(address,uint256) selector: 0xa9059cbb
           const toAddressPadded = TREASURY_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
-          // 1 USDC = 1,000,000 units (6 decimals) = 0xf4240 in hex
-          const amountPadded = (1000000).toString(16).padStart(64, '0');
+          // 1 USDC = 1,000,000 units (6 decimals)
+          const totalUnits = usdAmount * 1000000;
+          const amountPadded = totalUnits.toString(16).padStart(64, '0');
           const data = `0xa9059cbb${toAddressPadded}${amountPadded}`;
 
           const tx = await provider.request({
@@ -90,7 +93,7 @@ export default function TopUpPage() {
           txHash = tx as string;
         } else {
           // Send equivalent ETH transaction
-          const ethInWei = BigInt(Math.floor((1 / ethPrice) * 1e18));
+          const ethInWei = BigInt(Math.floor((usdAmount / ethPrice) * 1e18));
           const gasHex = `0x${(21000).toString(16)}` as `0x${string}`;
 
           const tx = await provider.request({
@@ -120,7 +123,8 @@ export default function TopUpPage() {
           userId,
           txHash,
           method: paymentMethod,
-          userAddress: senderAddress
+          userAddress: senderAddress,
+          usdAmount
         })
       });
 
@@ -129,7 +133,7 @@ export default function TopUpPage() {
         throw new Error(data.error || "Failed to process purchase transaction");
       }
 
-      // Sync state with updated tickets and points
+      // Sync state with updated tickets
       if (data.newBalance !== undefined) {
         updateEconomy({
           packTickets: data.newBalance,
@@ -147,6 +151,10 @@ export default function TopUpPage() {
     }
   };
 
+  const adjustUsdAmount = (delta: number) => {
+    setUsdAmount(prev => Math.max(1, prev + delta));
+  };
+
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-6 text-center bg-zinc-950">
@@ -158,7 +166,7 @@ export default function TopUpPage() {
           <CheckCircle2 className="w-16 h-16 text-emerald-400 stroke-[2.5]" />
           <h2 className="text-xl font-black text-white">Purchase Successful!</h2>
           <p className="text-sm text-zinc-400">
-            10 Pack Tickets have been added to your account.
+            {ticketAmount} Pack Tickets have been added to your account.
           </p>
           <div className="bg-zinc-900 px-4 py-2 rounded-xl border border-zinc-800 text-amber-400 font-mono text-sm font-black flex items-center gap-1.5 mt-2">
             <Ticket className="w-4 h-4 fill-amber-400/20" />
@@ -166,7 +174,7 @@ export default function TopUpPage() {
           </div>
           <div className="text-[10px] text-fuchsia-400 font-mono flex items-center gap-1 mt-1">
             <Sparkles className="w-3 h-3" />
-            +50 PokePoints Awarded!
+            +{pointsAwarded} PokePoints Awarded!
           </div>
 
           <Button 
@@ -183,7 +191,7 @@ export default function TopUpPage() {
   return (
     <div className="flex flex-col min-h-[calc(100vh-64px)] bg-zinc-950 text-white px-4 pt-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <button 
           onClick={() => router.back()}
           className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 transition-colors"
@@ -199,36 +207,74 @@ export default function TopUpPage() {
         </div>
       </div>
 
-      {/* Product Card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-3xl p-6 mb-6 shadow-xl flex flex-col items-center text-center"
-      >
-        <div className="absolute inset-0 bg-radial-gradient from-amber-500/10 to-transparent pointer-events-none" />
-        
-        {/* Ticket stack mock icon */}
-        <div className="relative w-20 h-20 mb-4 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20 shadow-[0_0_25px_rgba(245,158,11,0.15)]">
-          <Ticket className="w-10 h-10 text-amber-400 fill-amber-400/20 rotate-[-12deg]" />
-          <Ticket className="w-8 h-8 text-amber-400 fill-amber-400/10 absolute rotate-[15deg] translate-x-3 translate-y-1" />
+      {/* Package Selection Display */}
+      <div className="space-y-4 mb-5">
+        {/* Quick Packages Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { usd: 1, tickets: 10, pts: 50, label: "Starter" },
+            { usd: 2, tickets: 20, pts: 100, label: "Popular" },
+            { usd: 5, tickets: 50, pts: 250, label: "Collector" },
+            { usd: 10, tickets: 100, pts: 500, label: "Legendary" }
+          ].map((pkg) => {
+            const isSelected = usdAmount === pkg.usd;
+            return (
+              <button
+                key={pkg.usd}
+                onClick={() => setUsdAmount(pkg.usd)}
+                className={`relative overflow-hidden p-4 rounded-2xl border text-left transition-all duration-200 ${
+                  isSelected
+                    ? "bg-amber-500/10 border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                    : "bg-zinc-900/60 hover:bg-zinc-900 border-zinc-850"
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400" />
+                )}
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">{pkg.label}</div>
+                <div className="text-lg font-black text-white font-mono">{pkg.tickets} Tickets</div>
+                <div className="text-xs text-amber-400 font-bold font-mono mt-1">${pkg.usd}.00 USD</div>
+                <div className="text-[9px] text-fuchsia-400 font-mono mt-0.5">+{pkg.pts} pts</div>
+              </button>
+            );
+          })}
         </div>
 
-        <h2 className="text-2xl font-black text-white">Ticket Pack</h2>
-        <p className="text-zinc-500 text-xs mt-1 mb-4">Get 10 Pack Tickets to open booster packs instantly!</p>
-        
-        <div className="flex items-baseline space-x-1 mb-2">
-          <span className="text-3xl font-black text-white font-mono">$1.00</span>
-          <span className="text-zinc-500 text-xs font-mono">USD</span>
+        {/* Custom Multiplier Selector */}
+        <div className="bg-zinc-900/40 border border-zinc-850 rounded-2xl p-4 flex flex-col items-center justify-center space-y-3">
+          <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">Custom Ticket Multiplier</span>
+          
+          <div className="flex items-center gap-5">
+            <button
+              onClick={() => adjustUsdAmount(-1)}
+              disabled={usdAmount <= 1}
+              className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center disabled:opacity-30 hover:bg-zinc-700 transition-colors active:scale-95"
+            >
+              <span className="text-lg font-bold text-zinc-300">-</span>
+            </button>
+            
+            <div className="flex flex-col items-center min-w-[100px]">
+              <span className="text-2xl font-black text-white font-mono">${usdAmount}.00</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-0.5">{ticketAmount} Tickets</span>
+            </div>
+
+            <button
+              onClick={() => adjustUsdAmount(1)}
+              className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center hover:bg-zinc-700 transition-colors active:scale-95"
+            >
+              <span className="text-lg font-bold text-zinc-300">+</span>
+            </button>
+          </div>
+          
+          <div className="text-[9px] font-mono text-fuchsia-400 bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+            <Sparkles className="w-2.5 h-2.5" />
+            Includes +{pointsAwarded} PokePoints
+          </div>
         </div>
-        
-        <div className="text-[10px] font-mono text-fuchsia-400 bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
-          <Sparkles className="w-3 h-3" />
-          BONUS: +50 PokePoints
-        </div>
-      </motion.div>
+      </div>
 
       {/* Payment Method Tabs */}
-      <div className="mb-6 space-y-2.5">
+      <div className="mb-5 space-y-2.5">
         <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 px-1">
           Select Payment Token
         </label>
@@ -265,10 +311,10 @@ export default function TopUpPage() {
       </div>
 
       {/* Price Summary */}
-      <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 mb-6 space-y-3 font-mono text-xs text-zinc-400">
+      <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 mb-5 space-y-3 font-mono text-xs text-zinc-400">
         <div className="flex justify-between">
           <span>Tickets Purchased</span>
-          <span className="font-bold text-white">10 Pack Tickets</span>
+          <span className="font-bold text-white">{ticketAmount} Pack Tickets</span>
         </div>
         <div className="flex justify-between">
           <span>Network / Blockchain</span>
@@ -280,13 +326,13 @@ export default function TopUpPage() {
         <div className="flex justify-between items-center pt-1">
           <span className="text-zinc-300 font-bold">Total Amount Due</span>
           <span className="text-sm font-black text-white font-mono">
-            {paymentMethod === 'usdc' ? "1.00 USDC" : `${ethAmount} ETH`}
+            {paymentMethod === 'usdc' ? `${usdAmount}.00 USDC` : `${ethAmount} ETH`}
           </span>
         </div>
       </div>
 
       {error && (
-        <div className="text-xs font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-4 py-3 rounded-2xl mb-6 text-center">
+        <div className="text-xs font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-4 py-3 rounded-2xl mb-5 text-center">
           {error}
         </div>
       )}
@@ -304,7 +350,7 @@ export default function TopUpPage() {
           ) : (
             <>
               <CreditCard className="w-5 h-5" />
-              Pay {paymentMethod === 'usdc' ? "1.00 USDC" : `${ethAmount} ETH`}
+              Pay {paymentMethod === 'usdc' ? `${usdAmount}.00 USDC` : `${ethAmount} ETH`}
             </>
           )}
         </Button>

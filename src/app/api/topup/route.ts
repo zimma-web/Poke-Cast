@@ -20,11 +20,15 @@ async function getEthPrice(): Promise<number> {
 
 export async function POST(request: Request) {
   try {
-    const { userId, txHash, method, userAddress } = await request.json();
+    const { userId, txHash, method, userAddress, usdAmount: rawUsdAmount } = await request.json();
 
     if (!userId || !txHash || !method) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
+
+    const usdAmount = Math.max(1, parseInt(rawUsdAmount) || 1);
+    const ticketAmount = usdAmount * 10;
+    const pointsAwarded = usdAmount * 50;
 
     // 1. Fetch user to verify they exist
     const { data: user, error: userError } = await supabaseAdmin
@@ -55,24 +59,24 @@ export async function POST(request: Request) {
 
     const isMock = txHash.startsWith('0xmock') && process.env.NODE_ENV !== 'production';
     let verified = false;
-    let costUsd = 1.00;
+    let costUsd = usdAmount;
 
     if (isMock) {
       verified = true;
     } else {
       if (method === 'usdc') {
-        // USDC on Base (1.0 USDC)
+        // USDC on Base (usdAmount USDC)
         verified = await verifyBaseUSDCTransfer(
           txHash,
           senderWallet,
           TREASURY_ADDRESS,
-          1.00
+          usdAmount
         );
       } else if (method === 'eth') {
         // ETH on Base
         const ethPrice = await getEthPrice();
-        // $1 in ETH = 1 / ethPrice
-        const expectedEth = 1 / ethPrice;
+        // $usdAmount in ETH = usdAmount / ethPrice
+        const expectedEth = usdAmount / ethPrice;
         
         // Add a small 5% buffer for price movements during transaction confirmation
         const minEth = expectedEth * 0.95;
@@ -87,7 +91,7 @@ export async function POST(request: Request) {
     }
 
     if (!verified) {
-      return NextResponse.json({ error: 'Transaction verification failed. Make sure you sent the transaction on Base.' }, { status: 400 });
+      return NextResponse.json({ error: `Transaction verification failed. Make sure you sent at least $${usdAmount} worth of tokens on Base.` }, { status: 400 });
     }
 
     // 3. Record purchase
@@ -96,17 +100,16 @@ export async function POST(request: Request) {
       .insert({
         user_id: userId,
         tx_hash: txHash,
-        amount: 10,
+        amount: ticketAmount,
         cost_usd: costUsd
       });
 
     if (insertError) {
       console.error('Failed to log ticket purchase:', insertError);
-      // We can continue if it fails due to table missing or log error, but it's important
     }
 
-    // 4. Update user tickets (+10)
-    const newBalance = (user.pack_tickets || 0) + 10;
+    // 4. Update user tickets (+ticketAmount)
+    const newBalance = (user.pack_tickets || 0) + ticketAmount;
     const { error: updateError } = await supabaseAdmin
       .from('users')
       .update({ pack_tickets: newBalance })
@@ -116,10 +119,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to update user ticket balance' }, { status: 500 });
     }
 
-    // 5. Award PokePoints (+50 for top-up/supporting the app)
+    // 5. Award PokePoints (+50 per dollar)
     try {
       const { awardPoints } = await import('@/lib/pokepoints');
-      await awardPoints(userId, 'topup', 50, txHash, { amount: 10, method });
+      await awardPoints(userId, 'topup', pointsAwarded, txHash, { amount: ticketAmount, method, usdAmount });
     } catch (e) {
       console.error('Failed to award PokePoints for topup:', e);
     }
@@ -127,7 +130,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       newBalance,
-      message: 'Successfully purchased 10 Pack Tickets!'
+      message: `Successfully purchased ${ticketAmount} Pack Tickets!`
     });
 
   } catch (error: any) {
