@@ -299,10 +299,10 @@ export default function PackScreen() {
               className="relative w-full max-w-[320px] aspect-[2.5/3.5] cursor-pointer"
               onClick={nextCard}
             >
-              {currentCard.smallImage ? (
+              {currentCard.largeImage || currentCard.smallImage ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img 
-                  src={currentCard.smallImage} 
+                  src={currentCard.largeImage || currentCard.smallImage} 
                   alt={currentCard.name}
                   className="w-full h-full object-contain"
                   loading="lazy"
