@@ -9,6 +9,12 @@ const QUESTS_CONFIG = [
   { id: 'create_auction', title: 'Card Trader', desc: 'List at least 1 card for sale in the Auction House', target: 1, reward: 5 },
 ];
 
+const MAIN_QUESTS_CONFIG = [
+  { id: 'main_follow_dev', title: 'Follow Developer', desc: 'Follow @zimma on Warpcast', target: 1, reward: 5, link: 'https://warpcast.com/zimma' },
+  { id: 'main_join_channel', title: 'Join PokéCast Channel', desc: 'Join the /pokecast channel on Warpcast', target: 1, reward: 5, link: 'https://warpcast.com/~/channel/pokecast' },
+  { id: 'main_share_app', title: 'Share App', desc: 'Share PokéCast on Warpcast', target: 1, reward: 5, link: 'https://warpcast.com/~/compose?text=I%20am%20collecting%20Pok%C3%A9mon%20cards%20on%20Pok%C3%A9Cast%21%20Come%20rip%20packs%20with%20me%20%F0%9F%8E%B4%E2%9C%A8&embeds[]=https://poke-cast.vercel.app' },
+];
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -53,7 +59,45 @@ export async function GET(request: Request) {
       quests = newQuests || [];
     }
 
-    // 3. Sync Daily Login status on-the-fly
+    // 3. Fetch main quests for the user
+    let { data: mainQuests, error: mainFetchError } = await supabaseAdmin
+      .from('user_quests')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('day', '2000-01-01');
+
+    if (mainFetchError) {
+      return NextResponse.json({ error: mainFetchError.message }, { status: 500 });
+    }
+
+    // 4. Initialize main quests if not fully initialized
+    if (!mainQuests || mainQuests.length < MAIN_QUESTS_CONFIG.length) {
+      const existingIds = mainQuests ? mainQuests.map(q => q.quest_id) : [];
+      const missingConfigs = MAIN_QUESTS_CONFIG.filter(c => !existingIds.includes(c.id));
+
+      if (missingConfigs.length > 0) {
+        const inserts = missingConfigs.map(q => ({
+          user_id: userId,
+          quest_id: q.id,
+          progress: 0,
+          target: q.target,
+          claimed: false,
+          day: '2000-01-01'
+        }));
+
+        const { data: newMainQuests, error: insertMainError } = await supabaseAdmin
+          .from('user_quests')
+          .insert(inserts)
+          .select('*');
+
+        if (insertMainError) {
+          return NextResponse.json({ error: insertMainError.message }, { status: 500 });
+        }
+        mainQuests = [...(mainQuests || []), ...(newMainQuests || [])];
+      }
+    }
+
+    // 5. Sync Daily Login status on-the-fly
     const { data: claimedRow } = await supabaseAdmin
       .from('login_rewards')
       .select('id')
@@ -87,10 +131,25 @@ export async function GET(request: Request) {
       };
     });
 
+    const enrichedMainQuests = (mainQuests || []).map(q => {
+      const config = MAIN_QUESTS_CONFIG.find(c => c.id === q.quest_id) || { title: q.quest_id, desc: '', reward: 1, link: '' };
+      return {
+        ...q,
+        title: config.title,
+        desc: config.desc,
+        reward: config.reward,
+        link: config.link
+      };
+    });
+
     // Sort to keep order consistent
     enrichedQuests.sort((a, b) => a.quest_id.localeCompare(b.quest_id));
+    enrichedMainQuests.sort((a, b) => a.quest_id.localeCompare(b.quest_id));
 
-    return NextResponse.json({ quests: enrichedQuests });
+    return NextResponse.json({ 
+      quests: enrichedQuests,
+      mainQuests: enrichedMainQuests 
+    });
   } catch (error: any) {
     console.error('Quests API GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -99,25 +158,43 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId, questId } = await request.json();
+    const { userId, questId, action } = await request.json();
 
     if (!userId || !questId) {
       return NextResponse.json({ error: 'userId and questId are required' }, { status: 400 });
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
+    const isMainQuest = questId.startsWith('main_');
+    const dayFilter = isMainQuest ? '2000-01-01' : todayStr;
 
+    // Handle completing a quest (progress = 1)
+    if (action === 'complete') {
+      const { error: updateError } = await supabaseAdmin
+        .from('user_quests')
+        .update({ progress: 1 })
+        .eq('user_id', userId)
+        .eq('quest_id', questId)
+        .eq('day', dayFilter);
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Default action: Claim reward
     // 1. Fetch quest
     const { data: quest, error: fetchError } = await supabaseAdmin
       .from('user_quests')
       .select('*')
       .eq('user_id', userId)
       .eq('quest_id', questId)
-      .eq('day', todayStr)
+      .eq('day', dayFilter)
       .maybeSingle();
 
     if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
-    if (!quest) return NextResponse.json({ error: 'Quest not found for today' }, { status: 404 });
+    if (!quest) return NextResponse.json({ error: 'Quest not found' }, { status: 404 });
     if (quest.claimed) return NextResponse.json({ error: 'Reward already claimed' }, { status: 400 });
     if (quest.progress < quest.target) return NextResponse.json({ error: 'Quest not completed' }, { status: 400 });
 
@@ -130,7 +207,7 @@ export async function POST(request: Request) {
 
     if (userError) return NextResponse.json({ error: userError.message }, { status: 500 });
 
-    const config = QUESTS_CONFIG.find(c => c.id === questId);
+    const config = QUESTS_CONFIG.find(c => c.id === questId) || MAIN_QUESTS_CONFIG.find(c => c.id === questId);
     if (!config) return NextResponse.json({ error: 'Invalid quest config' }, { status: 400 });
 
     const newTickets = (user.pack_tickets || 0) + config.reward;
@@ -141,7 +218,7 @@ export async function POST(request: Request) {
       .update({ claimed: true })
       .eq('user_id', userId)
       .eq('quest_id', questId)
-      .eq('day', todayStr);
+      .eq('day', dayFilter);
 
     if (updateQuestError) return NextResponse.json({ error: updateQuestError.message }, { status: 500 });
 
@@ -157,7 +234,7 @@ export async function POST(request: Request) {
         .update({ claimed: false })
         .eq('user_id', userId)
         .eq('quest_id', questId)
-        .eq('day', todayStr);
+        .eq('day', dayFilter);
       return NextResponse.json({ error: updateUserError.message }, { status: 500 });
     }
 

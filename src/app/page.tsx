@@ -25,6 +25,8 @@ export default function Home() {
 
   // Daily Quests states
   const [quests, setQuests] = useState<any[]>([]);
+  const [mainQuests, setMainQuests] = useState<any[]>([]);
+  const [questTab, setQuestTab] = useState<"daily" | "main">("daily");
   const [loadingQuests, setLoadingQuests] = useState(true);
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
 
@@ -77,6 +79,9 @@ export default function Home() {
       const data = await res.json();
       if (data.quests) {
         setQuests(data.quests);
+      }
+      if (data.mainQuests) {
+        setMainQuests(data.mainQuests);
       }
     } catch (e) {
       console.error("Failed to fetch quests:", e);
@@ -181,6 +186,7 @@ export default function Home() {
       if (data.success) {
         // Update local quest state to claimed
         setQuests(prev => prev.map(q => q.quest_id === questId ? { ...q, claimed: true } : q));
+        setMainQuests(prev => prev.map(q => q.quest_id === questId ? { ...q, claimed: true } : q));
         
         // Sync tickets in store
         updateEconomy({
@@ -198,6 +204,35 @@ export default function Home() {
       console.error("Claim quest error:", e);
     } finally {
       setClaimingQuestId(null);
+    }
+  };
+
+  const handleCompleteMainQuest = async (questId: string, link: string) => {
+    if (!userId) return;
+    
+    try {
+      if (sdk && typeof sdk.actions.openUrl === 'function') {
+        sdk.actions.openUrl(link).catch(() => window.open(link, '_blank'));
+      } else {
+        window.open(link, '_blank');
+      }
+    } catch (err) {
+      window.open(link, '_blank');
+    }
+
+    try {
+      const res = await fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, questId, action: 'complete' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMainQuests(prev => prev.map(q => q.quest_id === questId ? { ...q, progress: 1 } : q));
+        sdk.haptics.impactOccurred('medium').catch(() => {});
+      }
+    } catch (e) {
+      console.error("Failed to complete main quest:", e);
     }
   };
 
@@ -365,9 +400,30 @@ export default function Home() {
 
       {/* Quest Board Section */}
       <div className="space-y-3">
-        <div className="flex items-center space-x-2">
-          <Award className="w-4 h-4 text-fuchsia-500 shrink-0" />
-          <h3 className="text-sm font-black text-zinc-100 uppercase tracking-tight">Daily Quests</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Award className="w-4 h-4 text-fuchsia-500 shrink-0" />
+            <h3 className="text-sm font-black text-zinc-100 uppercase tracking-tight">Quest Board</h3>
+          </div>
+          {/* Custom Tabs */}
+          <div className="flex bg-zinc-950 p-0.5 rounded-full border border-zinc-800/80">
+            <button
+              onClick={() => setQuestTab("daily")}
+              className={`text-[9px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-full transition-all ${
+                questTab === "daily" ? "bg-fuchsia-500 text-white" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Daily
+            </button>
+            <button
+              onClick={() => setQuestTab("main")}
+              className={`text-[9px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-full transition-all ${
+                questTab === "main" ? "bg-fuchsia-500 text-white" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Main
+            </button>
+          </div>
         </div>
 
         <div className="bg-zinc-900/30 border border-zinc-800/60 rounded-2xl p-4 space-y-3.5 backdrop-blur-sm">
@@ -381,63 +437,129 @@ export default function Home() {
                 <Skeleton className="h-7 w-16 rounded-full bg-zinc-800" />
               </div>
             ))
-          ) : quests.length === 0 ? (
-            <p className="text-xs text-zinc-500 text-center font-medium">No quests initialized today.</p>
-          ) : (
-            quests.map((quest) => {
-              const isCompleted = quest.progress >= quest.target;
-              const isClaimed = quest.claimed;
-              
-              return (
-                <div key={quest.id} className="flex items-center justify-between space-x-4">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center space-x-2">
-                      {isClaimed ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-zinc-700 shrink-0" />
-                      )}
-                      <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
-                        {quest.title}
-                      </h4>
-                    </div>
-                    <p className="text-[10px] text-zinc-400 truncate pl-6">{quest.desc}</p>
-                    
-                    {/* Progress Bar */}
-                    <div className="pl-6 pt-1 flex items-center space-x-2">
-                      <div className="h-1.5 flex-1 max-w-[120px] bg-zinc-800/60 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${Math.min(100, (quest.progress / quest.target) * 100)}%` }}
-                          className={`h-full rounded-full transition-all duration-500 ${isClaimed ? 'bg-zinc-700' : isCompleted ? 'bg-emerald-500' : 'bg-fuchsia-500'}`}
-                        />
+          ) : questTab === "daily" ? (
+            quests.length === 0 ? (
+              <p className="text-xs text-zinc-500 text-center font-medium">No quests initialized today.</p>
+            ) : (
+              quests.map((quest) => {
+                const isCompleted = quest.progress >= quest.target;
+                const isClaimed = quest.claimed;
+                
+                return (
+                  <div key={quest.id} className="flex items-center justify-between space-x-4">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center space-x-2">
+                        {isClaimed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-zinc-700 shrink-0" />
+                        )}
+                        <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
+                          {quest.title}
+                        </h4>
                       </div>
-                      <span className="text-[9px] font-mono text-zinc-500 font-bold shrink-0">
-                        {quest.progress} / {quest.target}
-                      </span>
+                      <p className="text-[10px] text-zinc-400 truncate pl-6">{quest.desc}</p>
+                      
+                      {/* Progress Bar */}
+                      <div className="pl-6 pt-1 flex items-center space-x-2">
+                        <div className="h-1.5 flex-1 max-w-[120px] bg-zinc-800/60 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${Math.min(100, (quest.progress / quest.target) * 100)}%` }}
+                            className={`h-full rounded-full transition-all duration-500 ${isClaimed ? 'bg-zinc-700' : isCompleted ? 'bg-emerald-500' : 'bg-fuchsia-500'}`}
+                          />
+                        </div>
+                        <span className="text-[9px] font-mono text-zinc-500 font-bold shrink-0">
+                          {quest.progress} / {quest.target}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="shrink-0 text-right">
+                      {isClaimed ? (
+                        <span className="text-[10px] font-mono text-zinc-500 font-bold">Claimed 🎟️</span>
+                      ) : isCompleted ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleClaimQuest(quest.quest_id)}
+                          disabled={claimingQuestId !== null}
+                          className="bg-gradient-to-r from-fuchsia-500 to-violet-600 hover:from-fuchsia-600 hover:to-violet-700 text-white font-mono font-bold text-[10px] h-7 px-3.5 rounded-full shadow-[0_0_10px_rgba(217,70,239,0.15)] transform active:scale-95 transition-transform"
+                        >
+                          Claim 🎟️+{quest.reward}
+                        </Button>
+                      ) : (
+                        <span className="text-[9px] font-mono font-bold text-amber-500/80 bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-full shrink-0">
+                          🎟️ +{quest.reward}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="shrink-0 text-right">
-                    {isClaimed ? (
-                      <span className="text-[10px] font-mono text-zinc-500 font-bold">Claimed 🎟️</span>
-                    ) : isCompleted ? (
-                      <Button
-                        size="sm"
-                        onClick={() => handleClaimQuest(quest.quest_id)}
-                        disabled={claimingQuestId !== null}
-                        className="bg-gradient-to-r from-fuchsia-500 to-violet-600 hover:from-fuchsia-600 hover:to-violet-700 text-white font-mono font-bold text-[10px] h-7 px-3.5 rounded-full shadow-[0_0_10px_rgba(217,70,239,0.15)] transform active:scale-95 transition-transform"
-                      >
-                        Claim 🎟️+{quest.reward}
-                      </Button>
-                    ) : (
-                      <span className="text-[9px] font-mono font-bold text-amber-500/80 bg-amber-500/5 border border-amber-500/10 px-2.5 py-1 rounded-full shrink-0">
-                        🎟️ +{quest.reward}
-                      </span>
-                    )}
+                );
+              })
+            )
+          ) : (
+            mainQuests.length === 0 ? (
+              <p className="text-xs text-zinc-500 text-center font-medium">No main quests initialized.</p>
+            ) : (
+              mainQuests.map((quest) => {
+                const isCompleted = quest.progress >= quest.target;
+                const isClaimed = quest.claimed;
+                
+                return (
+                  <div key={quest.id} className="flex items-center justify-between space-x-4">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center space-x-2">
+                        {isClaimed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-zinc-700 shrink-0" />
+                        )}
+                        <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
+                          {quest.title}
+                        </h4>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 pl-6">{quest.desc}</p>
+                      
+                      {/* Progress Bar */}
+                      <div className="pl-6 pt-1 flex items-center space-x-2">
+                        <div className="h-1.5 flex-1 max-w-[120px] bg-zinc-800/60 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${Math.min(100, (quest.progress / quest.target) * 100)}%` }}
+                            className={`h-full rounded-full transition-all duration-500 ${isClaimed ? 'bg-zinc-700' : isCompleted ? 'bg-emerald-500' : 'bg-fuchsia-500'}`}
+                          />
+                        </div>
+                        <span className="text-[9px] font-mono text-zinc-500 font-bold shrink-0">
+                          {quest.progress} / {quest.target}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="shrink-0 text-right">
+                      {isClaimed ? (
+                        <span className="text-[10px] font-mono text-zinc-500 font-bold">Claimed 🎟️</span>
+                      ) : isCompleted ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleClaimQuest(quest.quest_id)}
+                          disabled={claimingQuestId !== null}
+                          className="bg-gradient-to-r from-fuchsia-500 to-violet-600 hover:from-fuchsia-600 hover:to-violet-700 text-white font-mono font-bold text-[10px] h-7 px-3.5 rounded-full shadow-[0_0_10px_rgba(217,70,239,0.15)] transform active:scale-95 transition-transform"
+                        >
+                          Claim 🎟️+{quest.reward}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleCompleteMainQuest(quest.quest_id, quest.link)}
+                          className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-zinc-100 font-bold text-[10px] h-7 px-3.5 rounded-full shadow-sm transform active:scale-95 transition-transform"
+                        >
+                          Go 🎟️+{quest.reward}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })
+            )
           )}
         </div>
       </div>

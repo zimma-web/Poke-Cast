@@ -471,61 +471,65 @@ export default function PackScreen() {
       <motion.div
         animate={{ y: [0, -12, 0], rotate: [0, -1.5, 1.5, 0] }}
         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-        onClick={openPack}
-        className={`relative w-full max-w-[210px] flex flex-col items-center justify-between cursor-pointer mb-3 aspect-[2.5/3.5] bg-gradient-to-b ${theme.bg} border-2 ${theme.border} rounded-[24px] ${theme.glow} overflow-hidden group transition-all duration-300`}
+        className="relative w-full max-w-[210px] mb-3 group"
       >
-        {/* Dynamic theme background gradients */}
-        <div className={`absolute inset-0 bg-radial-gradient ${theme.radial} pointer-events-none`} />
-        <div className={`absolute inset-0 bg-gradient-to-tr ${theme.beam} pointer-events-none`} />
+        <div
+          onClick={openPack}
+          className={`relative w-full flex flex-col items-center justify-between cursor-pointer aspect-[2.5/3.5] bg-gradient-to-b ${theme.bg} border-2 ${theme.border} rounded-[24px] ${theme.glow} overflow-hidden transition-all duration-300`}
+        >
+          {/* Dynamic theme background gradients */}
+          <div className={`absolute inset-0 bg-radial-gradient ${theme.radial} pointer-events-none`} />
+          <div className={`absolute inset-0 bg-gradient-to-tr ${theme.beam} pointer-events-none`} />
 
-        {/* Glassmorphic/foil shimmer sheen */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
+          {/* Glassmorphic/foil shimmer sheen */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
 
-        {/* Premium double border */}
-        <div className="absolute inset-2 border border-white/10 rounded-[18px] pointer-events-none" />
-        <div className="absolute inset-2.5 border border-white/5 rounded-[17px] pointer-events-none" />
+          {/* Premium double border */}
+          <div className="absolute inset-2 border border-white/10 rounded-[18px] pointer-events-none" />
+          <div className="absolute inset-2.5 border border-white/5 rounded-[17px] pointer-events-none" />
 
-        {/* Floating Set Symbol (Top Right) */}
-        {activeSet?.symbol && (
-          <div className="absolute top-4 right-4 w-6 h-6 opacity-60 bg-zinc-950/80 p-1.5 rounded-lg border border-white/10 backdrop-blur-xs z-20 transition-transform duration-300 group-hover:scale-105">
-            <Image src={activeSet.symbol} alt="" fill className="object-contain" />
+          {/* Floating Set Symbol (Top Right) */}
+          {activeSet?.symbol && (
+            <div className="absolute top-4 right-4 w-6 h-6 opacity-60 bg-zinc-950/80 p-1.5 rounded-lg border border-white/10 backdrop-blur-xs z-20 transition-transform duration-300 group-hover:scale-105">
+              <Image src={activeSet.symbol} alt="" fill className="object-contain" />
+            </div>
+          )}
+
+          {/* PokéCast branding logo at top */}
+          <div className="absolute top-8 left-0 right-0 h-14 flex justify-center z-20 select-none pointer-events-none px-4">
+            <div className="relative w-full h-full max-w-[145px] drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)]">
+              <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
+            </div>
           </div>
-        )}
 
-        {/* PokéCast branding logo at top */}
-        <div className="absolute top-8 left-0 right-0 h-14 flex justify-center z-20 select-none pointer-events-none px-4">
-          <div className="relative w-full h-full max-w-[145px] drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)]">
-            <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
+          {/* Main Artwork Portal in Center */}
+          <div className="flex-1 flex flex-col items-center justify-center w-full px-5 pt-14 pb-8 z-10 select-none pointer-events-none">
+            <div className="relative w-full aspect-video flex items-center justify-center">
+              {/* Glowing magic ring behind the set logo */}
+              <div className={`absolute w-28 h-28 rounded-full bg-radial-gradient ${theme.radial} blur-xl opacity-75 animate-pulse`} />
+              {activeSet?.logo ? (
+                <div className="relative w-full h-20 drop-shadow-[0_8px_16px_rgba(0,0,0,0.85)] transition-transform duration-300 group-hover:scale-105">
+                  <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
+                </div>
+              ) : (
+                <span className={`font-black text-xl tracking-widest uppercase ${theme.accent} drop-shadow-md`}>
+                  {activeSet?.name || "BOOSTER"}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Main Artwork Portal in Center */}
-        <div className="flex-1 flex flex-col items-center justify-center w-full px-5 pt-14 pb-8 z-10 select-none pointer-events-none">
-          <div className="relative w-full aspect-video flex items-center justify-center">
-            {/* Glowing magic ring behind the set logo */}
-            <div className={`absolute w-28 h-28 rounded-full bg-radial-gradient ${theme.radial} blur-xl opacity-75 animate-pulse`} />
-            {activeSet?.logo ? (
-              <div className="relative w-full h-20 drop-shadow-[0_8px_16px_rgba(0,0,0,0.85)] transition-transform duration-300 group-hover:scale-105">
-                <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
-              </div>
-            ) : (
-              <span className={`font-black text-xl tracking-widest uppercase ${theme.accent} drop-shadow-md`}>
-                {activeSet?.name || "BOOSTER"}
-              </span>
-            )}
+          {/* Standard Red Game Cards Footer Banner */}
+          <div className="w-full h-8 bg-rose-600 border-t border-rose-500/30 flex items-center justify-center z-20 select-none pointer-events-none">
+            <span className="text-[8px] font-mono font-bold tracking-widest text-white uppercase flex items-center gap-1.5">
+              <span className="inline-block w-4 h-4 rounded-full bg-white text-rose-600 text-[9px] font-black text-center leading-4 shadow-sm">5</span>
+              ADDITIONAL GAME CARDS
+            </span>
           </div>
-        </div>
-
-        {/* Standard Red Game Cards Footer Banner */}
-        <div className="w-full h-8 bg-rose-600 border-t border-rose-500/30 flex items-center justify-center z-20 select-none pointer-events-none">
-          <span className="text-[8px] font-mono font-bold tracking-widest text-white uppercase flex items-center gap-1.5">
-            <span className="inline-block w-4 h-4 rounded-full bg-white text-rose-600 text-[9px] font-black text-center leading-4 shadow-sm">5</span>
-            ADDITIONAL GAME CARDS
-          </span>
         </div>
 
         {/* Pack count badge */}
-        {packCount > 1 && (
+        {packCount >= 1 && (
           <div className="absolute -top-2 -right-2 w-7 h-7 bg-fuchsia-500 rounded-full flex items-center justify-center text-white text-xs font-black shadow-lg shadow-fuchsia-500/40 z-30">
             ×{packCount}
           </div>

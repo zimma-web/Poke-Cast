@@ -216,11 +216,15 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
           return (
             <button key={card.id} onClick={() => onSelect(card)}
               className={`relative flex flex-col items-center rounded-2xl p-2 border transition-all ${isSelected ? "border-fuchsia-500/60 bg-fuchsia-500/10" : "border-zinc-800/60 bg-zinc-900/60 active:scale-95"}`}>
-              <CardThumb card={card} size={60} />
-              <p className="text-[9px] text-zinc-300 mt-1 text-center leading-tight line-clamp-2">{card.name}</p>
-              {ownedCards[card.id] > 0 && (
-                <span className="text-[8px] font-bold text-amber-400 mt-0.5">×{ownedCards[card.id]}</span>
-              )}
+              <div className="relative">
+                <CardThumb card={card} size={60} />
+                {ownedCards[card.id] > 0 && (
+                  <div className="absolute -top-1 -left-1 z-10 min-w-[16px] h-[16px] bg-amber-500 text-zinc-950 text-[9px] font-black rounded-full flex items-center justify-center px-0.5 border border-amber-400 shadow-md">
+                    ×{ownedCards[card.id]}
+                  </div>
+                )}
+              </div>
+              <p className="text-[9px] text-zinc-300 mt-1.5 text-center leading-tight line-clamp-2">{card.name}</p>
               {isSelected && (
                 <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-fuchsia-500 flex items-center justify-center">
                   <Check className="w-3.5 h-3.5 text-white" />

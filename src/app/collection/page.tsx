@@ -291,17 +291,35 @@ export default function CollectionScreen() {
 
             return (
               <div key={card.id} className="flex flex-col group cursor-pointer relative">
-                <div className={cn(
-                  "relative aspect-[2.5/3.5] rounded-xl overflow-hidden mb-2 transition-all duration-300", 
-                  isOwned ? "ring-2 ring-fuchsia-500 ring-offset-2 ring-offset-zinc-950 shadow-[0_0_15px_rgba(217,70,239,0.3)]" : "opacity-75 grayscale-[0.3]"
-                )}>
-                  {/* Wishlist Heart Toggle Overlay */}
+                {/* Outer wrapper to hold badges outside the overflow-hidden image container */}
+                <div className="relative aspect-[2.5/3.5] mb-2">
+                  {/* Card Image Container */}
+                  <div className={cn(
+                    "w-full h-full rounded-xl overflow-hidden transition-all duration-300", 
+                    isOwned ? "ring-2 ring-fuchsia-500 ring-offset-2 ring-offset-zinc-950 shadow-[0_0_15px_rgba(217,70,239,0.3)]" : "opacity-75 grayscale-[0.3]"
+                  )}>
+                    {card.smallImage ? (
+                      <Image 
+                        src={card.smallImage} 
+                        alt={card.name}
+                        fill
+                        sizes="(max-width: 390px) 50vw, 33vw"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-zinc-900 flex items-center justify-center p-2 text-center text-[10px] text-zinc-600">
+                        Missing Image
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Wishlist Heart Toggle Overlay - placed OUTSIDE overflow-hidden wrapper */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleToggleWishlist(card.id);
                     }}
-                    className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-zinc-950/80 border border-zinc-850 text-zinc-400 hover:text-white transition-colors backdrop-blur-xs shadow-md"
+                    className="absolute -top-1.5 -right-1.5 z-10 p-1.5 rounded-full bg-zinc-950/90 border border-zinc-800 text-zinc-400 hover:text-white transition-colors backdrop-blur-xs shadow-md"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -317,17 +335,10 @@ export default function CollectionScreen() {
                     </svg>
                   </button>
 
-                  {card.smallImage ? (
-                    <Image 
-                      src={card.smallImage} 
-                      alt={card.name}
-                      fill
-                      sizes="(max-width: 390px) 50vw, 33vw"
-                      className="object-contain"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-zinc-900 flex items-center justify-center p-2 text-center text-[10px] text-zinc-600">
-                      Missing Image
+                  {/* Owned Count Badge - placed OUTSIDE overflow-hidden wrapper */}
+                  {isOwned && (
+                    <div className="absolute -top-1.5 -left-1.5 z-10 min-w-[20px] h-[20px] bg-fuchsia-600 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1.5 border border-fuchsia-500 shadow-md">
+                      ×{ownedCards[card.id]}
                     </div>
                   )}
                 </div>
@@ -336,8 +347,10 @@ export default function CollectionScreen() {
                   <p className="text-[13px] font-bold text-zinc-200 truncate">
                     {card.name} <span className="text-zinc-500 text-[11px]">#{card.number}</span>
                   </p>
-                  <p className="text-[11px] font-bold mt-0.5 text-fuchsia-500/90 flex items-center justify-center gap-1">
-                    {isOwned ? `Owned ×${ownedCards[card.id]}` : <span className="text-zinc-600 font-normal">{card.rarity || 'Common'}</span>}
+                  <p className="text-[11px] font-bold mt-0.5 flex items-center justify-center gap-1">
+                    <span className={cn(isOwned ? "text-fuchsia-400" : "text-zinc-600 font-normal")}>
+                      {card.rarity || 'Common'}
+                    </span>
                   </p>
                 </div>
               </div>
