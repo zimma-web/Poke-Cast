@@ -233,7 +233,7 @@ export default function AdminDashboard() {
 
   const fetchSets = useCallback(async () => {
     try {
-      const res = await fetch("/api/sets");
+      const res = await fetch("/api/sets?all=true");
       const data = await res.json();
       setSets(data.sets || []);
       if (data.sets?.length > 0 && !selectedSetFilter) setSelectedSetFilter(data.sets[0].id);
