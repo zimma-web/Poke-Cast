@@ -273,9 +273,9 @@ export default function PackScreen() {
 
   // ─── Pack selection screen ──────────────────────────────────────────────────
   return (
-    <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] px-4">
+    <div className="flex flex-col items-center justify-start min-h-[calc(100vh-64px)] overflow-y-auto pt-4 pb-8 px-4 custom-scrollbar">
       {/* Economy Header */}
-      <div className="flex items-center justify-between w-full max-w-[280px] px-4 py-2.5 mb-5 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl backdrop-blur-md">
+      <div className="flex items-center justify-between w-full max-w-[280px] px-4 py-2.5 mb-3 bg-zinc-900/40 border border-zinc-800/80 rounded-2xl backdrop-blur-md">
         <div className="flex flex-col items-center flex-1">
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Free Packs</span>
           <span className="text-xs font-black text-fuchsia-400 font-mono mt-0.5">{freePacksRemaining} left</span>
@@ -291,7 +291,7 @@ export default function PackScreen() {
       </div>
 
       {/* Set Selector */}
-      <div className="w-full max-w-[280px] mb-5 relative z-50">
+      <div className="w-full max-w-[280px] mb-3 relative z-50">
         <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-2 text-center">
           Select Expansion Pack
         </label>
@@ -427,7 +427,7 @@ export default function PackScreen() {
         animate={{ y: [0, -12, 0], rotate: [0, -1.5, 1.5, 0] }}
         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
         onClick={openPack}
-        className={`relative w-full max-w-[215px] flex flex-col items-center justify-center cursor-pointer mb-5 group transition-all duration-300 ${
+        className={`relative w-full max-w-[190px] flex flex-col items-center justify-center cursor-pointer mb-3 group transition-all duration-300 ${
           !packArtError 
             ? "aspect-[780/1426]" 
             : "aspect-[2.5/3.5] bg-gradient-to-tr from-zinc-900 to-zinc-950 border border-zinc-800/80 rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.25)] overflow-hidden"
@@ -468,14 +468,14 @@ export default function PackScreen() {
         )}
 
         {/* Dynamic PokéCast Logo (using local Text-PokeCast.png image) */}
-        <div className="absolute top-[8%] left-0 right-0 h-28 flex justify-center z-20 select-none pointer-events-none px-2">
-          <div className="relative w-full h-full max-w-[170px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
+        <div className="absolute top-[8%] left-0 right-0 h-24 flex justify-center z-20 select-none pointer-events-none px-2">
+          <div className="relative w-full h-full max-w-[150px] drop-shadow-[0_5px_8px_rgba(0,0,0,0.85)]">
             <Image src="/Text-PokeCast.png" alt="PokéCast" fill className="object-contain" priority />
           </div>
         </div>
 
         {/* Dynamic Set Logo (Overlayed near the bottom using the set's official transparent logo) */}
-        <div className="absolute bottom-[10%] left-3 right-3 h-20 flex items-center justify-center z-20 select-none pointer-events-none">
+        <div className="absolute bottom-[10%] left-3 right-3 h-16 flex items-center justify-center z-20 select-none pointer-events-none">
           {activeSet?.logo && (
             <div className="relative w-full h-full drop-shadow-[0_5px_10px_rgba(0,0,0,0.9)]">
               <Image src={activeSet.logo} alt={activeSet.name} fill className="object-contain" priority />
