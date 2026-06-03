@@ -231,35 +231,29 @@ export default function PackScreen() {
         </div>
 
         <div className="flex-1 flex items-center justify-center relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.1 }}
-              transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
-              className="relative w-full max-w-[320px] aspect-[2.5/3.5] group cursor-pointer"
-              onClick={nextCard}
-            >
-              {currentCard.largeImage ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img 
-                  src={currentCard.largeImage} 
-                  alt={currentCard.name}
-                  className="w-full h-full object-contain drop-shadow-2xl"
-                  loading="eager"
-                />
-              ) : (
-                <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
-                  <span className="text-zinc-500">Image Missing</span>
-                </div>
-              )}
-              
-              {(currentCard.rarity?.includes('Rare') || currentCard.rarity?.includes('Holo')) && (
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl pointer-events-none" />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          <div
+            key={currentIndex}
+            className="relative w-full max-w-[320px] aspect-[2.5/3.5] group cursor-pointer animate-in fade-in zoom-in duration-500"
+            onClick={nextCard}
+          >
+            {currentCard.largeImage ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img 
+                src={currentCard.largeImage} 
+                alt={currentCard.name}
+                className="w-full h-full object-contain drop-shadow-2xl"
+                loading="eager"
+              />
+            ) : (
+              <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
+                <span className="text-zinc-500">Image Missing</span>
+              </div>
+            )}
+            
+            {(currentCard.rarity?.includes('Rare') || currentCard.rarity?.includes('Holo')) && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl pointer-events-none" />
+            )}
+          </div>
         </div>
 
         <div className="pb-8 pt-4 flex space-x-3">
