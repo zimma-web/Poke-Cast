@@ -9,8 +9,6 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/frame-sdk";
 import Link from "next/link";
 
-const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
-const FEE_PER_PACK_WEI = BigInt(1000000000000); // 0.000001 ETH per pack
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -125,47 +123,11 @@ export default function PackScreen() {
 
     setLoading(true);
     setError("");
-    let txHash = "";
-
-    const provider = sdk.wallet?.ethProvider;
 
     try {
-      let senderAddress = walletAddress;
-      if (provider && !senderAddress) {
-        try {
-          const ethAccounts = await provider.request({ method: 'eth_accounts' }) as string[];
-          if (Array.isArray(ethAccounts) && ethAccounts.length > 0) {
-            senderAddress = ethAccounts[0];
-          }
-        } catch (accountErr) {
-          console.warn('Failed to read connected eth_accounts from provider:', accountErr);
-        }
-      }
-
-      if (provider) {
-        if (!senderAddress) {
-          throw new Error("Wallet not connected. Please open the app again.");
-        }
-
-        // Total fee = count × 0.000001 ETH
-        const totalWei = FEE_PER_PACK_WEI * BigInt(count);
-
-        const tx = await provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: senderAddress as `0x${string}`,
-            to: TREASURY_ADDRESS,
-            value: `0x${totalWei.toString(16)}`,
-            data: '0x'
-          }]
-        });
-        txHash = tx as string;
-      } else {
-        // Mock fallback for dev environments
-        console.warn("Wallet provider not found. Simulating transaction.");
-        await new Promise(r => setTimeout(r, 800));
-        txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-      }
+      // Generate a unique ID for this pack opening session (no blockchain tx needed)
+      // Duplicate-open protection is handled by the DB uniqueness constraint on tx_hash
+      const txHash = `0xpack_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
 
       // Open all packs in one request
       const res = await fetch("/api/pack", {
@@ -195,11 +157,12 @@ export default function PackScreen() {
       setCurrentIndex(0);
     } catch (e: any) {
       console.error(e);
-      setError(e.message || "Failed to open pack (transaction rejected or timed out)");
+      setError(e.message || "Failed to open pack");
     } finally {
       setLoading(false);
     }
   };
+
 
   const nextCard = () => {
     if (currentIndex < cards.length - 1) {

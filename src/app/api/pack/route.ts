@@ -58,11 +58,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
     }
 
-    // 3. Accept txHash if it has valid hex format (0x...) and is not duplicate (already checked above)
-    //    For pack opening fees ($0.003 ETH), the DB txHash uniqueness constraint is sufficient
-    //    anti-replay protection — strict on-chain verification would block on pending txs.
-    const isMock = txHash.startsWith('0xmock') && process.env.NODE_ENV !== 'production';
-    const isValidHash = isMock || /^0x[0-9a-f]{64}$/i.test(txHash);
+    // 3. Accept txHash — DB uniqueness constraint is the anti-replay protection.
+    //    We accept: standard 66-char hex hashes OR our internal pack_/mock prefixed IDs.
+    const isValidHash = txHash.startsWith('0x') && txHash.length >= 10;
 
     if (!isValidHash) {
       return NextResponse.json({ error: 'Invalid transaction hash format.' }, { status: 400 });
