@@ -131,7 +131,6 @@ export default function PackScreen() {
 
     try {
       // Free packs: just generate a mock hash to satisfy the backend validation
-      await new Promise(r => setTimeout(r, 800));
       txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
 
       // Open all packs in one request
@@ -530,7 +529,7 @@ export default function PackScreen() {
           <div className="flex flex-col items-center min-w-[72px]">
             <span className="text-lg font-black text-white font-mono">{packCount} Pack{packCount > 1 ? 's' : ''}</span>
             <span className="text-[10px] font-mono text-zinc-500 mt-0.5">
-              {(packCount * 5)} cards · <span className="text-emerald-400 font-bold">FREE</span>
+              {(packCount * 5)} cards
             </span>
           </div>
 

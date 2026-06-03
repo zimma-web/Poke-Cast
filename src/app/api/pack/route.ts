@@ -27,6 +27,8 @@ import { processReferralMilestones } from '@/lib/referrals';
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 
+let cachedCards: any[] | null = null;
+
 export async function POST(request: Request) {
   try {
     const { setId, userId, txHash, count: rawCount } = await request.json();
@@ -115,10 +117,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to record on-chain transaction log: ' + logError.message }, { status: 500 });
     }
 
-  const filePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
-  
-  const fileContents = fs.readFileSync(filePath, 'utf8');
-  const cards = JSON.parse(fileContents);
+    if (!cachedCards) {
+      const filePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
+      const fileContents = fs.readFileSync(filePath, 'utf8');
+      cachedCards = JSON.parse(fileContents);
+    }
+    const cards = cachedCards;
 
     // Filter cards by selected set
     const setCards = cards.filter((c: any) => c.setId === setId);

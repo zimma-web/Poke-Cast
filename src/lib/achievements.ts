@@ -2,6 +2,9 @@ import { supabaseAdmin } from '@/lib/supabase';
 import fs from 'fs';
 import path from 'path';
 
+let cachedAllCards: any[] | null = null;
+let cachedAllSets: any[] | null = null;
+
 // Core server-side achievements evaluation helper
 export async function evaluateAchievements(userId: string) {
   try {
@@ -32,9 +35,12 @@ export async function evaluateAchievements(userId: string) {
     const uniqueCardIds = Array.from(new Set(userCards.map(c => c.card_id)));
 
     // Load card database to map card IDs to their rarities
-    const cardsFilePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
-    const fileContents = fs.readFileSync(cardsFilePath, 'utf8');
-    const allCards = JSON.parse(fileContents);
+    if (!cachedAllCards) {
+      const cardsFilePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
+      const fileContents = fs.readFileSync(cardsFilePath, 'utf8');
+      cachedAllCards = JSON.parse(fileContents);
+    }
+    const allCards = cachedAllCards;
     const cardRarities = new Map<string, string | null>(allCards.map((c: any) => [c.id, c.rarity]));
     const cardSets = new Map<string, string>(allCards.map((c: any) => [c.id, c.setId]));
 
@@ -65,9 +71,12 @@ export async function evaluateAchievements(userId: string) {
     });
 
     // Check set completions
-    const setsFilePath = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
-    const setsFileContents = fs.readFileSync(setsFilePath, 'utf8');
-    const allSets = JSON.parse(setsFileContents);
+    if (!cachedAllSets) {
+      const setsFilePath = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
+      const setsFileContents = fs.readFileSync(setsFilePath, 'utf8');
+      cachedAllSets = JSON.parse(setsFileContents);
+    }
+    const allSets = cachedAllSets;
 
     let hasCompletedAnySet = false;
     for (const set of allSets) {
