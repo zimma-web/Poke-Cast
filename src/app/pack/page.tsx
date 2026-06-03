@@ -234,7 +234,7 @@ export default function PackScreen() {
           <div className="flex-1 flex items-center justify-center relative">
             <div
               key={currentIndex}
-              className="relative w-full max-w-[320px] aspect-[2.5/3.5] group cursor-pointer animate-in fade-in zoom-in duration-500"
+              className="relative w-full max-w-[320px] aspect-[2.5/3.5] cursor-pointer"
               onClick={nextCard}
             >
               {currentCard.largeImage ? (
@@ -242,17 +242,13 @@ export default function PackScreen() {
                 <img 
                   src={currentCard.largeImage} 
                   alt={currentCard.name}
-                  className="w-full h-full object-contain drop-shadow-2xl"
+                  className="w-full h-full object-contain"
                   loading="eager"
                 />
               ) : (
                 <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
                   <span className="text-zinc-500">Image Missing</span>
                 </div>
-              )}
-              
-              {(currentCard.rarity?.includes('Rare') || currentCard.rarity?.includes('Holo')) && (
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl pointer-events-none" />
               )}
             </div>
           </div>
