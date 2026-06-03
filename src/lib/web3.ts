@@ -4,6 +4,45 @@ const BASE_RPC_URL = 'https://mainnet.base.org';
 const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 /**
+ * Polls Base RPC until a transaction receipt is available (confirmed on-chain).
+ * Returns the receipt or null if it times out.
+ * @param txHash - The transaction hash to poll
+ * @param maxWaitMs - Maximum time to wait in milliseconds (default 90 seconds)
+ * @param pollIntervalMs - How often to poll in milliseconds (default 3 seconds)
+ */
+async function waitForReceipt(
+  txHash: string,
+  maxWaitMs = 90_000,
+  pollIntervalMs = 3_000
+): Promise<any | null> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const res = await fetch(BASE_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_getTransactionReceipt',
+          params: [txHash]
+        })
+      });
+      const json = await res.json();
+      if (json.result) {
+        return json.result; // Receipt found — tx is confirmed
+      }
+    } catch (e) {
+      console.warn('Poll for receipt failed, retrying...', e);
+    }
+    // Wait before next poll
+    await new Promise(r => setTimeout(r, pollIntervalMs));
+  }
+  console.warn(`waitForReceipt timed out after ${maxWaitMs}ms for tx: ${txHash}`);
+  return null;
+}
+
+/**
  * Queries Base RPC to fetch the live USDC balance for a given address
  */
 export async function getBaseUSDCBalance(address: string): Promise<number> {
@@ -51,6 +90,7 @@ export async function getBaseUSDCBalance(address: string): Promise<number> {
 /**
  * Queries Base RPC to check if a transaction hash is a successful USDC transfer
  * from `expectedFrom` to `expectedTo` for at least `expectedAmount`.
+ * Polls until the transaction is confirmed on-chain (up to 90 seconds).
  */
 export async function verifyBaseUSDCTransfer(
   txHash: string,
@@ -60,24 +100,13 @@ export async function verifyBaseUSDCTransfer(
 ): Promise<boolean> {
   if (!txHash || !txHash.startsWith('0x')) return false;
   try {
-    const res = await fetch(BASE_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_getTransactionReceipt',
-        params: [txHash]
-      })
-    });
-
-    const json = await res.json();
-    if (json.error || !json.result) {
-      console.error('Base RPC getTransactionReceipt error or missing tx:', json.error || 'tx not found');
+    // Poll until the tx is mined — fixes Warpcast pending tx issue
+    const receipt = await waitForReceipt(txHash);
+    if (!receipt) {
+      console.error('USDC tx not confirmed within timeout:', txHash);
       return false;
     }
 
-    const receipt = json.result;
     // Check receipt status is '0x1' (success)
     if (receipt.status !== '0x1') {
       console.warn('Base tx failed or reverted status:', receipt.status);
@@ -120,6 +149,7 @@ export async function verifyBaseUSDCTransfer(
 /**
  * Queries Base RPC to check if a transaction hash is a successful native ETH transfer
  * from `expectedFrom` to `expectedTo` for at least `expectedAmountETH`.
+ * Polls until the transaction is confirmed on-chain (up to 90 seconds).
  */
 export async function verifyBaseETHTransfer(
   txHash: string,
@@ -129,7 +159,19 @@ export async function verifyBaseETHTransfer(
 ): Promise<boolean> {
   if (!txHash || !txHash.startsWith('0x')) return false;
   try {
-    // 1. Fetch transaction details
+    // 1. Poll until the tx is mined — fixes Warpcast pending tx issue
+    const receipt = await waitForReceipt(txHash);
+    if (!receipt) {
+      console.error('ETH tx not confirmed within timeout:', txHash);
+      return false;
+    }
+
+    if (receipt.status !== '0x1') {
+      console.warn('Base tx failed or reverted:', receipt.status);
+      return false;
+    }
+
+    // 2. Fetch transaction details to verify addresses and value
     const resTx = await fetch(BASE_RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -146,28 +188,6 @@ export async function verifyBaseETHTransfer(
       return false;
     }
     const tx = jsonTx.result;
-
-    // 2. Fetch transaction receipt to check success status
-    const resReceipt = await fetch(BASE_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_getTransactionReceipt',
-        params: [txHash]
-      })
-    });
-    const jsonReceipt = await resReceipt.json();
-    if (jsonReceipt.error || !jsonReceipt.result) {
-      console.error('Base RPC getTransactionReceipt error:', jsonReceipt.error);
-      return false;
-    }
-    const receipt = jsonReceipt.result;
-    if (receipt.status !== '0x1') {
-      console.warn('Base tx failed or reverted:', receipt.status);
-      return false;
-    }
 
     // Verify sender and receiver match
     if (tx.from.toLowerCase() !== expectedFrom.toLowerCase() || tx.to.toLowerCase() !== expectedTo.toLowerCase()) {

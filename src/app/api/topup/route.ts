@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyBaseETHTransfer, verifyBaseUSDCTransfer } from '@/lib/web3';
 
+// Allow up to 120 seconds for this route (tx confirmation polling can take up to 90s)
+export const maxDuration = 120;
+
+
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 
 // Fetch the current price of ETH in USD to verify equivalent $1
