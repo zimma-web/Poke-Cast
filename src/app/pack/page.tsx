@@ -10,7 +10,7 @@ import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TREASURY_ADDRESS, packOpenFeeEth, packOpenFeeWei } from "@/lib/fees";
-import { hasFarcasterWallet, sendNativeEthOnBase, getWalletAddress } from "@/lib/wallet";
+import { hasFarcasterWallet, sendNativeEthOnBase } from "@/lib/wallet";
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -23,6 +23,7 @@ export default function PackScreen() {
   const [packCount, setPackCount] = useState(1); // 1-5 packs
   const [isOpen, setIsOpen] = useState(false);
   const [packArtError, setPackArtError] = useState(false);
+  const [txStatus, setTxStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setPackArtError(false);
@@ -133,26 +134,24 @@ export default function PackScreen() {
 
     setLoading(true);
     setError("");
+    setTxStatus(null);
 
     let txHash = "";
-    let senderAddress = walletAddress || "";
+    let senderAddress = "";
 
     try {
       const feeWei = packOpenFeeWei(count);
 
       if (hasFarcasterWallet()) {
         try {
-          if (!senderAddress) {
-            senderAddress = (await getWalletAddress()) || "";
-          }
-          txHash = await sendNativeEthOnBase({
+          setTxStatus("Konfirmasi pembayaran di wallet…");
+          const result = await sendNativeEthOnBase({
             to: TREASURY_ADDRESS,
             valueWei: feeWei,
-            from: senderAddress || undefined,
           });
-          if (!senderAddress) {
-            senderAddress = (await getWalletAddress()) || "";
-          }
+          txHash = result.txHash;
+          senderAddress = result.from;
+          setTxStatus("Memverifikasi transaksi di Base…");
         } catch (walletErr: any) {
           const msg = walletErr?.message?.toLowerCase() ?? "";
           if (walletErr?.code === 4001 || msg.includes("reject") || msg.includes("denied") || msg.includes("cancel")) {
@@ -215,6 +214,7 @@ export default function PackScreen() {
       setError(e.message || "Failed to open pack");
     } finally {
       setLoading(false);
+      setTxStatus(null);
     }
   };
 
@@ -585,6 +585,12 @@ export default function PackScreen() {
       <p className="text-[10px] font-mono text-zinc-500 text-center mb-3 max-w-[280px]">
         Base fee: {packOpenFeeEth(packCount)} ETH ({packCount} pack{packCount > 1 ? "s" : ""} × 0.0000015)
       </p>
+
+      {txStatus && (
+        <p className="text-[11px] font-mono text-fuchsia-400 text-center mb-3 max-w-[280px] animate-pulse">
+          {txStatus}
+        </p>
+      )}
 
       <Button 
         size="lg" 

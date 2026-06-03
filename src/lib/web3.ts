@@ -211,3 +211,46 @@ export async function verifyBaseETHTransfer(
     return false;
   }
 }
+
+/** Verifies a successful native ETH payment to treasury (any sender). */
+export async function verifyBaseETHPaymentToTreasury(
+  txHash: string,
+  expectedTo: string,
+  expectedAmountETH: number
+): Promise<boolean> {
+  if (!txHash || !txHash.startsWith('0x')) return false;
+  try {
+    const receipt = await waitForReceipt(txHash);
+    if (!receipt || receipt.status !== '0x1') return false;
+
+    const resTx = await fetch(BASE_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getTransactionByHash',
+        params: [txHash]
+      })
+    });
+    const jsonTx = await resTx.json();
+    if (jsonTx.error || !jsonTx.result) return false;
+
+    const tx = jsonTx.result;
+    if (tx.to?.toLowerCase() !== expectedTo.toLowerCase()) {
+      console.warn(`Treasury mismatch: expected ${expectedTo}, got ${tx.to}`);
+      return false;
+    }
+
+    const amountETH = Number(BigInt(tx.value)) / 1e18;
+    if (amountETH < expectedAmountETH - 0.000000001) {
+      console.warn(`Amount mismatch: expected ${expectedAmountETH} ETH, got ${amountETH} ETH`);
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error('Error verifying Base ETH treasury payment:', e);
+    return false;
+  }
+}
