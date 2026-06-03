@@ -145,17 +145,24 @@ export default function PackScreen() {
       if (hasFarcasterWallet()) {
         try {
           setTxStatus("Confirming payment in wallet...");
+          console.log("[pack] initiating wallet transaction for", count, "packs");
           const result = await sendNativeEthOnBase({
             to: TREASURY_ADDRESS,
             valueWei: feeWei,
           });
+          console.log("[pack] wallet transaction succeeded:", result.txHash);
           txHash = result.txHash;
           senderAddress = result.from;
           setTxStatus("Verifying transaction on Base...");
         } catch (walletErr: any) {
+          console.error("[pack] wallet error:", walletErr);
           const msg = walletErr?.message?.toLowerCase() ?? "";
           if (walletErr?.code === 4001 || msg.includes("reject") || msg.includes("denied") || msg.includes("cancel")) {
             setError("Transaction cancelled. Pack fee was not paid.");
+            return;
+          }
+          if (msg.includes("timed out")) {
+            setError("Wallet took too long to respond. Please close the wallet modal and try again.");
             return;
           }
           throw walletErr;

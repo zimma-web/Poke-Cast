@@ -94,8 +94,10 @@ export async function sendNativeEthOnBase(params: {
     throw new Error("Wallet not available. Open this app in a Farcaster client.");
   }
 
+  console.log("[wallet] ensuring Base network...");
   await ensureBaseNetwork(provider);
 
+  console.log("[wallet] requesting accounts...");
   const accounts = (await provider.request({
     method: "eth_requestAccounts",
   })) as string[];
@@ -103,9 +105,11 @@ export async function sendNativeEthOnBase(params: {
   if (!from) {
     throw new Error("Wallet not connected. Allow wallet access and try again.");
   }
+  console.log("[wallet] connected account:", from);
 
   const valueHex = `0x${params.valueWei.toString(16)}`;
 
+  console.log("[wallet] sending transaction to", params.to, "value", valueHex);
   const txHash = (await withTimeout(
     provider.request({
       method: "eth_sendTransaction",
@@ -119,10 +123,11 @@ export async function sendNativeEthOnBase(params: {
         },
       ],
     }),
-    120_000,
-    "Wallet confirmation timed out. If the tx went through, wait a moment and try again."
+    45_000,
+    "Wallet confirmation timed out after 45 seconds. Close the modal and try again."
   )) as string;
 
+  console.log("[wallet] transaction sent, txHash:", txHash);
   if (!txHash || typeof txHash !== "string") {
     throw new Error("Transaction failed — no hash returned from wallet.");
   }
