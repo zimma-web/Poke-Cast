@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card as CardType, useCollectionStore } from "@/lib/store";
 import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 import { useCollectionStore } from "@/lib/store";
 import { usePathname } from "next/navigation";
 

@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useCollectionStore } from "@/lib/store";
 import { Loader2, Ticket, ChevronLeft, CreditCard, Sparkles, CheckCircle2 } from "lucide-react";
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 import Image from "next/image";
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';

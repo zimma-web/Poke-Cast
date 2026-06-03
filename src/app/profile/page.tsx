@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { User, Trophy, PackageOpen, Layers, Sparkles, History, Award, List, Ticket } from "lucide-react";
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 import { useCollectionStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

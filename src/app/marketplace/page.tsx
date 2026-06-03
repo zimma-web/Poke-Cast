@@ -10,7 +10,7 @@ import {
   ExternalLink, Coins, Calendar, Check, AlertCircle
 } from "lucide-react";
 import { useCollectionStore } from "@/lib/store";
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CardMeta { id: string; name: string; smallImage?: string; largeImage?: string; rarity?: string; setId?: string; }

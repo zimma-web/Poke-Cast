@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCollectionStore } from "@/lib/store";
 import { motion, AnimatePresence } from "framer-motion";
-import sdk from "@farcaster/frame-sdk";
+import sdk from "@farcaster/miniapp-sdk";
 
 export default function Home() {
   const [stats, setStats] = useState({ cards: 0, sets: 0, loading: true });
