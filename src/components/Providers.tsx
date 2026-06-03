@@ -38,10 +38,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         let context = null;
         try {
           if (sdk) {
-            // Wrap sdk.context in Promise.race to prevent hanging in regular browsers
+            // Give the SDK up to 3 seconds to load context inside Warpcast
             context = await Promise.race([
               sdk.context,
-              new Promise((_, reject) => setTimeout(() => reject(new Error("SDK context timeout")), 1000))
+              new Promise((_, reject) => setTimeout(() => reject(new Error("SDK context timeout")), 3000))
             ]) as any;
           }
         } catch (e) {
@@ -58,16 +58,33 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const userFid = context.user.fid;
         const userUsername = context.user.username || "trainer_" + userFid;
         const userAvatar = context.user.pfpUrl || "";
-        let walletAddress = context.user.custodyAddress || context.user.verifiedAddresses?.ethAddresses?.[0] || "";
 
+        // Try multiple sources for the wallet address
+        let walletAddress =
+          context.user.custodyAddress ||
+          context.user.verifiedAddresses?.ethAddresses?.[0] ||
+          "";
+
+        // If still no address, actively request wallet connection via EIP-1193
         if (!walletAddress && sdk.wallet?.ethProvider) {
           try {
-            const ethAccounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
-            if (Array.isArray(ethAccounts) && ethAccounts.length > 0 && typeof ethAccounts[0] === 'string') {
-              walletAddress = ethAccounts[0];
+            // eth_requestAccounts actively prompts wallet connection in Warpcast
+            const requested = await sdk.wallet.ethProvider.request({ method: 'eth_requestAccounts' }) as string[];
+            if (Array.isArray(requested) && requested.length > 0) {
+              walletAddress = requested[0];
+              console.log("Wallet connected via eth_requestAccounts:", walletAddress);
             }
-          } catch (accountErr) {
-            console.warn('Failed to auto-detect connected wallet address from provider:', accountErr);
+          } catch (reqErr) {
+            console.warn("eth_requestAccounts failed, trying eth_accounts:", reqErr);
+            // Fallback: passive check
+            try {
+              const ethAccounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' }) as string[];
+              if (Array.isArray(ethAccounts) && ethAccounts.length > 0) {
+                walletAddress = ethAccounts[0];
+              }
+            } catch (accountErr) {
+              console.warn("eth_accounts also failed:", accountErr);
+            }
           }
         }
 
