@@ -272,7 +272,7 @@ export default function PackScreen() {
           <div className="flex-1 flex items-center justify-center relative">
             <div
               key={currentIndex}
-              className="relative w-full max-w-[320px] aspect-[2.5/3.5] cursor-pointer animate-in fade-in zoom-in duration-500"
+              className="relative w-full max-w-[320px] aspect-[2.5/3.5] cursor-pointer"
               onClick={nextCard}
             >
               {currentCard.smallImage ? (
@@ -280,8 +280,8 @@ export default function PackScreen() {
                 <img 
                   src={currentCard.smallImage} 
                   alt={currentCard.name}
-                  className="w-full h-full object-contain drop-shadow-2xl"
-                  loading="eager"
+                  className="w-full h-full object-contain"
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
