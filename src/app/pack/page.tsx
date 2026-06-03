@@ -9,8 +9,12 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useSendTransaction, useAccount } from "wagmi";
+import { TREASURY_ADDRESS, packOpenFeeEth, packOpenFeeWei } from "@/lib/fees";
 
 export default function PackScreen() {
+  const { sendTransactionAsync } = useSendTransaction();
+  const { address, isConnected } = useAccount();
   const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -133,19 +137,44 @@ export default function PackScreen() {
     setError("");
 
     let txHash = "";
-    const provider = sdk.wallet?.ethProvider;
-    const TREASURY_ADDRESS = '0xe251A3a0D23859157ef8041394279f7Ba46C90e3';
-    const FEE_PER_PACK_WEI = BigInt(1000000000000); // 0.000001 ETH
+    const senderAddress = address || walletAddress || "";
 
     try {
-      // Free packs: just generate a mock hash to satisfy the backend validation
-      txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      const feeWei = packOpenFeeWei(count);
 
-      // Open all packs in one request
+      if (isConnected) {
+        try {
+          const tx = await sendTransactionAsync({
+            to: TREASURY_ADDRESS,
+            value: feeWei,
+          });
+          txHash = tx;
+        } catch (walletErr: any) {
+          if (walletErr?.code === 4001 || walletErr?.message?.toLowerCase().includes("reject")) {
+            setError("Transaction cancelled. Pack fee was not paid.");
+            return;
+          }
+          throw walletErr;
+        }
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn("Wallet not connected — simulating pack fee tx for local dev.");
+        await new Promise((r) => setTimeout(r, 800));
+        txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      } else {
+        setError("Connect your Base wallet to pay the pack opening fee.");
+        return;
+      }
+
       const res = await fetch("/api/pack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, setId: selectedSetId, txHash, count }),
+        body: JSON.stringify({
+          userId,
+          setId: selectedSetId,
+          txHash,
+          count,
+          userAddress: senderAddress,
+        }),
         cache: "no-store"
       });
       let data: any;
@@ -547,6 +576,10 @@ export default function PackScreen() {
           {error}
         </div>
       )}
+
+      <p className="text-[10px] font-mono text-zinc-500 text-center mb-3 max-w-[280px]">
+        Base fee: {packOpenFeeEth(packCount)} ETH ({packCount} pack{packCount > 1 ? "s" : ""} × 0.0000015)
+      </p>
 
       <Button 
         size="lg" 

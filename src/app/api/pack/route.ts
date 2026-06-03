@@ -24,14 +24,15 @@ function getRarityWeight(rarity: string): number {
 
 import { verifyBaseETHTransfer } from '@/lib/web3';
 import { processReferralMilestones } from '@/lib/referrals';
+import { TREASURY_ADDRESS, packOpenFeeEth } from '@/lib/fees';
 
-const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
+export const maxDuration = 120;
 
 let cachedCards: any[] | null = null;
 
 export async function POST(request: Request) {
   try {
-    const { setId, userId, txHash, count: rawCount } = await request.json();
+    const { setId, userId, txHash, count: rawCount, userAddress } = await request.json();
     const count = Math.max(1, Math.min(5, parseInt(rawCount) || 1)); // Clamp 1-5
 
     if (!setId || !userId || !txHash) {
@@ -60,14 +61,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
     }
 
-    // 3. Accept txHash — DB uniqueness constraint is the anti-replay protection.
-    //    We accept: standard 66-char hex hashes OR our internal pack_/mock prefixed IDs.
     const isValidHash = txHash.startsWith('0x') && txHash.length >= 10;
-
     if (!isValidHash) {
       return NextResponse.json({ error: 'Invalid transaction hash format.' }, { status: 400 });
     }
 
+    const senderWallet = userAddress || user.wallet_address;
+    if (!senderWallet) {
+      return NextResponse.json({ error: 'Wallet not connected. Link your Base wallet before opening packs.' }, { status: 400 });
+    }
+
+    const expectedFeeEth = packOpenFeeEth(count);
+    const isMock = txHash.startsWith('0xmock') && process.env.NODE_ENV !== 'production';
+    let feeVerified = false;
+
+    if (isMock) {
+      feeVerified = true;
+    } else {
+      feeVerified = await verifyBaseETHTransfer(
+        txHash,
+        senderWallet,
+        TREASURY_ADDRESS,
+        expectedFeeEth
+      );
+    }
+
+    if (!feeVerified) {
+      return NextResponse.json({
+        error: `Pack fee verification failed. Send ${expectedFeeEth} ETH on Base to the treasury, then try again.`
+      }, { status: 400 });
+    }
 
     // Daily reset check
     const now = new Date();
