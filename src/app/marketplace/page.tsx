@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCollectionStore } from "@/lib/store";
 import sdk from "@farcaster/miniapp-sdk";
+import { useSendTransaction, useAccount } from "wagmi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CardMeta { id: string; name: string; smallImage?: string; largeImage?: string; rarity?: string; setId?: string; }
@@ -251,6 +252,8 @@ function CardPicker({ title, ownedCards = {}, selectedId, onSelect, onClose }: {
 function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   userId: string; ownedCards: Record<string, number>; onCreated: () => void; onClose: () => void;
 }) {
+  const { sendTransactionAsync } = useSendTransaction();
+  const { isConnected } = useAccount();
   const [selectedCard, setSelectedCard] = useState<CardMeta | null>(null);
   const [startPrice, setStartPrice] = useState("");
   const [buyoutPrice, setBuyoutPrice] = useState("");
@@ -275,27 +278,21 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
 
       if (parsedBuyout !== null && parsedBuyout > 0) {
         setStatusText("Requesting listing fee (0.05 USD)...");
-        const provider = sdk.wallet?.ethProvider;
-        if (provider) {
+        if (isConnected) {
           const valueWei = BigInt(15000000000000); // 0.000015 ETH
           try {
-            const tx = await provider.request({
-              method: 'eth_sendTransaction',
-              params: [{
-                to: TREASURY_ADDRESS,
-                value: `0x${valueWei.toString(16)}`,
-                gas: '0x5208',
-                data: '0x'
-              }]
+            const tx = await sendTransactionAsync({
+              to: TREASURY_ADDRESS as `0x${string}`,
+              value: valueWei,
             });
-            listingTxHash = tx as string;
+            listingTxHash = tx;
           } catch (walletErr: any) {
             console.error("Wallet transaction rejected:", walletErr);
             throw new Error(walletErr.message || "Listing fee payment rejected by wallet.");
           }
         } else {
           // Dev Mock
-          console.warn("Frame wallet provider not found. Simulating transaction on Base.");
+          console.warn("Wagmi wallet not connected. Simulating transaction on Base.");
           await new Promise(r => setTimeout(r, 1500));
           listingTxHash = "0xmock_listing_" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
         }
@@ -489,6 +486,8 @@ function AuctionCard({ auction, onTap, isOwnListing }: { auction: Auction; onTap
 function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
   auctionId: string; userId: string | null; onClose: () => void; onRefresh: () => void;
 }) {
+  const { sendTransactionAsync } = useSendTransaction();
+  const { isConnected } = useAccount();
   const walletAddress = useCollectionStore(state => state.walletAddress);
   const [data, setData] = useState<{ auction: Auction; bids: BidHistory[] } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -585,26 +584,9 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
     const recipient = data.auction.seller.wallet_address;
 
     try {
-      const provider = sdk.wallet?.ethProvider;
       let txHash = "";
-      let senderAddress = walletAddress || data.auction.winner?.wallet_address || "";
 
-      if (provider && !senderAddress) {
-        try {
-          const ethAccounts = await provider.request({ method: 'eth_accounts' });
-          if (Array.isArray(ethAccounts) && ethAccounts.length > 0 && typeof ethAccounts[0] === 'string') {
-            senderAddress = ethAccounts[0];
-          }
-        } catch (accountErr) {
-          console.warn('Failed to auto-detect wallet address from provider accounts:', accountErr);
-        }
-      }
-
-      if (provider) {
-        if (!senderAddress) {
-          throw new Error("Connected Farcaster wallet address is required to send USDC.");
-        }
-
+      if (isConnected) {
         // USDC decimals: 6
         // Split payment: 98% to seller, 2% to treasury fee
         const sellerAmount = expectedUSDC * 0.98;
@@ -628,31 +610,23 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
         setTxModal(prev => ({ ...prev, state: "broadcasting" }));
         
         // 1. Pay seller
-        const tx1 = await provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: senderAddress as `0x${string}`,
-            to: USDC_CONTRACT_BASE,
-            data: txDataSeller,
-            value: '0x0'
-          }]
+        const tx1 = await sendTransactionAsync({
+          to: USDC_CONTRACT_BASE,
+          data: txDataSeller,
+          value: BigInt(0)
         });
         
         // 2. Pay 2% fee to treasury
-        const tx2 = await provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: senderAddress as `0x${string}`,
-            to: USDC_CONTRACT_BASE,
-            data: txDataTreasury,
-            value: '0x0'
-          }]
+        const tx2 = await sendTransactionAsync({
+          to: USDC_CONTRACT_BASE,
+          data: txDataTreasury,
+          value: BigInt(0)
         });
         
         txHash = `${tx1},${tx2}`;
       } else {
         // MOCK Fallback for Frame Developer Shells / Dev Sandboxes
-        console.warn("Frame wallet provider not found. Simulating transaction on Base.");
+        console.warn("Wagmi wallet not connected. Simulating transaction on Base.");
         setTxModal(prev => ({ ...prev, state: "broadcasting" }));
         await new Promise(r => setTimeout(r, 2000));
         const m1 = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");

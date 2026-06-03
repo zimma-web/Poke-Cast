@@ -4,6 +4,26 @@ import { useEffect, useState, useRef } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import { useCollectionStore } from "@/lib/store";
 import { usePathname } from "next/navigation";
+import { base } from "wagmi/chains";
+import { createConfig, http, WagmiProvider } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
+
+const config = createConfig({
+  chains: [base],
+  transports: {
+    [base.id]: http('https://mainnet.base.org', {
+      batch: true,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+  },
+  connectors: [
+    farcasterFrame(),
+  ],
+});
+
+const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,16 +44,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     initializedRef.current = true;
 
     const load = async () => {
-      // Initialize the Farcaster Mini App SDK
-      try {
-        if (sdk && typeof sdk.actions.ready === 'function') {
-          sdk.actions.ready();
-        }
-      } catch (e) {
-        console.error("Frame SDK ready error:", e);
-      }
-      setIsSDKLoaded(true);
-
       // Authenticate Farcaster user context
       try {
         let context = null;
@@ -48,6 +58,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
         } catch (e) {
           console.warn("Frame SDK context load failed:", e);
         }
+
+        // Initialize the Farcaster Mini App SDK only after context settles
+        try {
+          if (sdk && typeof sdk.actions.ready === 'function') {
+            sdk.actions.ready();
+          }
+        } catch (e) {
+          console.error("Frame SDK ready error:", e);
+        }
+        setIsSDKLoaded(true);
 
         if (!context || !context.user) {
           setIsFarcaster(false);
@@ -210,19 +230,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
     load();
   }, []);
 
+  let content;
   // Prevent UI rendering before SDK ready and user authentication completes
   if (!isSDKLoaded || loading) {
-    return (
+    content = (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-950 text-white">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-fuchsia-500 border-r-2 border-r-transparent" />
         <p className="mt-4 text-xs font-mono text-zinc-500 uppercase tracking-widest animate-pulse">Loading Collection...</p>
       </div>
     );
-  }
-
-  // Display a lock screen for regular browsers outside Farcaster
-  if (isFarcaster === false) {
-    return (
+  } else if (isFarcaster === false) {
+    // Display a lock screen for regular browsers outside Farcaster
+    content = (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-950 text-white p-6 text-center">
         <div className="text-5xl mb-4">🎴</div>
         <h1 className="text-xl font-bold mb-2">Farcaster Only</h1>
@@ -231,7 +250,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         </p>
       </div>
     );
+  } else {
+    content = <>{children}</>;
   }
 
-  return <>{children}</>;
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        {content}
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
 }

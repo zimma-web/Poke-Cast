@@ -9,8 +9,11 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useSendTransaction, useAccount } from "wagmi";
 
 export default function PackScreen() {
+  const { sendTransactionAsync } = useSendTransaction();
+  const { isConnected } = useAccount();
   const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -130,42 +133,20 @@ export default function PackScreen() {
     const FEE_PER_PACK_WEI = BigInt(1000000000000); // 0.000001 ETH
 
     try {
-      if (provider) {
-        let senderAddress = walletAddress;
-        if (!senderAddress) {
-          try {
-            const ethAccounts = await provider.request({ method: 'eth_accounts' }) as string[];
-            if (Array.isArray(ethAccounts) && ethAccounts.length > 0) {
-              senderAddress = ethAccounts[0];
-            }
-          } catch (e) {
-            console.warn("Failed to get eth_accounts", e);
-          }
-        }
-
-        if (!senderAddress) {
-          throw new Error("Wallet not connected. Please open the app again.");
-        }
-
+      if (isConnected) {
         const totalWei = FEE_PER_PACK_WEI * BigInt(count);
         
-        const tx = await provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: senderAddress as `0x${string}`,
-            to: TREASURY_ADDRESS,
-            value: `0x${totalWei.toString(16)}`,
-            data: '0x',
-            gas: '0x5208' // 21000 gas limit to prevent slow estimation hangs
-          }]
+        const tx = await sendTransactionAsync({
+          to: TREASURY_ADDRESS as `0x${string}`,
+          value: totalWei,
         });
-        txHash = tx as string;
+        txHash = tx;
         
         // Wait for the wallet confirmation UI to fully close before making the server request.
         await new Promise(resolve => setTimeout(resolve, 3500));
       } else {
         // Mock fallback for dev environments outside Farcaster
-        console.warn("Wallet provider not found. Simulating transaction.");
+        console.warn("Wagmi wallet not connected. Simulating transaction.");
         await new Promise(r => setTimeout(r, 800));
         txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
       }

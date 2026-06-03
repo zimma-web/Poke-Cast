@@ -8,11 +8,14 @@ import { useCollectionStore } from "@/lib/store";
 import { Loader2, Ticket, ChevronLeft, CreditCard, Sparkles, CheckCircle2 } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Image from "next/image";
+import { useSendTransaction, useAccount } from "wagmi";
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 const USDC_CONTRACT_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 export default function TopUpPage() {
+  const { sendTransactionAsync } = useSendTransaction();
+  const { address, isConnected } = useAccount();
   const router = useRouter();
   const userId = useCollectionStore(state => state.userId);
   const packTickets = useCollectionStore(state => state.packTickets);
@@ -51,63 +54,38 @@ export default function TopUpPage() {
     setLoading(true);
     setError("");
 
-    const provider = sdk.wallet?.ethProvider;
     let txHash = "";
+    const senderAddress = address || walletAddress || "";
 
     try {
-      let senderAddress = walletAddress;
-      if (provider && !senderAddress) {
-        try {
-          const ethAccounts = await provider.request({ method: 'eth_accounts' }) as string[];
-          if (Array.isArray(ethAccounts) && ethAccounts.length > 0) {
-            senderAddress = ethAccounts[0];
-          }
-        } catch (accountErr) {
-          console.warn('Failed to read connected eth_accounts from provider:', accountErr);
-        }
-      }
-
-      if (provider) {
-        if (!senderAddress) {
-          throw new Error("Wallet not connected. Please open the app inside Farcaster again.");
-        }
-
+      if (isConnected) {
         if (paymentMethod === 'usdc') {
           // Send USDC transfer transaction for usdAmount
-          // transfer(address,uint256) selector: 0xa9059cbb
+          // transfer(address,uint255) selector: 0xa9059cbb
           const toAddressPadded = TREASURY_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
           // 1 USDC = 1,000,000 units (6 decimals)
           const totalUnits = usdAmount * 1000000;
           const amountPadded = totalUnits.toString(16).padStart(64, '0');
           const data = `0xa9059cbb${toAddressPadded}${amountPadded}`;
 
-          const tx = await provider.request({
-            method: 'eth_sendTransaction',
-            params: [{
-              from: senderAddress as `0x${string}`,
-              to: USDC_CONTRACT_BASE,
-              value: '0x0',
-              data: data as `0x${string}`
-            }]
+          const tx = await sendTransactionAsync({
+            to: USDC_CONTRACT_BASE,
+            value: BigInt(0),
+            data: data as `0x${string}`
           });
-          txHash = tx as string;
+          txHash = tx;
         } else {
           // Send equivalent ETH transaction
           const ethInWei = BigInt(Math.floor((usdAmount / ethPrice) * 1e18));
-          const tx = await provider.request({
-            method: 'eth_sendTransaction',
-            params: [{
-              from: senderAddress as `0x${string}`,
-              to: TREASURY_ADDRESS,
-              value: `0x${ethInWei.toString(16)}`,
-              data: '0x'
-            }]
+          const tx = await sendTransactionAsync({
+            to: TREASURY_ADDRESS as `0x${string}`,
+            value: ethInWei,
           });
-          txHash = tx as string;
+          txHash = tx;
         }
       } else {
         // Mock fallback for local dev env
-        console.warn("Wallet provider not found. Simulating top-up transaction.");
+        console.warn("Wagmi wallet not connected. Simulating top-up transaction.");
         await new Promise(r => setTimeout(r, 1200));
         txHash = "0xmock_topup_" + Array.from({ length: 50 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
       }
