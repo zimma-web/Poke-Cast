@@ -326,52 +326,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Referral Share Panel */}
-      <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800/60 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Referral Rewards</p>
-            <h2 className="text-sm font-extrabold text-zinc-100 mt-1">Share your code, earn tickets</h2>
-            <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
-              Invite friends with your referral link. They get bonus tickets on their first pack, and you earn extra tickets when they play.
-            </p>
-          </div>
-          <div className="flex-shrink-0 rounded-2xl bg-zinc-950/90 border border-fuchsia-500/20 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.3em] text-fuchsia-300">
-            {referralCode || 'PENDING'}
-          </div>
-        </div>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={() => {
-              if (!referralCode) return;
-              navigator.clipboard.writeText(referralLink).catch(() => {});
-            }}
-          >
-            {referralCode ? 'Copy Referral Link' : 'Referral Link Pending'}
-          </Button>
-          {referralCode && (
-            <Button
-              size="sm"
-              className="w-full sm:w-auto bg-fuchsia-500 text-white hover:bg-fuchsia-600"
-              onClick={() => {
-                const text = `Join me on PokéCast and earn bonus tickets with code ${referralCode}: ${referralLink}`;
-                const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(referralLink)}`;
-                if (sdk && typeof sdk.actions.openUrl === 'function') {
-                  sdk.actions.openUrl(url).catch(() => window.open(url, '_blank'));
-                } else {
-                  window.open(url, '_blank');
-                }
-              }}
-            >
-              Share Referral
-            </Button>
-          )}
-        </div>
-      </div>
-
       {/* Trainer Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         {/* Wallet & USDC State */}

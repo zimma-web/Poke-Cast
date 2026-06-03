@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { User, Trophy, PackageOpen, Layers, Sparkles, History, Award, List, Ticket } from "lucide-react";
+import sdk from "@farcaster/frame-sdk";
 import { useCollectionStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 
@@ -23,6 +25,10 @@ export default function ProfileScreen() {
     highestStreak = 0,
     pokepoints: storePoints,
     lifetimePoints: storeLifetime,
+    referralCode,
+    totalReferrals = 0,
+    successfulReferrals = 0,
+    referralTicketsEarned = 0,
     updatePokePoints
   } = useCollectionStore();
 
@@ -104,6 +110,7 @@ export default function ProfileScreen() {
   const displayNextRank = pointsData?.nextRank ?? null;
   const displayProgress = pointsData?.rankProgress ?? 0;
   const displayHistory = pointsData?.history ?? [];
+  const referralLink = referralCode ? `https://poke-cast.vercel.app/?ref=${encodeURIComponent(referralCode)}` : 'https://poke-cast.vercel.app';
 
   return (
     <div className="flex flex-col h-full px-4 pt-8 pb-4 space-y-6 bg-zinc-950 text-white min-h-[calc(100vh-64px)]">
@@ -170,6 +177,68 @@ export default function ProfileScreen() {
               <span className="text-yellow-400 font-bold">✨ Max Rank Achieved! ✨</span>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Referral Rewards Panel */}
+      <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800/60 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Referral Rewards</p>
+            <h2 className="text-sm font-extrabold text-zinc-100 mt-1">Share your code, earn tickets</h2>
+            <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+              Invite friends with your referral link. They get bonus tickets on their first pack, and you earn extra tickets when they play.
+            </p>
+          </div>
+          <div className="flex-shrink-0 rounded-2xl bg-zinc-950/90 border border-fuchsia-500/20 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.3em] text-fuchsia-300">
+            {referralCode || 'PENDING'}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+          <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-3">
+            <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-mono">Referrals</p>
+            <p className="mt-2 text-2xl font-black text-fuchsia-300">{totalReferrals}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-3">
+            <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-mono">Success</p>
+            <p className="mt-2 text-2xl font-black text-emerald-300">{successfulReferrals}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-3">
+            <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-mono">Tickets</p>
+            <p className="mt-2 text-2xl font-black text-amber-300">{referralTicketsEarned}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              if (!referralCode) return;
+              navigator.clipboard.writeText(referralLink).catch(() => {});
+            }}
+          >
+            {referralCode ? 'Copy Referral Link' : 'Referral Link Pending'}
+          </Button>
+          {referralCode && (
+            <Button
+              size="sm"
+              className="w-full sm:w-auto bg-fuchsia-500 text-white hover:bg-fuchsia-600"
+              onClick={() => {
+                const text = `Join me on PokéCast and earn bonus tickets with code ${referralCode}: ${referralLink}`;
+                const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(referralLink)}`;
+                if (sdk && typeof sdk.actions.openUrl === 'function') {
+                  sdk.actions.openUrl(url).catch(() => window.open(url, '_blank'));
+                } else {
+                  window.open(url, '_blank');
+                }
+              }}
+            >
+              Share Referral
+            </Button>
+          )}
         </div>
       </div>
 

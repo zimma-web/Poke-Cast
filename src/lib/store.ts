@@ -34,6 +34,9 @@ interface CollectionState {
   usdcBalance: number;
   referralCode: string | null;
   referrerId: string | null;
+  totalReferrals: number;
+  successfulReferrals: number;
+  referralTicketsEarned: number;
   loginStreak: number;
   highestStreak: number;
   claimedToday: boolean;
@@ -49,6 +52,9 @@ interface CollectionState {
     usdcBalance?: number;
     referralCode?: string | null;
     referrerId?: string | null;
+    totalReferrals?: number;
+    successfulReferrals?: number;
+    referralTicketsEarned?: number;
     packTickets?: number; 
     freePacksRemaining?: number; 
     lastDailyReset?: string | null;
@@ -68,6 +74,9 @@ interface CollectionState {
     usdcBalance?: number;
     referralCode?: string | null;
     referrerId?: string | null;
+    totalReferrals?: number;
+    successfulReferrals?: number;
+    referralTicketsEarned?: number;
     packTickets?: number;
     freePacksRemaining?: number;
     lastDailyReset?: string | null;
@@ -126,6 +135,9 @@ export const useCollectionStore = create<CollectionState>()(
       usdcBalance: 0,
       referralCode: null,
       referrerId: null,
+      totalReferrals: 0,
+      successfulReferrals: 0,
+      referralTicketsEarned: 0,
       loginStreak: 0,
       highestStreak: 0,
       claimedToday: false,
@@ -147,6 +159,9 @@ export const useCollectionStore = create<CollectionState>()(
           usdcBalance: auth.usdcBalance ?? 0,
           referralCode: auth.referralCode ?? null,
           referrerId: auth.referrerId ?? null,
+          totalReferrals: auth.totalReferrals ?? 0,
+          successfulReferrals: auth.successfulReferrals ?? 0,
+          referralTicketsEarned: auth.referralTicketsEarned ?? 0,
           packTickets: auth.packTickets ?? 10,
           freePacksRemaining: auth.freePacksRemaining ?? 2,
           lastDailyReset: auth.lastDailyReset ?? null,
@@ -174,6 +189,9 @@ export const useCollectionStore = create<CollectionState>()(
           ...(col.usdcBalance !== undefined ? { usdcBalance: col.usdcBalance } : {}),
           ...(col.referralCode !== undefined ? { referralCode: col.referralCode } : {}),
           ...(col.referrerId !== undefined ? { referrerId: col.referrerId } : {}),
+          ...(col.totalReferrals !== undefined ? { totalReferrals: col.totalReferrals } : {}),
+          ...(col.successfulReferrals !== undefined ? { successfulReferrals: col.successfulReferrals } : {}),
+          ...(col.referralTicketsEarned !== undefined ? { referralTicketsEarned: col.referralTicketsEarned } : {}),
           ...(col.packTickets !== undefined ? { packTickets: col.packTickets } : {}),
           ...(col.freePacksRemaining !== undefined ? { freePacksRemaining: col.freePacksRemaining } : {}),
           ...(col.lastDailyReset !== undefined ? { lastDailyReset: col.lastDailyReset } : {}),
@@ -247,6 +265,9 @@ export const useCollectionStore = create<CollectionState>()(
         achievements: state.achievements,
         referralCode: state.referralCode,
         referrerId: state.referrerId,
+        totalReferrals: state.totalReferrals,
+        successfulReferrals: state.successfulReferrals,
+        referralTicketsEarned: state.referralTicketsEarned,
         loginStreak: state.loginStreak,
         highestStreak: state.highestStreak,
         claimedToday: state.claimedToday,
