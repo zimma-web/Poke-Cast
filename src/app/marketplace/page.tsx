@@ -634,7 +634,6 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
             from: senderAddress as `0x${string}`,
             to: USDC_CONTRACT_BASE,
             data: txDataSeller,
-            gas: '0x11170',
             value: '0x0'
           }]
         });
@@ -646,7 +645,6 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
             from: senderAddress as `0x${string}`,
             to: USDC_CONTRACT_BASE,
             data: txDataTreasury,
-            gas: '0x11170',
             value: '0x0'
           }]
         });

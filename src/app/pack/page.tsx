@@ -149,7 +149,6 @@ export default function PackScreen() {
 
         // Total fee = count × 0.000001 ETH
         const totalWei = FEE_PER_PACK_WEI * BigInt(count);
-        const gasHex = `0x${(21000).toString(16)}` as `0x${string}`;
 
         const tx = await provider.request({
           method: 'eth_sendTransaction',
@@ -157,7 +156,6 @@ export default function PackScreen() {
             from: senderAddress as `0x${string}`,
             to: TREASURY_ADDRESS,
             value: `0x${totalWei.toString(16)}`,
-            gas: gasHex,
             data: '0x'
           }]
         });

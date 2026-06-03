@@ -94,15 +94,12 @@ export default function TopUpPage() {
         } else {
           // Send equivalent ETH transaction
           const ethInWei = BigInt(Math.floor((usdAmount / ethPrice) * 1e18));
-          const gasHex = `0x${(21000).toString(16)}` as `0x${string}`;
-
           const tx = await provider.request({
             method: 'eth_sendTransaction',
             params: [{
               from: senderAddress as `0x${string}`,
               to: TREASURY_ADDRESS,
               value: `0x${ethInWei.toString(16)}`,
-              gas: gasHex,
               data: '0x'
             }]
           });
