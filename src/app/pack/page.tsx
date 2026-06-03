@@ -8,7 +8,7 @@ import { Card as CardType, useCollectionStore } from "@/lib/store";
 import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/frame-sdk";
 import Link from "next/link";
-
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -206,72 +206,74 @@ export default function PackScreen() {
     const totalPacks = Math.ceil(cards.length / 5);
 
     return (
-      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-zinc-950 px-4 pt-8">
-        <div className="flex justify-between items-center mb-2 text-zinc-400 text-sm font-medium">
-          <span className="font-mono text-xs">
-            Pack {packNumber}/{totalPacks} · Card {cardInPack}/5
-          </span>
-          <span className="flex items-center text-amber-400 font-mono text-xs">
-            <Sparkles className="w-3.5 h-3.5 mr-1" />
-            {currentCard.rarity || 'Common'}
-          </span>
-        </div>
+      <ErrorBoundary>
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-zinc-950 px-4 pt-8">
+          <div className="flex justify-between items-center mb-2 text-zinc-400 text-sm font-medium">
+            <span className="font-mono text-xs">
+              Pack {packNumber}/{totalPacks} · Card {cardInPack}/5
+            </span>
+            <span className="flex items-center text-amber-400 font-mono text-xs">
+              <Sparkles className="w-3.5 h-3.5 mr-1" />
+              {currentCard.rarity || 'Common'}
+            </span>
+          </div>
 
-        {/* Pack progress dots */}
-        <div className="flex justify-center gap-1 mb-4">
-          {cards.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 rounded-full transition-all duration-300 ${
-                i === currentIndex ? 'w-4 bg-fuchsia-500' :
-                i < currentIndex ? 'w-2 bg-fuchsia-500/40' : 'w-2 bg-zinc-700'
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="flex-1 flex items-center justify-center relative">
-          <div
-            key={currentIndex}
-            className="relative w-full max-w-[320px] aspect-[2.5/3.5] group cursor-pointer animate-in fade-in zoom-in duration-500"
-            onClick={nextCard}
-          >
-            {currentCard.largeImage ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img 
-                src={currentCard.largeImage} 
-                alt={currentCard.name}
-                className="w-full h-full object-contain drop-shadow-2xl"
-                loading="eager"
+          {/* Pack progress dots */}
+          <div className="flex justify-center gap-1 mb-4">
+            {cards.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  i === currentIndex ? 'w-4 bg-fuchsia-500' :
+                  i < currentIndex ? 'w-2 bg-fuchsia-500/40' : 'w-2 bg-zinc-700'
+                }`}
               />
+            ))}
+          </div>
+
+          <div className="flex-1 flex items-center justify-center relative">
+            <div
+              key={currentIndex}
+              className="relative w-full max-w-[320px] aspect-[2.5/3.5] group cursor-pointer animate-in fade-in zoom-in duration-500"
+              onClick={nextCard}
+            >
+              {currentCard.largeImage ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img 
+                  src={currentCard.largeImage} 
+                  alt={currentCard.name}
+                  className="w-full h-full object-contain drop-shadow-2xl"
+                  loading="eager"
+                />
+              ) : (
+                <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
+                  <span className="text-zinc-500">Image Missing</span>
+                </div>
+              )}
+              
+              {(currentCard.rarity?.includes('Rare') || currentCard.rarity?.includes('Holo')) && (
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl pointer-events-none" />
+              )}
+            </div>
+          </div>
+
+          <div className="pb-8 pt-4 flex space-x-3">
+            {currentIndex < cards.length - 1 ? (
+              <Button size="lg" className="flex-1 rounded-full h-14 font-bold" onClick={nextCard}>
+                Next Card
+              </Button>
             ) : (
-              <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
-                <span className="text-zinc-500">Image Missing</span>
-              </div>
+              <Button size="lg" className="flex-1 rounded-full h-14 font-bold" onClick={() => { setOpened(false); setCards([]); }}>
+                Finish
+              </Button>
             )}
             
-            {(currentCard.rarity?.includes('Rare') || currentCard.rarity?.includes('Holo')) && (
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl pointer-events-none" />
-            )}
+            <Button size="lg" variant="secondary" className="w-14 h-14 rounded-full p-0" onClick={shareToFarcaster}>
+              <Share2 className="w-5 h-5" />
+            </Button>
           </div>
         </div>
-
-        <div className="pb-8 pt-4 flex space-x-3">
-          {currentIndex < cards.length - 1 ? (
-            <Button size="lg" className="flex-1 rounded-full h-14 font-bold" onClick={nextCard}>
-              Next Card
-            </Button>
-          ) : (
-            <Button size="lg" className="flex-1 rounded-full h-14 font-bold" onClick={() => { setOpened(false); setCards([]); }}>
-              Finish
-            </Button>
-          )}
-          
-          <Button size="lg" variant="secondary" className="w-14 h-14 rounded-full p-0" onClick={shareToFarcaster}>
-            <Share2 className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
+      </ErrorBoundary>
     );
   }
 
