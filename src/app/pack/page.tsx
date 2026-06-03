@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card as CardType, useCollectionStore } from "@/lib/store";
 import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/frame-sdk";
+import Link from "next/link";
 
 const TREASURY_ADDRESS = '0x330CDc1dB0899f8d5C7D0E0e261271D574b5952f';
 const FEE_PER_PACK_WEI = BigInt(1000000000000); // 0.000001 ETH per pack
@@ -275,10 +276,13 @@ export default function PackScreen() {
           <span className="text-xs font-black text-fuchsia-400 font-mono mt-0.5">{freePacksRemaining} left</span>
         </div>
         <div className="h-6 w-[1px] bg-zinc-800" />
-        <div className="flex flex-col items-center flex-1">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Pack Tickets</span>
-          <span className="text-xs font-black text-amber-400 font-mono mt-0.5">🎟️ {packTickets}</span>
-        </div>
+        <Link href="/topup" className="flex flex-col items-center flex-1 group hover:opacity-85 transition-opacity">
+          <span className="text-[10px] font-mono text-zinc-500 group-hover:text-amber-400 transition-colors uppercase tracking-wider">Pack Tickets</span>
+          <span className="text-xs font-black text-amber-400 font-mono mt-0.5 flex items-center gap-1.5">
+            🎟️ {packTickets}
+            <span className="text-[9px] text-zinc-500 group-hover:text-amber-400 transition-colors bg-zinc-950 px-1.5 py-0.2 rounded border border-zinc-850">+</span>
+          </span>
+        </Link>
       </div>
 
       {/* Set Selector */}

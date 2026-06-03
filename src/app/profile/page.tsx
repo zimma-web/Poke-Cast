@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, Trophy, PackageOpen, Layers, Sparkles, History, Award, List } from "lucide-react";
+import { User, Trophy, PackageOpen, Layers, Sparkles, History, Award, List, Ticket } from "lucide-react";
 import { useCollectionStore } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function ProfileScreen() {
   const { 
@@ -253,6 +254,27 @@ export default function ProfileScreen() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Top Up Banner */}
+      <Link href="/topup" className="block">
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-fuchsia-500/10 border border-amber-500/25 hover:border-amber-500/40 rounded-2xl p-4 flex items-center justify-between transition-all duration-200 group active:scale-[0.98]">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-10 h-10 bg-amber-500/15 rounded-xl flex items-center justify-center border border-amber-500/20 group-hover:scale-110 transition-transform">
+              <Ticket className="w-5 h-5 text-amber-400 fill-amber-400/20" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm text-white">Top Up Pack Tickets</h3>
+              <p className="text-[11px] text-zinc-400">Get 10 Pack Tickets for $1.00 USD</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-1.5 text-amber-400 font-bold text-xs">
+            <span>Buy Now</span>
+            <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      </Link>
 
       {/* Tabs Selector for Achievements, Leaderboard, Points History */}
       <div className="flex border-b border-zinc-850">

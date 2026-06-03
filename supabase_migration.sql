@@ -305,3 +305,17 @@ CREATE INDEX IF NOT EXISTS idx_points_history_action  ON user_points_history(act
 CREATE INDEX IF NOT EXISTS idx_points_history_created ON user_points_history(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_points_history_ref     ON user_points_history(reference_id);
 
+-- SQL Database Migration: Ticket Purchases
+CREATE TABLE IF NOT EXISTS ticket_purchases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tx_hash TEXT UNIQUE NOT NULL,
+  amount INTEGER NOT NULL DEFAULT 10,
+  cost_usd NUMERIC(10, 2) NOT NULL DEFAULT 1.00,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_purchases_user ON ticket_purchases(user_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_purchases_hash ON ticket_purchases(tx_hash);
+
+
