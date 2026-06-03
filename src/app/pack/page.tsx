@@ -9,6 +9,7 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { verifyBaseETHTransfer } from "@/lib/web3";
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -161,11 +162,15 @@ export default function PackScreen() {
         });
         txHash = tx as string;
         
-        // CRITICAL FIX: Wait for Farcaster wallet modal to fully close before firing the API.
-        // Firing network requests/state updates exactly as the wallet modal animates down 
-        // causes WebView crashes (This page couldn't load) in Warpcast.
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+        // Wait for the wallet modal to fully close before making the server request.
+        // This prevents Warpcast WebView reloads or page load failures after confirmation.
+        await new Promise(resolve => setTimeout(resolve, 2500));
+
+        const totalEth = Number(totalWei) / 1e18;
+        const confirmed = await verifyBaseETHTransfer(txHash, senderAddress, TREASURY_ADDRESS, totalEth);
+        if (!confirmed) {
+          throw new Error("Transaction did not confirm successfully on-chain. Please try again.");
+        }
       } else {
         // Mock fallback for dev environments outside Farcaster
         console.warn("Wallet provider not found. Simulating transaction.");
