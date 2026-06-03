@@ -10,7 +10,7 @@ const QUESTS_CONFIG = [
 ];
 
 const MAIN_QUESTS_CONFIG = [
-  { id: 'main_follow_dev', title: 'Follow Developer', desc: 'Follow @zimma on Warpcast', target: 1, reward: 5, link: 'https://warpcast.com/zimma' },
+  { id: 'main_follow_dev', title: 'Follow Developer', desc: 'Follow @pokecast on Warpcast', target: 1, reward: 5, link: 'https://farcaster.xyz/pokecast' },
   { id: 'main_join_channel', title: 'Join PokéCast Channel', desc: 'Join the /pokecast channel on Warpcast', target: 1, reward: 5, link: 'https://warpcast.com/~/channel/pokecast' },
   { id: 'main_share_app', title: 'Share App', desc: 'Share PokéCast on Warpcast', target: 1, reward: 5, link: 'https://warpcast.com/~/compose?text=I%20am%20collecting%20Pok%C3%A9mon%20cards%20on%20Pok%C3%A9Cast%21%20Come%20rip%20packs%20with%20me%20%F0%9F%8E%B4%E2%9C%A8&embeds[]=https://poke-cast.vercel.app' },
 ];
