@@ -9,7 +9,6 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { verifyBaseETHTransfer } from "@/lib/web3";
 
 export default function PackScreen() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -162,15 +161,8 @@ export default function PackScreen() {
         });
         txHash = tx as string;
         
-        // Wait for the wallet modal to fully close before making the server request.
-        // This prevents Warpcast WebView reloads or page load failures after confirmation.
-        await new Promise(resolve => setTimeout(resolve, 2500));
-
-        const totalEth = Number(totalWei) / 1e18;
-        const confirmed = await verifyBaseETHTransfer(txHash, senderAddress, TREASURY_ADDRESS, totalEth);
-        if (!confirmed) {
-          throw new Error("Transaction did not confirm successfully on-chain. Please try again.");
-        }
+        // Wait for the wallet confirmation UI to fully close before making the server request.
+        await new Promise(resolve => setTimeout(resolve, 3500));
       } else {
         // Mock fallback for dev environments outside Farcaster
         console.warn("Wallet provider not found. Simulating transaction.");
@@ -182,11 +174,20 @@ export default function PackScreen() {
       const res = await fetch("/api/pack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, setId: selectedSetId, txHash, count })
+        body: JSON.stringify({ userId, setId: selectedSetId, txHash, count }),
+        cache: "no-store"
       });
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch (err) {
+        const text = await res.text();
+        console.error("Invalid pack response:", text);
+        setError("Failed to process pack opening. Please try again.");
+        return;
+      }
       
-      if (res.status === 400 || data.error) {
+      if (!res.ok || data.error) {
         setError(data.error || "Failed to process pack opening");
         return;
       }
