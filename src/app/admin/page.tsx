@@ -166,6 +166,7 @@ export default function AdminDashboard() {
   const [marketStats, setMarketStats] = useState<{ totalActive: number; totalBids: number; unresolvedReports: number } | null>(null);
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [marketSearch, setMarketSearch] = useState("");
+  const [packSearch, setPackSearch] = useState("");
 
   // Auth state: dual-mode (role-based via FID or legacy password)
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean | null>(null);
@@ -533,6 +534,17 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       showToast("Pack settings saved");
+      fetchPacks();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleDisableAllPacks = async () => {
+    if (!confirm("Are you sure you want to disable ALL booster packs? Players will not be able to buy or open any packs.")) return;
+    try {
+      const res = await adminFetch("pack_disable_all");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Disabled all booster packs successfully");
       fetchPacks();
     } catch (err: any) { showToast(err.message, "error"); }
   };
@@ -1037,16 +1049,43 @@ export default function AdminDashboard() {
                 <h1 className="text-xl font-black text-zinc-100">Pack Management</h1>
                 <p className="text-xs text-zinc-500 mt-0.5">Enable, disable, and feature expansion packs</p>
               </div>
-              <button onClick={fetchPacks} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+            </div>
+
+            {/* Search and Global Action Row (At the very top) */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Search pack by name or ID..."
+                  value={packSearch}
+                  onChange={(e) => setPackSearch(e.target.value)}
+                  className="w-full h-10 pl-9 pr-4 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 focus:border-fuchsia-500/40 transition-all"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDisableAllPacks}
+                  className="px-4 h-10 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-rose-950/20 active:scale-95 shrink-0"
+                >
+                  <Ban className="w-3.5 h-3.5" /> Disable All Packs
+                </button>
+                <button onClick={fetchPacks} className="w-10 h-10 flex items-center justify-center bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-colors shrink-0">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {loadingPacks ? (
               <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
             ) : (
               <div className="space-y-2">
-                {packs.map((pack) => (
+                {packs
+                  .filter((p) => 
+                    p.name.toLowerCase().includes(packSearch.toLowerCase()) || 
+                    p.id.toLowerCase().includes(packSearch.toLowerCase())
+                  )
+                  .map((pack) => (
                   <div key={pack.id} className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${pack.pack_enabled ? "bg-zinc-900/60 border-zinc-800/60" : "bg-zinc-900/30 border-zinc-800/30 opacity-60"}`}>
                     {pack.logo && (
                       <img src={pack.logo} alt={pack.name} className="w-10 h-10 object-contain rounded-xl bg-zinc-800 p-1 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />

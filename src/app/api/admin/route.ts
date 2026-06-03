@@ -356,6 +356,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // ─── PACK DISABLE ALL ────────────────────────────────────────────────────
+    if (action === 'pack_disable_all') {
+      const sets = readJsonFile(SETS_FILE_PATH);
+      const upserts = sets.map((set: any) => ({
+        set_id: set.id,
+        pack_enabled: false,
+        featured_pack: false,
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabaseAdmin
+        .from('pack_settings')
+        .upsert(upserts, { onConflict: 'set_id' });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'PACK_DISABLE_ALL', 'Disabled all booster packs');
+      return NextResponse.json({ success: true });
+    }
+
     // ─── EVENT LIST ──────────────────────────────────────────────────────────
     if (action === 'event_list') {
       const { data: events, error } = await supabaseAdmin
