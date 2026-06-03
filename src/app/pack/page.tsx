@@ -20,6 +20,7 @@ export default function PackScreen() {
   const [selectedSetId, setSelectedSetId] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [packCount, setPackCount] = useState(1); // 1-5 packs
+  const [isOpen, setIsOpen] = useState(false);
   
   const addCards = useCollectionStore(state => state.addCards);
   const ownedCards = useCollectionStore(state => state.ownedCards);
@@ -255,6 +256,15 @@ export default function PackScreen() {
     );
   }
 
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutsideClick = () => setIsOpen(false);
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, [isOpen]);
+
   // ─── Pack selection screen ──────────────────────────────────────────────────
   return (
     <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] px-4">
@@ -272,21 +282,135 @@ export default function PackScreen() {
       </div>
 
       {/* Set Selector */}
-      <div className="w-full max-w-[280px] mb-5">
+      <div className="w-full max-w-[280px] mb-5 relative z-50">
         <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-2 text-center">
           Select Expansion Pack
         </label>
-        <select
-          value={selectedSetId}
-          onChange={(e) => setSelectedSetId(e.target.value)}
-          className="w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-full h-11 px-4 text-sm focus:outline-none focus:border-fuchsia-500 transition-colors"
+        
+        {/* Custom Dropdown Trigger */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+          className="w-full flex items-center justify-between bg-zinc-900/90 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700/80 text-zinc-200 rounded-2xl h-14 px-4 text-left transition-all duration-200 shadow-lg focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50"
         >
-          {sets.map((set) => (
-            <option key={set.id} value={set.id}>
-              {set.name} ({getSetProgress(set.id)} / {set.totalCards})
-            </option>
-          ))}
-        </select>
+          <div className="flex items-center space-x-3 overflow-hidden">
+            {activeSet?.logo ? (
+              <div className="relative w-8 h-8 flex-shrink-0 bg-zinc-950 rounded-lg p-1 border border-zinc-800/50">
+                <Image src={activeSet.logo} alt="" fill className="object-contain" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 flex-shrink-0 bg-gradient-to-br from-fuchsia-500 to-amber-500 rounded-lg flex items-center justify-center text-white font-bold text-xs">
+                TCG
+              </div>
+            )}
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-black truncate leading-tight text-white flex items-center gap-1.5">
+                {activeSet?.name || "Select Set"}
+                {activeSet?.featured_pack && (
+                  <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider border border-amber-500/30">
+                    ★
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] font-mono text-zinc-400">
+                Progress: {getSetProgress(selectedSetId)} / {activeSet?.totalCards || 0}
+              </span>
+            </div>
+          </div>
+          <svg
+            className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Dropdown Options */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 4, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="absolute top-full left-0 right-0 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl mt-1.5 max-h-[260px] overflow-y-auto custom-scrollbar"
+            >
+              <div className="p-1.5 space-y-1">
+                {sets.map((set) => {
+                  const progress = getSetProgress(set.id);
+                  const total = set.totalCards || 1;
+                  const progressPercent = Math.min(100, Math.round((progress / total) * 100));
+                  const isSelected = set.id === selectedSetId;
+                  
+                  return (
+                    <button
+                      key={set.id}
+                      onClick={() => {
+                        setSelectedSetId(set.id);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full flex flex-col p-2.5 rounded-xl transition-all text-left ${
+                        isSelected 
+                          ? "bg-fuchsia-500/10 border border-fuchsia-500/30 text-white" 
+                          : "hover:bg-zinc-900/80 border border-transparent text-zinc-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1.5">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          {set.logo ? (
+                            <div className="relative w-7 h-7 flex-shrink-0 bg-zinc-900 rounded-md p-1 border border-zinc-800">
+                              <Image src={set.logo} alt="" fill className="object-contain" />
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 flex-shrink-0 bg-zinc-800 rounded-md flex items-center justify-center text-[10px] font-bold text-zinc-400">
+                              TCG
+                            </div>
+                          )}
+                          <span className={`text-xs font-black truncate ${isSelected ? "text-fuchsia-300" : "text-zinc-200"}`}>
+                            {set.name}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-1.5 flex-shrink-0">
+                          {set.featured_pack && (
+                            <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-widest border border-amber-500/30">
+                              ★
+                            </span>
+                          )}
+                          {isSelected && (
+                            <svg className="w-4 h-4 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full space-y-1 pl-9">
+                        <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                          <span>Collected: {progress}/{total}</span>
+                          <span className={isSelected ? "text-fuchsia-400" : ""}>{progressPercent}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/60">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              isSelected ? "bg-gradient-to-r from-fuchsia-500 to-pink-500" : "bg-zinc-700"
+                            }`} 
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Pack art */}
