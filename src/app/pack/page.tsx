@@ -237,13 +237,13 @@ export default function PackScreen() {
               className="relative w-full max-w-[320px] aspect-[2.5/3.5] cursor-pointer"
               onClick={nextCard}
             >
-              {currentCard.largeImage ? (
+              {currentCard.smallImage ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img 
-                  src={currentCard.largeImage} 
+                  src={currentCard.smallImage} 
                   alt={currentCard.name}
                   className="w-full h-full object-contain"
-                  loading="eager"
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
