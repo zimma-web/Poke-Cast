@@ -9,12 +9,10 @@ import { Loader2, Share2, Sparkles, Minus, Plus } from "lucide-react";
 import sdk from "@farcaster/miniapp-sdk";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useSendTransaction, useAccount } from "wagmi";
 import { TREASURY_ADDRESS, packOpenFeeEth, packOpenFeeWei } from "@/lib/fees";
+import { hasFarcasterWallet, sendNativeEthOnBase, getWalletAddress } from "@/lib/wallet";
 
 export default function PackScreen() {
-  const { sendTransactionAsync } = useSendTransaction();
-  const { address, isConnected } = useAccount();
   const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -137,31 +135,38 @@ export default function PackScreen() {
     setError("");
 
     let txHash = "";
-    const senderAddress = address || walletAddress || "";
+    let senderAddress = walletAddress || "";
 
     try {
       const feeWei = packOpenFeeWei(count);
 
-      if (isConnected) {
+      if (hasFarcasterWallet()) {
         try {
-          const tx = await sendTransactionAsync({
+          if (!senderAddress) {
+            senderAddress = (await getWalletAddress()) || "";
+          }
+          txHash = await sendNativeEthOnBase({
             to: TREASURY_ADDRESS,
-            value: feeWei,
+            valueWei: feeWei,
+            from: senderAddress || undefined,
           });
-          txHash = tx;
+          if (!senderAddress) {
+            senderAddress = (await getWalletAddress()) || "";
+          }
         } catch (walletErr: any) {
-          if (walletErr?.code === 4001 || walletErr?.message?.toLowerCase().includes("reject")) {
+          const msg = walletErr?.message?.toLowerCase() ?? "";
+          if (walletErr?.code === 4001 || msg.includes("reject") || msg.includes("denied") || msg.includes("cancel")) {
             setError("Transaction cancelled. Pack fee was not paid.");
             return;
           }
           throw walletErr;
         }
       } else if (process.env.NODE_ENV !== "production") {
-        console.warn("Wallet not connected — simulating pack fee tx for local dev.");
+        console.warn("Farcaster wallet tidak tersedia — simulasi tx untuk dev.");
         await new Promise((r) => setTimeout(r, 800));
         txHash = "0xmock" + Array.from({ length: 60 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
       } else {
-        setError("Connect your Base wallet to pay the pack opening fee.");
+        setError("Open in Warpcast and connect your Base wallet to pay the pack fee.");
         return;
       }
 
