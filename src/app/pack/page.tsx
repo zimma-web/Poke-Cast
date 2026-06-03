@@ -187,7 +187,20 @@ export default function PackScreen() {
 
   // ─── Card reveal screen ─────────────────────────────────────────────────────
   if (opened) {
-    const currentCard = cards[currentIndex];
+    const currentCard = cards?.[currentIndex];
+
+    // Safety fallback if cards are somehow empty
+    if (!currentCard) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-zinc-950 px-4 text-center">
+          <p className="text-zinc-400 text-sm mb-4">Something went wrong loading your cards.</p>
+          <Button size="lg" className="rounded-full h-14 font-bold px-8" onClick={() => { setOpened(false); setCards([]); }}>
+            Go Back
+          </Button>
+        </div>
+      );
+    }
+
     const packNumber = Math.floor(currentIndex / 5) + 1;
     const cardInPack = (currentIndex % 5) + 1;
     const totalPacks = Math.ceil(cards.length / 5);
@@ -217,25 +230,24 @@ export default function PackScreen() {
           ))}
         </div>
 
-        <div className="flex-1 flex items-center justify-center relative perspective-1000">
+        <div className="flex-1 flex items-center justify-center relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentIndex}
-              initial={{ opacity: 0, scale: 0.8, rotateY: -90 }}
-              animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-              exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
               transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
               className="relative w-full max-w-[320px] aspect-[2.5/3.5] group cursor-pointer"
               onClick={nextCard}
             >
               {currentCard.largeImage ? (
-                <Image 
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img 
                   src={currentCard.largeImage} 
                   alt={currentCard.name}
-                  fill
-                  className="object-contain drop-shadow-2xl"
-                  sizes="(max-width: 390px) 100vw, 320px"
-                  priority
+                  className="w-full h-full object-contain drop-shadow-2xl"
+                  loading="eager"
                 />
               ) : (
                 <div className="w-full h-full bg-zinc-800 rounded-2xl flex items-center justify-center">
@@ -244,7 +256,7 @@ export default function PackScreen() {
               )}
               
               {(currentCard.rarity?.includes('Rare') || currentCard.rarity?.includes('Holo')) && (
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl animate-shimmer pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent mix-blend-overlay rounded-2xl pointer-events-none" />
               )}
             </motion.div>
           </AnimatePresence>
