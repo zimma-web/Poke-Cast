@@ -110,7 +110,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             wishlist: authData.wishlist,
             loginStreak: authData.login_streak,
             highestStreak: authData.highest_streak,
-            claimedToday: authData.claimed_today
+            claimedToday: authData.claimed_today,
+            pokepoints: authData.pokepoints || 0,
+            lifetimePoints: authData.lifetimePoints || 0
           });
 
           // 2. Sync legacy local collection once if it exists
@@ -136,7 +138,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             localStorage.setItem('tcg_collection_migrated', 'true');
           }
 
-          // 3. Fetch synced card database and user stats from Supabase
+          // 3. Sync legacy local collection once if it exists (fetching synced card database and user stats)
           const collectionRes = await fetch(`/api/collection?userId=${authData.id}`);
           const collectionData = await collectionRes.json();
 
@@ -153,7 +155,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             wishlist: collectionData.wishlist,
             loginStreak: collectionData.login_streak,
             highestStreak: collectionData.highest_streak,
-            claimedToday: collectionData.claimed_today
+            claimedToday: collectionData.claimed_today,
+            pokepoints: collectionData.pokepoints || 0,
+            lifetimePoints: collectionData.lifetimePoints || 0
           });
 
           // 4. Fetch achievements

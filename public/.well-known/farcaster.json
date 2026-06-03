@@ -13,8 +13,8 @@
     "splashImageUrl": "https://poke-cast.vercel.app/splash.png",
     "splashBackgroundColor": "#09090b",
     "webhookUrl": "https://poke-cast.vercel.app/api/webhook",
-    "subtitle": "Rip packs, collect, and bid on Base Chain",
-    "description": "Poke-Cast: The ultimate Farcaster Pokemon Trading Card Game & Auction House. Rip packs, complete your daily quests, build streaks, bid and buy on Base Chain!",
+    "subtitle": "Rip packs and collect cards",
+    "description": "Poke-Cast: The ultimate Farcaster Pokemon Trading Card Game and Auction House. Rip packs, complete your daily quests, build streaks, bid and buy on Base Chain!",
     "primaryCategory": "games",
     "tags": [
       "farcaster",

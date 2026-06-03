@@ -172,6 +172,16 @@ export async function evaluateAchievements(userId: string) {
           console.error('Failed to award achievement tickets:', updateError);
         }
       }
+
+      // Award 25 PokePoints for each newly unlocked achievement
+      try {
+        const { awardPoints } = await import('@/lib/pokepoints');
+        for (const ach of newlyUnlocked) {
+          await awardPoints(userId, 'achievement', 25, ach.id, { title: ach.title });
+        }
+      } catch (e) {
+        console.error('Failed to award PokePoints for achievements:', e);
+      }
     }
 
     return newlyUnlocked;

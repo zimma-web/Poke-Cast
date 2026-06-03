@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { awardLoginStreakPoints } from '@/lib/pokepoints';
 
 export async function POST(request: Request) {
   try {
@@ -113,6 +114,19 @@ export async function POST(request: Request) {
         }
       }
 
+      if (streakUpdated) {
+        await awardLoginStreakPoints(existingUser.id, newStreak);
+        // Refresh to fetch updated points
+        const { data: refreshedPointsUser } = await supabaseAdmin
+          .from('users')
+          .select('*')
+          .eq('id', existingUser.id)
+          .single();
+        if (refreshedPointsUser) {
+          updatedUser = refreshedPointsUser;
+        }
+      }
+
       // Check if already claimed today
       const { data: claimedRow } = await supabaseAdmin
         .from('login_rewards')
@@ -132,6 +146,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         ...updatedUser,
+        pokepoints: updatedUser.pokepoints !== undefined ? Number(updatedUser.pokepoints) : 0,
+        lifetimePoints: updatedUser.lifetime_points !== undefined ? Number(updatedUser.lifetime_points) : 0,
         wishlist: wishlistData ? wishlistData.map((row: any) => row.card_id) : [],
         claimed_today: claimedToday
       });
@@ -162,8 +178,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database insert error' }, { status: 500 });
     }
 
+    await awardLoginStreakPoints(newUser.id, 1);
+    
+    // Refresh to get new user points
+    const { data: refreshedNewUser } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', newUser.id)
+      .single();
+    
+    const finalNewUser = refreshedNewUser || newUser;
+
     return NextResponse.json({
-      ...newUser,
+      ...finalNewUser,
+      pokepoints: finalNewUser.pokepoints !== undefined ? Number(finalNewUser.pokepoints) : 0,
+      lifetimePoints: finalNewUser.lifetime_points !== undefined ? Number(finalNewUser.lifetime_points) : 0,
       wishlist: [],
       claimed_today: false
     });

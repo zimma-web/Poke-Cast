@@ -155,6 +155,8 @@ export default function AdminDashboard() {
   const [banReason, setBanReason] = useState("");
   const [simResults, setSimResults] = useState<any[]>([]);
   const [simulating, setSimulating] = useState(false);
+  const [pointsAmount, setPointsAmount] = useState(100);
+  const [pointsReason, setPointsReason] = useState("");
   const [eventForm, setEventForm] = useState<any>(null);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
@@ -429,6 +431,30 @@ export default function AdminDashboard() {
       if (data.error) throw new Error(data.error);
       showToast(`Removed ${ticketAmount} tickets. New balance: ${data.newBalance}`);
       fetchUserDetail(userId);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleAddPoints = async (userId: string) => {
+    try {
+      const res = await adminFetch("add_points", { userId, amount: pointsAmount, reason: pointsReason });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(`Added ${pointsAmount} PokePoints! New balance: ${data.newPoints}`);
+      setPointsReason("");
+      fetchUserDetail(userId);
+      fetchUsers(userSearch);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleRemovePoints = async (userId: string) => {
+    try {
+      const res = await adminFetch("remove_points", { userId, amount: pointsAmount, reason: pointsReason });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(`Removed ${pointsAmount} PokePoints. New balance: ${data.newPoints}`);
+      setPointsReason("");
+      fetchUserDetail(userId);
+      fetchUsers(userSearch);
     } catch (err: any) { showToast(err.message, "error"); }
   };
 
@@ -843,6 +869,8 @@ export default function AdminDashboard() {
                           <span className="text-[11px] text-zinc-500">{user.totalCards} cards</span>
                           <span className="text-[11px] text-zinc-600">·</span>
                           <span className="text-[11px] text-amber-500">🎟 {user.pack_tickets}</span>
+                          <span className="text-[11px] text-zinc-600">·</span>
+                          <span className="text-[11px] text-indigo-400 font-bold">✨ {user.pokepoints || 0}</span>
                         </div>
                       </div>
                     </button>
@@ -882,11 +910,11 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-3 gap-2">
                       {[
                         { label: "Pack Tickets", value: selectedUser.pack_tickets || 0, icon: "🎟" },
+                        { label: "PokePoints", value: selectedUser.pokepoints || 0, icon: "✨" },
+                        { label: "Lifetime Pts", value: selectedUser.lifetime_points || 0, icon: "💎" },
                         { label: "Packs Opened", value: selectedUser.packs_opened || 0, icon: "📦" },
                         { label: "Login Streak", value: selectedUser.login_streak || 0, icon: "🔥" },
-                        { label: "Best Streak", value: selectedUser.highest_streak || 0, icon: "🏆" },
                         { label: "Total Cards", value: selectedUserCards.length, icon: "🃏" },
-                        { label: "Unique Cards", value: new Set(selectedUserCards.map((c: any) => c.card_id)).size, icon: "✨" },
                       ].map((s) => (
                         <div key={s.label} className="bg-zinc-950/60 rounded-xl p-2.5 text-center">
                           <div className="text-lg mb-0.5">{s.icon}</div>
@@ -915,6 +943,34 @@ export default function AdminDashboard() {
                           <X className="w-3.5 h-3.5" /> Remove
                         </button>
                       </div>
+                    </div>
+
+                    {/* PokePoints Management */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">PokePoints Management</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={99999}
+                          value={pointsAmount}
+                          onChange={(e) => setPointsAmount(Number(e.target.value))}
+                          className="w-20 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-sm text-zinc-200 text-center focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50"
+                        />
+                        <button onClick={() => handleAddPoints(selectedUser.id)} className="flex-1 h-9 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                          <Plus className="w-3.5 h-3.5" /> Add Points
+                        </button>
+                        <button onClick={() => handleRemovePoints(selectedUser.id)} className="flex-1 h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                          <X className="w-3.5 h-3.5" /> Remove Points
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Reason for points adjustment (optional)..."
+                        value={pointsReason}
+                        onChange={(e) => setPointsReason(e.target.value)}
+                        className="w-full h-9 bg-zinc-950 border border-zinc-805 rounded-lg px-3 text-xs text-zinc-300 placeholder-zinc-650 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                      />
                     </div>
 
                     {/* Grant cards */}

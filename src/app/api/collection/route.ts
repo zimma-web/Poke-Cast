@@ -35,58 +35,58 @@ export async function GET(request: Request) {
     // 1. Fetch user data
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address')
+      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points')
       .eq('id', userId)
       .maybeSingle();
-
+ 
     if (userError) {
       console.error('Database query user error:', userError);
       return NextResponse.json({ error: 'Database query error' }, { status: 500 });
     }
-
+ 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
+ 
     const now = new Date();
     let lastReset = user.last_daily_reset ? new Date(user.last_daily_reset) : null;
     let currentTickets = user.pack_tickets !== null && user.pack_tickets !== undefined ? user.pack_tickets : 10;
     let currentFreePacks = user.free_packs_remaining !== null && user.free_packs_remaining !== undefined ? user.free_packs_remaining : 2;
     let updatedUser = user;
-
+ 
     const timeSinceReset = lastReset ? now.getTime() - lastReset.getTime() : null;
     const isDueForReset = lastReset === null || (timeSinceReset !== null && timeSinceReset >= 24 * 60 * 60 * 1000);
-
+ 
     if (isDueForReset) {
       currentFreePacks = 2;
       currentTickets = (currentTickets || 0) + 2;
       lastReset = now;
-
+ 
       const { data: refreshedUser, error: updateResetError } = await supabaseAdmin
-        .from('users')
-        .update({
-          free_packs_remaining: currentFreePacks,
-          pack_tickets: currentTickets,
-          last_daily_reset: lastReset.toISOString()
-        })
-        .eq('id', userId)
-        .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address')
-        .single();
-
+         .from('users')
+         .update({
+           free_packs_remaining: currentFreePacks,
+           pack_tickets: currentTickets,
+           last_daily_reset: lastReset.toISOString()
+         })
+         .eq('id', userId)
+         .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points')
+         .single();
+ 
       if (!updateResetError && refreshedUser) {
         updatedUser = refreshedUser;
       }
     }
-
+ 
     // Evaluate achievements dynamically (may award additional tickets)
     await evaluateAchievements(userId);
-
+ 
     // Fetch final user record to capture any achievement ticket rewards
     const { data: finalUser } = await supabaseAdmin
-      .from('users')
-      .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address')
-      .eq('id', userId)
-      .single();
+       .from('users')
+       .select('packs_opened, pack_tickets, free_packs_remaining, last_daily_reset, login_streak, highest_streak, last_login_date, wallet_address, pokepoints, lifetime_points')
+       .eq('id', userId)
+       .single();
 
     if (finalUser) {
       updatedUser = finalUser;
@@ -185,7 +185,9 @@ export async function GET(request: Request) {
       claimed_today: claimedToday,
       walletAddress,
       usdcBalance,
-      rarestPulls
+      rarestPulls,
+      pokepoints: updatedUser?.pokepoints !== undefined ? Number(updatedUser.pokepoints) : 0,
+      lifetimePoints: updatedUser?.lifetime_points !== undefined ? Number(updatedUser.lifetime_points) : 0,
     });
   } catch (error) {
     console.error('Collection query error:', error);

@@ -184,6 +184,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database save error' }, { status: 500 });
     }
 
+    // Award PokePoints
+    try {
+      const { awardPoints, getRarityPoints, checkSetCompletionMilestones } = await import('@/lib/pokepoints');
+      const packOpenPoints = 5 * count;
+      let cardPullsPoints = 0;
+      const cardsPointsDetail: { cardId: string; rarity: string; points: number }[] = [];
+      for (const c of packCards) {
+        const pts = getRarityPoints(c.rarity);
+        cardPullsPoints += pts;
+        cardsPointsDetail.push({ cardId: c.id, rarity: c.rarity || 'Common', points: pts });
+      }
+
+      await awardPoints(userId, 'pack_open', packOpenPoints, txHash, { count, setId });
+      await awardPoints(userId, 'card_pulls', cardPullsPoints, txHash, { count, setId, cards: cardsPointsDetail });
+      await checkSetCompletionMilestones(userId, setId);
+    } catch (e) {
+      console.error('Failed to award PokePoints on pack opening:', e);
+    }
+
     // Update user stats and pack economy details
     const { error: updateError } = await supabaseAdmin
       .from('users')
@@ -223,7 +242,7 @@ export async function POST(request: Request) {
           .insert({
             user_id: userId,
             quest_id: 'open_pack',
-            progress: 1,
+            progress: count,
             target: 1,
             claimed: false,
             day: todayStr
@@ -239,17 +258,21 @@ export async function POST(request: Request) {
     // Fetch final updated pack_tickets from database to keep frontend sync perfect
     const { data: finalUser } = await supabaseAdmin
       .from('users')
-      .select('pack_tickets')
+      .select('pack_tickets, pokepoints, lifetime_points')
       .eq('id', userId)
       .single();
 
     const finalTickets = finalUser && finalUser.pack_tickets !== undefined ? finalUser.pack_tickets : currentTickets;
+    const finalPokePoints = finalUser && finalUser.pokepoints !== undefined ? Number(finalUser.pokepoints) : 0;
+    const finalLifetimePoints = finalUser && finalUser.lifetime_points !== undefined ? Number(finalUser.lifetime_points) : 0;
 
     return NextResponse.json({
       cards: packCards,
       packTickets: finalTickets,
       freePacksRemaining: currentFreePacks,
-      lastDailyReset: lastReset ? lastReset.toISOString() : null
+      lastDailyReset: lastReset ? lastReset.toISOString() : null,
+      pokepoints: finalPokePoints,
+      lifetimePoints: finalLifetimePoints
     });
   } catch (error) {
     console.error('Failed to generate/save pack:', error);

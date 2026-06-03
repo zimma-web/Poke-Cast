@@ -343,6 +343,14 @@ export async function POST(request: Request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       await track(userId, 'auction_created', { auctionId: auction.id, cardId, startPrice: parsedStart, buyoutPrice: parsedBuyout });
 
+      // Award +1 PokePoint for marketplace listing
+      try {
+        const { awardPoints } = await import('@/lib/pokepoints');
+        await awardPoints(userId, 'marketplace_listing', 1, auction.id, { cardId });
+      } catch (e) {
+        console.error('Failed to award PokePoints for marketplace listing:', e);
+      }
+
       // Increment create_auction quest progress
       try {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -588,6 +596,14 @@ export async function POST(request: Request) {
         .eq('id', auction.user_card_id);
 
       if (transferError) return NextResponse.json({ error: 'Card transfer failed in database: ' + transferError.message }, { status: 500 });
+
+      // Award +15 PokePoints to the seller for the successful card sale
+      try {
+        const { awardPoints } = await import('@/lib/pokepoints');
+        await awardPoints(auction.seller_id, 'marketplace_sale', 15, auctionId, { buyerId: userId, cardId: auction.card_id, price: expectedUSDC });
+      } catch (e) {
+        console.error('Failed to award PokePoints for marketplace sale:', e);
+      }
 
       // Update auction record
       const updateData: any = {

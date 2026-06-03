@@ -250,6 +250,15 @@ export async function POST(request: Request) {
         .update({ status: 'accepted', completed_at: new Date().toISOString() })
         .eq('id', tradeId);
 
+      // Award PokePoints to both parties
+      try {
+        const { awardPoints } = await import('@/lib/pokepoints');
+        await awardPoints(trade.sender_id, 'trade_complete', 10, tradeId, { role: 'sender', partner: trade.receiver_id });
+        await awardPoints(trade.receiver_id, 'trade_complete', 10, tradeId, { role: 'receiver', partner: trade.sender_id });
+      } catch (e) {
+        console.error('Failed to award PokePoints for trade completion:', e);
+      }
+
       // Notify sender
       const { data: receiver } = await supabaseAdmin.from('users').select('username').eq('id', userId).single();
       await createNotification(trade.sender_id, 'trade_accepted', 'Trade Accepted! 🎉', `${receiver?.username || 'Someone'} accepted your trade!`, { tradeId });

@@ -35,6 +35,8 @@ interface CollectionState {
   loginStreak: number;
   highestStreak: number;
   claimedToday: boolean;
+  pokepoints: number;
+  lifetimePoints: number;
   addCards: (cards: Card[]) => void;
   setAuth: (auth: { 
     userId: string; 
@@ -50,6 +52,8 @@ interface CollectionState {
     loginStreak?: number;
     highestStreak?: number;
     claimedToday?: boolean;
+    pokepoints?: number;
+    lifetimePoints?: number;
   }) => void;
   setCollection: (collection: { 
     ownedCards: Record<string, number>; 
@@ -65,9 +69,12 @@ interface CollectionState {
     loginStreak?: number;
     highestStreak?: number;
     claimedToday?: boolean;
+    pokepoints?: number;
+    lifetimePoints?: number;
   }) => void;
   updateEconomy: (economy: { packTickets: number; freePacksRemaining: number; lastDailyReset: string | null }) => void;
   updateStreak: (streak: { loginStreak: number; highestStreak: number; claimedToday: boolean }) => void;
+  updatePokePoints: (points: { pokepoints: number; lifetimePoints: number }) => void;
   toggleWishlist: (cardId: string) => void;
   setWishlist: (wishlist: Record<string, boolean>) => void;
   setAchievements: (achievements: any[]) => void;
@@ -114,6 +121,8 @@ export const useCollectionStore = create<CollectionState>()(
       loginStreak: 0,
       highestStreak: 0,
       claimedToday: false,
+      pokepoints: 0,
+      lifetimePoints: 0,
       setAuth: (auth) => set(() => {
         const wishlistRecord: Record<string, boolean> = {};
         if (auth.wishlist) {
@@ -134,6 +143,8 @@ export const useCollectionStore = create<CollectionState>()(
           loginStreak: auth.loginStreak ?? 0,
           highestStreak: auth.highestStreak ?? 0,
           claimedToday: auth.claimedToday ?? false,
+          pokepoints: auth.pokepoints ?? 0,
+          lifetimePoints: auth.lifetimePoints ?? 0,
           ...(auth.wishlist !== undefined ? { wishlist: wishlistRecord } : {})
         };
       }),
@@ -158,6 +169,8 @@ export const useCollectionStore = create<CollectionState>()(
           ...(col.loginStreak !== undefined ? { loginStreak: col.loginStreak } : {}),
           ...(col.highestStreak !== undefined ? { highestStreak: col.highestStreak } : {}),
           ...(col.claimedToday !== undefined ? { claimedToday: col.claimedToday } : {}),
+          ...(col.pokepoints !== undefined ? { pokepoints: col.pokepoints } : {}),
+          ...(col.lifetimePoints !== undefined ? { lifetimePoints: col.lifetimePoints } : {}),
         };
       }),
       updateEconomy: (economy) => set(() => ({
@@ -169,6 +182,10 @@ export const useCollectionStore = create<CollectionState>()(
         loginStreak: streak.loginStreak,
         highestStreak: streak.highestStreak,
         claimedToday: streak.claimedToday
+      })),
+      updatePokePoints: (points) => set(() => ({
+        pokepoints: points.pokepoints,
+        lifetimePoints: points.lifetimePoints
       })),
       toggleWishlist: (cardId) => set((state) => {
         const nextWishlist = { ...state.wishlist };
@@ -221,6 +238,8 @@ export const useCollectionStore = create<CollectionState>()(
         claimedToday: state.claimedToday,
         walletAddress: state.walletAddress,
         usdcBalance: state.usdcBalance,
+        pokepoints: state.pokepoints,
+        lifetimePoints: state.lifetimePoints,
       }),
     }
   )

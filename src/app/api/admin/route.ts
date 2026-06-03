@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       const { search = '', limit = 100 } = payload || {};
       let query = supabaseAdmin
         .from('users')
-        .select('id, fid, username, avatar, created_at, packs_opened, pack_tickets, login_streak, highest_streak, is_admin, is_banned, ban_reason')
+        .select('id, fid, username, avatar, created_at, packs_opened, pack_tickets, login_streak, highest_streak, is_admin, is_banned, ban_reason, pokepoints, lifetime_points')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -590,6 +590,79 @@ export async function POST(request: Request) {
       }));
 
       return NextResponse.json({ distribution, totalSimulatedPulls: totalPulls });
+    }
+
+    // ─── ADD POINTS ──────────────────────────────────────────────────────────
+    if (action === 'add_points') {
+      const { userId, amount, reason } = payload || {};
+      if (!userId || !amount) return NextResponse.json({ error: 'userId and amount are required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('pokepoints, lifetime_points, username').eq('id', userId).single();
+      const pointsToAdd = Number(amount);
+      const newPoints = (user?.pokepoints || 0) + pointsToAdd;
+      const newLifetime = (user?.lifetime_points || 0) + pointsToAdd;
+
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ pokepoints: newPoints, lifetime_points: newLifetime })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      // Add to points history
+      await supabaseAdmin.from('user_points_history').insert({
+        user_id: userId,
+        action_type: 'admin_add',
+        points: pointsToAdd,
+        metadata: { reason: reason || 'Admin manual add', adminId: effectiveAdminId }
+      });
+
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'ADD_POINTS', `Added ${amount} PokePoints to ${user?.username || userId} (new balance: ${newPoints})`, userId);
+      return NextResponse.json({ success: true, newPoints, newLifetime });
+    }
+
+    // ─── REMOVE POINTS ───────────────────────────────────────────────────────
+    if (action === 'remove_points') {
+      const { userId, amount, reason } = payload || {};
+      if (!userId || !amount) return NextResponse.json({ error: 'userId and amount are required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('pokepoints, username').eq('id', userId).single();
+      const pointsToRemove = Number(amount);
+      const newPoints = Math.max(0, (user?.pokepoints || 0) - pointsToRemove);
+
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ pokepoints: newPoints })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      // Add to points history
+      await supabaseAdmin.from('user_points_history').insert({
+        user_id: userId,
+        action_type: 'admin_remove',
+        points: -pointsToRemove,
+        metadata: { reason: reason || 'Admin manual remove', adminId: effectiveAdminId }
+      });
+
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'REMOVE_POINTS', `Removed ${amount} PokePoints from ${user?.username || userId} (new balance: ${newPoints})`, userId);
+      return NextResponse.json({ success: true, newPoints });
+    }
+
+    // ─── GET POINTS HISTORY ──────────────────────────────────────────────────
+    if (action === 'get_points_history') {
+      const { userId, limit = 50 } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: history, error } = await supabaseAdmin
+        .from('user_points_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ history: history || [] });
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

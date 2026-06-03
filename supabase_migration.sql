@@ -277,3 +277,31 @@ CREATE INDEX IF NOT EXISTS idx_pack_openings_hash ON pack_openings(tx_hash);
 
 -- SQL Database Migration: Add listing_tx_hash column to auctions
 ALTER TABLE auctions ADD COLUMN IF NOT EXISTS listing_tx_hash TEXT UNIQUE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- SQL Database Migration: PokePoints Off-Chain Loyalty System
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 1. Add PokePoints columns to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pokepoints BIGINT DEFAULT 0 NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS lifetime_points BIGINT DEFAULT 0 NOT NULL;
+
+-- 2. Create points history log table
+CREATE TABLE IF NOT EXISTS user_points_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL,
+  -- action_type values: pack_open, card_pull, set_completion, achievement,
+  --                     login_day1, login_day7, login_day30, trade, listing,
+  --                     marketplace_buy, share
+  points INTEGER NOT NULL,
+  reference_id TEXT,    -- card id, achievement id, tx hash, auction id, etc.
+  metadata JSONB,       -- e.g. { "rarity": "Hyper Rare", "setId": "sv8pt5" }
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_points_history_user    ON user_points_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_points_history_action  ON user_points_history(action_type);
+CREATE INDEX IF NOT EXISTS idx_points_history_created ON user_points_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_points_history_ref     ON user_points_history(reference_id);
+
