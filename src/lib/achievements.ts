@@ -40,7 +40,7 @@ export async function evaluateAchievements(userId: string) {
       const fileContents = fs.readFileSync(cardsFilePath, 'utf8');
       cachedAllCards = JSON.parse(fileContents);
     }
-    const allCards = cachedAllCards;
+    const allCards = cachedAllCards!;
     const cardRarities = new Map<string, string | null>(allCards.map((c: any) => [c.id, c.rarity]));
     const cardSets = new Map<string, string>(allCards.map((c: any) => [c.id, c.setId]));
 
@@ -76,7 +76,7 @@ export async function evaluateAchievements(userId: string) {
       const setsFileContents = fs.readFileSync(setsFilePath, 'utf8');
       cachedAllSets = JSON.parse(setsFileContents);
     }
-    const allSets = cachedAllSets;
+    const allSets = cachedAllSets!;
 
     let hasCompletedAnySet = false;
     for (const set of allSets) {

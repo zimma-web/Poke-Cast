@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       const fileContents = fs.readFileSync(filePath, 'utf8');
       cachedCards = JSON.parse(fileContents);
     }
-    const cards = cachedCards;
+    const cards = cachedCards!;
 
     // Filter cards by selected set
     const setCards = cards.filter((c: any) => c.setId === setId);
