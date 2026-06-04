@@ -40,7 +40,7 @@ function rarityColor(rarity: string | null) {
 
 // ─── Card Detail Modal ─────────────────────────────────────────────────────────
 function CardDetailModal({ card, owned, wishlisted, onClose, onToggleWishlist }: {
-  card: CardType & { hp?: number; types?: string[]; attacks?: any[]; weaknesses?: any[]; resistances?: any[]; artist?: string; flavorText?: string; tcgplayerUrl?: string };
+  card: CardType;
   owned: number;
   wishlisted: boolean;
   onClose: () => void;
