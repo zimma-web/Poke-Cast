@@ -363,5 +363,9 @@ CREATE INDEX IF NOT EXISTS idx_ticket_purchases_hash ON ticket_purchases(tx_hash
 -- SQL Database Migration: Admin Hide Users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE NOT NULL;
 
+-- SQL Database Migration: Bundle Auctions
+ALTER TABLE auctions ADD COLUMN IF NOT EXISTS additional_user_card_ids UUID[];
+ALTER TABLE auctions ADD COLUMN IF NOT EXISTS additional_card_ids TEXT[];
+
 
 

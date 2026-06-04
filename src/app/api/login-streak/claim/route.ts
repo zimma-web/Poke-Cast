@@ -93,6 +93,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to award login reward' }, { status: 500 });
     }
 
+    // Set daily_login quest progress to 1
+    try {
+      const { data: questRow } = await supabaseAdmin
+        .from('user_quests')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('quest_id', 'daily_login')
+        .eq('day', todayStr)
+        .maybeSingle();
+
+      if (questRow) {
+        await supabaseAdmin
+          .from('user_quests')
+          .update({ progress: 1 })
+          .eq('user_id', userId)
+          .eq('quest_id', 'daily_login')
+          .eq('day', todayStr);
+      } else {
+        await supabaseAdmin
+          .from('user_quests')
+          .insert({
+            user_id: userId,
+            quest_id: 'daily_login',
+            progress: 1,
+            target: 1,
+            claimed: false,
+            day: todayStr
+          });
+      }
+    } catch (e) {
+      console.error('Failed to update daily_login quest:', e);
+    }
+
     return NextResponse.json({
       success: true,
       rewardType,

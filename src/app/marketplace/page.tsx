@@ -32,6 +32,7 @@ interface Auction {
   created_at: string;
   tx_hash?: string;
   wishlistMatch?: boolean;
+  additionalCards?: CardMeta[];
 }
 interface BidHistory {
   id: string;
@@ -255,7 +256,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
 }) {
   const { sendTransactionAsync } = useSendTransaction();
   const { isConnected } = useAccount();
-  const [selectedCard, setSelectedCard] = useState<CardMeta | null>(null);
+  const [selectedCards, setSelectedCards] = useState<CardMeta[]>([]);
   const [startPrice, setStartPrice] = useState("");
   const [buyoutPrice, setBuyoutPrice] = useState("");
   const [duration, setDuration] = useState("24"); // default 24 hours
@@ -268,22 +269,30 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   const [priceSource, setPriceSource] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selectedCard) {
+    if (selectedCards.length === 0) {
       setRecommendedPrice(null);
+      setPriceSource(null);
       return;
     }
-    const fetchPrice = async () => {
+    const fetchPrices = async () => {
       setLoadingPrice(true);
       try {
-        const res = await fetch(`/api/card-price?cardId=${encodeURIComponent(selectedCard.id)}`);
-        const data = await res.json();
-        if (data.price && data.price > 0) {
-          setRecommendedPrice(data.price);
-          setPriceSource(data.source || null);
-        } else {
-          setRecommendedPrice(null);
-          setPriceSource(null);
+        let total = 0;
+        let hasRealPrice = false;
+        
+        for (const card of selectedCards) {
+          const res = await fetch(`/api/card-price?cardId=${encodeURIComponent(card.id)}`);
+          const data = await res.json();
+          if (data.price && data.price > 0) {
+            total += data.price;
+            if (data.source !== 'rarity_estimate') {
+              hasRealPrice = true;
+            }
+          }
         }
+        
+        setRecommendedPrice(total > 0 ? total : null);
+        setPriceSource(hasRealPrice ? 'market' : 'rarity_estimate');
       } catch (err) {
         console.error("Failed to fetch price:", err);
         setRecommendedPrice(null);
@@ -291,8 +300,8 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         setLoadingPrice(false);
       }
     };
-    fetchPrice();
-  }, [selectedCard]);
+    fetchPrices();
+  }, [selectedCards]);
 
   const showToast = (msg: string, type: "ok" | "err" | "info" = "ok") => {
     setToast({ msg, type });
@@ -300,7 +309,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   };
 
   const handleSubmit = async () => {
-    if (!selectedCard || !startPrice) return;
+    if (selectedCards.length === 0 || !startPrice) return;
     setSubmitting(true);
     setStatusText("Preparing listing...");
     try {
@@ -308,9 +317,9 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
       let listingTxHash = null;
 
       if (parsedBuyout !== null && parsedBuyout > 0) {
-        setStatusText("Requesting listing fee (0.05 USD)...");
+        setStatusText("Requesting listing fee (0.000016 ETH)...");
         if (isConnected) {
-          const valueWei = BigInt(15000000000000); // 0.000015 ETH
+          const valueWei = BigInt(16000000000000); // 0.000016 ETH
           try {
             const tx = await sendTransactionAsync({
               to: TREASURY_ADDRESS as `0x${string}`,
@@ -337,7 +346,8 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
           action: "create_auction",
           payload: {
             userId,
-            cardId: selectedCard.id,
+            cardId: selectedCards[0].id,
+            cardIds: selectedCards.map(c => c.id),
             startPrice,
             buyoutPrice: parsedBuyout,
             durationHours: parseInt(duration),
@@ -366,8 +376,16 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         <CardPicker
           title="Select Card to Auction"
           ownedCards={ownedCards}
-          selectedId={selectedCard?.id || null}
-          onSelect={card => { setSelectedCard(card); setPicker(false); }}
+          selectedId={null}
+          onSelect={card => {
+            const countOfCardInSelection = selectedCards.filter(c => c.id === card.id).length;
+            if (countOfCardInSelection >= (ownedCards[card.id] || 0)) {
+              showToast("You don't own any more copies of this card", "err");
+              return;
+            }
+            setSelectedCards(prev => [...prev, card]);
+            setPicker(false);
+          }}
           onClose={() => setPicker(false)}
         />
       )}
@@ -383,21 +401,43 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Card Selection */}
-          <div className="space-y-2">
-            <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Selected Card</p>
-            {!selectedCard ? (
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center">
+              <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 font-semibold">Selected Cards ({selectedCards.length}/5)</p>
+              {selectedCards.length > 0 && selectedCards.length < 5 && (
+                <button 
+                  type="button" 
+                  onClick={() => setPicker(true)} 
+                  className="text-xs text-fuchsia-400 font-bold hover:text-fuchsia-300 transition-colors"
+                >
+                  + Add Card
+                </button>
+              )}
+            </div>
+
+            {selectedCards.length === 0 ? (
               <button onClick={() => setPicker(true)}
                 className="w-full h-24 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-600 text-sm flex items-center justify-center gap-2 hover:border-fuchsia-500/40 hover:text-zinc-500 transition-all">
                 <Plus className="w-5 h-5" /> Tap to select card
               </button>
             ) : (
-              <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
-                <CardThumb card={selectedCard} size={50} />
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-bold text-zinc-200 truncate">{selectedCard.name}</h4>
-                  <p className="text-[10px] text-zinc-500 font-mono mt-0.5">ID: {selectedCard.id}</p>
-                </div>
-                <button onClick={() => setSelectedCard(null)} className="text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-xl bg-rose-500/10 shrink-0">Remove</button>
+              <div className="space-y-2">
+                {selectedCards.map((card, idx) => (
+                  <div key={`${card.id}-${idx}`} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
+                    <CardThumb card={card} size={40} />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-zinc-200 truncate">{card.name}</h4>
+                      <p className="text-[9px] text-zinc-500 font-mono mt-0.5">ID: {card.id}</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setSelectedCards(prev => prev.filter((_, i) => i !== idx))} 
+                      className="text-[10px] text-rose-400 font-semibold px-2 py-1 rounded-lg bg-rose-500/10 shrink-0 hover:bg-rose-500/20 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -425,9 +465,9 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
                     {priceSource === 'rarity_estimate' ? 'Est.' : 'Market'}: {recommendedPrice.toFixed(2)} USDC
                     {priceSource === 'rarity_estimate' && <span className="text-zinc-600">(by rarity)</span>}
                   </button>
-                  {selectedCard && (
+                  {selectedCards.length > 0 && (
                     <a
-                      href={`https://prices.pokemontcg.io/tcgplayer/${selectedCard.id}`}
+                      href={`https://prices.pokemontcg.io/tcgplayer/${selectedCards[0].id}`}
                       target="_blank" rel="noopener noreferrer"
                       className="text-[10px] text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
                     >
@@ -459,7 +499,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         </div>
 
         <div className="p-4 border-t border-zinc-800">
-          <button onClick={handleSubmit} disabled={submitting || !selectedCard || !startPrice}
+          <button onClick={handleSubmit} disabled={submitting || selectedCards.length === 0 || !startPrice}
             className="w-full h-12 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2">
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Store className="w-5 h-5" />}
             {submitting ? (statusText || "Posting Auction…") : "Start Auction"}
@@ -511,7 +551,14 @@ function AuctionCard({ auction, onTap, isOwnListing }: { auction: Auction; onTap
         <CardThumb card={auction.card} size={50} />
         <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
           <div>
-            <h4 className="text-sm font-bold text-zinc-200 truncate">{auction.card.name}</h4>
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-bold text-zinc-200 truncate">{auction.card.name}</h4>
+              {auction.additionalCards && auction.additionalCards.length > 0 && (
+                <span className="text-[9px] font-bold text-zinc-950 bg-amber-400 px-1.5 py-0.5 rounded-md shrink-0">
+                  +{auction.additionalCards.length + 1} Cards Bundle
+                </span>
+              )}
+            </div>
             <p className="text-[9.5px] text-zinc-500 truncate">{auction.card.rarity || 'Common'}</p>
           </div>
           <div className="flex items-end justify-between flex-wrap gap-1">
@@ -924,8 +971,22 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
                 <CardThumb card={data.auction.card} size={110} />
                 <div className="text-center">
                   <h4 className="text-base font-black text-zinc-100">{data.auction.card.name}</h4>
-                  <p className="text-xs text-zinc-500 mt-0.5">{data.auction.card.rarity || 'Common rarity'}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{data.auction.card.rarity || 'Common'}</p>
                 </div>
+
+                {data.auction.additionalCards && data.auction.additionalCards.length > 0 && (
+                  <div className="w-full space-y-2 border-t border-zinc-800/40 pt-3">
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 text-center">Bundle Items (+{data.auction.additionalCards.length} cards)</p>
+                    <div className="flex justify-center gap-2 overflow-x-auto py-1 scrollbar-hide">
+                      {data.auction.additionalCards.map((c: any, idx: number) => (
+                        <div key={`${c.id}-${idx}`} className="flex flex-col items-center p-1.5 bg-zinc-950/40 border border-zinc-800/50 rounded-xl shrink-0">
+                          <CardThumb card={c} size={50} />
+                          <p className="text-[8px] font-bold text-zinc-400 mt-1 max-w-[60px] truncate text-center">{c.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4 w-full border-t border-zinc-800/60 pt-4 font-mono text-center">
                   <div>

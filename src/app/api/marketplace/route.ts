@@ -109,6 +109,13 @@ async function processExpiredAuctions() {
             .update({ user_id: auction.highest_bidder_id })
             .eq('id', auction.user_card_id);
 
+          if (auction.additional_user_card_ids && auction.additional_user_card_ids.length > 0) {
+            await supabaseAdmin
+              .from('user_cards')
+              .update({ user_id: auction.highest_bidder_id })
+              .in('id', auction.additional_user_card_ids);
+          }
+
           // Transition to completed
           await supabaseAdmin
             .from('auctions')
@@ -158,7 +165,13 @@ async function processExpiredAuctions() {
 function enrichAuction(auction: any, wishlistSet: Set<string> = new Set()) {
   const card = resolveCard(auction.card_id);
   const wishlistMatch = wishlistSet.has(auction.card_id);
-  return { ...auction, card, wishlistMatch };
+  
+  let additionalCards = [];
+  if (auction.additional_card_ids && Array.isArray(auction.additional_card_ids)) {
+    additionalCards = auction.additional_card_ids.map((id: string) => resolveCard(id));
+  }
+  
+  return { ...auction, card, additionalCards, wishlistMatch };
 }
 
 // ─── POST Handler ─────────────────────────────────────────────────────────────
@@ -219,10 +232,10 @@ export async function POST(request: Request) {
 
     // ── CREATE AUCTION ────────────────────────────────────────────────────────
     if (action === 'create_auction') {
-      const { userId, cardId, startPrice, buyoutPrice, durationHours, listingTxHash } = payload || {};
+      const { userId, cardId, cardIds, startPrice, buyoutPrice, durationHours, listingTxHash } = payload || {};
       
-      if (!userId || !cardId || !startPrice) {
-        return NextResponse.json({ error: 'userId, cardId, and startPrice are required' }, { status: 400 });
+      if (!userId || (!cardId && (!cardIds || cardIds.length === 0)) || !startPrice) {
+        return NextResponse.json({ error: 'userId, cardId/cardIds, and startPrice are required' }, { status: 400 });
       }
 
       const parsedStart = parseFloat(startPrice);
@@ -263,52 +276,78 @@ export async function POST(request: Request) {
         if (isMock) {
           isListingTxValid = true;
         } else {
-          // 0.000015 ETH native transfer to TREASURY_ADDRESS
-          isListingTxValid = await verifyBaseETHTransfer(listingTxHash, seller.wallet_address, TREASURY_ADDRESS, 0.000015);
+          // 0.000016 ETH native transfer to TREASURY_ADDRESS
+          isListingTxValid = await verifyBaseETHTransfer(listingTxHash, seller.wallet_address, TREASURY_ADDRESS, 0.000016);
         }
 
         if (!isListingTxValid) {
-          return NextResponse.json({ error: 'Listing fee verification failed. Ensure you paid 0.05 USD in Base ETH (0.000015 ETH) to the treasury.' }, { status: 400 });
+          return NextResponse.json({ error: 'Listing fee verification failed. Ensure you paid 0.000016 ETH on Base to the treasury.' }, { status: 400 });
         }
       }
 
-      // Fetch all card copies owned by user
-      const { data: ownedCopies } = await supabaseAdmin
-        .from('user_cards')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('card_id', cardId);
-
-      if (!ownedCopies || ownedCopies.length === 0) {
-        return NextResponse.json({ error: 'You do not own this card' }, { status: 400 });
+      const listCardIds: string[] = cardIds && Array.isArray(cardIds) ? cardIds : [cardId];
+      if (listCardIds.length > 5) {
+        return NextResponse.json({ error: 'You can list a maximum of 5 cards in a single auction' }, { status: 400 });
       }
 
-      // Fetch card copies currently listed in active auctions
-      const { data: activeAuctions } = await supabaseAdmin
-        .from('auctions')
-        .select('user_card_id')
-        .eq('seller_id', userId)
-        .eq('card_id', cardId)
-        .in('status', ['active', 'pending_payment']);
-
-      const listedCardIds = new Set((activeAuctions || []).map((a: any) => a.user_card_id));
-      
-      // Filter out copies that are listed
-      const unlistedCopies = ownedCopies.filter(c => !listedCardIds.has(c.id));
-      if (unlistedCopies.length === 0) {
-        return NextResponse.json({ error: 'All copies of this card are already listed for auction' }, { status: 400 });
+      // Count frequency of each card ID requested
+      const cardCounts: Record<string, number> = {};
+      for (const id of listCardIds) {
+        cardCounts[id] = (cardCounts[id] || 0) + 1;
       }
 
-      // Filter out copies locked in active trades
       const lockedTradeCounts = await getLockedCardIdsInTrades(userId);
-      const lockedInTradesCount = lockedTradeCounts[cardId] || 0;
-      
-      if (unlistedCopies.length <= lockedInTradesCount) {
-        return NextResponse.json({ error: 'All remaining copies of this card are locked in pending trades' }, { status: 400 });
+      const pool: Record<string, string[]> = {};
+
+      for (const [id, countNeeded] of Object.entries(cardCounts)) {
+        // Fetch all copies owned by user
+        const { data: ownedCopies } = await supabaseAdmin
+          .from('user_cards')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('card_id', id);
+
+        if (!ownedCopies || ownedCopies.length < countNeeded) {
+          return NextResponse.json({ error: `You do not own enough copies of card ${id}` }, { status: 400 });
+        }
+
+        // Fetch card copies currently listed in active/pending auctions
+        const { data: activeAuctions } = await supabaseAdmin
+          .from('auctions')
+          .select('user_card_id, additional_user_card_ids')
+          .eq('seller_id', userId)
+          .in('status', ['active', 'pending_payment']);
+
+        const listedCardIds = new Set<string>();
+        if (activeAuctions) {
+          for (const a of activeAuctions) {
+            if (a.user_card_id) listedCardIds.add(a.user_card_id);
+            if (a.additional_user_card_ids && Array.isArray(a.additional_user_card_ids)) {
+              for (const addId of a.additional_user_card_ids) {
+                listedCardIds.add(addId);
+              }
+            }
+          }
+        }
+
+        const unlistedCopies = ownedCopies.filter(c => !listedCardIds.has(c.id));
+        const lockedInTradesCount = lockedTradeCounts[id] || 0;
+        
+        if (unlistedCopies.length - lockedInTradesCount < countNeeded) {
+          return NextResponse.json({ error: `Not enough unlocked copies of card ${id}` }, { status: 400 });
+        }
+
+        const availableCopies = unlistedCopies.slice(lockedInTradesCount);
+        pool[id] = availableCopies.slice(0, countNeeded).map(c => c.id);
       }
 
-      // Select the first available user_card_id
-      const targetUserCard = unlistedCopies[0];
+      // Map listCardIds to their specific userCardIds in order
+      const selectedUserCardIds = listCardIds.map(id => pool[id].pop() as string);
+
+      const mainUserCardId = selectedUserCardIds[0];
+      const additionalUserCardIds = selectedUserCardIds.slice(1);
+      const selectedMainCardId = listCardIds[0];
+      const additionalCardIds = listCardIds.slice(1);
 
       // Insert auction record
       const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
@@ -316,15 +355,17 @@ export async function POST(request: Request) {
         .from('auctions')
         .insert({
           seller_id: userId,
-          user_card_id: targetUserCard.id,
-          card_id: cardId,
+          user_card_id: mainUserCardId,
+          card_id: selectedMainCardId,
           start_price: parsedStart,
           buyout_price: parsedBuyout,
           highest_bid: 0,
           highest_bidder_id: null,
           status: 'active',
           end_at: endAt,
-          listing_tx_hash: listingTxHash
+          listing_tx_hash: listingTxHash,
+          additional_user_card_ids: additionalUserCardIds.length > 0 ? additionalUserCardIds : null,
+          additional_card_ids: additionalCardIds.length > 0 ? additionalCardIds : null
         })
         .select('*')
         .single();
@@ -605,13 +646,39 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Card transfer failed — seller no longer owns the card. Auction cancelled.' }, { status: 409 });
       }
 
-      // Transfer card ownership in DB
+      // Check if seller still owns additional cards
+      if (auction.additional_user_card_ids && auction.additional_user_card_ids.length > 0) {
+        const { data: additionalCardRows } = await supabaseAdmin
+          .from('user_cards')
+          .select('id')
+          .in('id', auction.additional_user_card_ids)
+          .eq('user_id', auction.seller_id);
+
+        if (!additionalCardRows || additionalCardRows.length !== auction.additional_user_card_ids.length) {
+          await supabaseAdmin.from('auctions').update({ status: 'cancelled' }).eq('id', auctionId);
+          return NextResponse.json({ error: 'Card transfer failed — seller no longer owns all cards in the bundle. Auction cancelled.' }, { status: 409 });
+        }
+      }
+
+      // Transfer main card ownership in DB
       const { error: transferError } = await supabaseAdmin
         .from('user_cards')
         .update({ user_id: userId })
         .eq('id', auction.user_card_id);
 
       if (transferError) return NextResponse.json({ error: 'Card transfer failed in database: ' + transferError.message }, { status: 500 });
+
+      // Transfer additional cards ownership
+      if (auction.additional_user_card_ids && auction.additional_user_card_ids.length > 0) {
+        const { error: additionalTransferError } = await supabaseAdmin
+          .from('user_cards')
+          .update({ user_id: userId })
+          .in('id', auction.additional_user_card_ids);
+
+        if (additionalTransferError) {
+          console.error('Failed to transfer additional cards:', additionalTransferError);
+        }
+      }
 
       // Award +15 PokePoints to the seller for the successful card sale
       try {
