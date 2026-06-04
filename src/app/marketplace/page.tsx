@@ -274,24 +274,13 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
     const fetchPrice = async () => {
       setLoadingPrice(true);
       try {
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards/${selectedCard.id}`);
+        const res = await fetch(`/api/card-price?cardId=${encodeURIComponent(selectedCard.id)}`);
         const data = await res.json();
-        const tcgplayer = data?.data?.tcgplayer;
-        const cardmarket = data?.data?.cardmarket;
-        let price = null;
-        if (tcgplayer?.prices?.holofoil?.market) price = tcgplayer.prices.holofoil.market;
-        else if (tcgplayer?.prices?.reverseHolofoil?.market) price = tcgplayer.prices.reverseHolofoil.market;
-        else if (tcgplayer?.prices?.normal?.market) price = tcgplayer.prices.normal.market;
-        else if (cardmarket?.prices?.averageSellPrice) price = cardmarket.prices.averageSellPrice;
-        
-        // Fallback for custom or unpriced cards
-        if (!price) {
-          const seed = selectedCard.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-          price = 1.00 + (seed % 49) + ((seed % 100) / 100);
+        if (data.price && data.price > 0) {
+          setRecommendedPrice(data.price);
+        } else {
+          setRecommendedPrice(null);
         }
-
-        if (price) setRecommendedPrice(price);
-        else setRecommendedPrice(null);
       } catch (err) {
         console.error("Failed to fetch price:", err);
         setRecommendedPrice(null);
