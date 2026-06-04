@@ -62,11 +62,21 @@ export async function GET(request: Request) {
       });
       if (res.ok) {
         const data = await res.json();
-        const prices = data?.prices || data?.data?.prices;
-        if (prices && typeof prices === 'object') {
-          for (const variant of Object.values(prices) as any[]) {
-            const p = variant?.market ?? variant?.mid ?? variant?.averageSellPrice ?? null;
-            if (p && p > 0) { price = p; source = 'scrydex'; break; }
+        const card = data?.data;
+        if (!rarity && card?.rarity) rarity = card.rarity;
+
+        // Structure: data.variants[] → each variant has prices[] with condition & market
+        const variants: any[] = card?.variants || [];
+        outer: for (const variant of variants) {
+          const prices: any[] = variant?.prices || [];
+          // Prefer NM condition first, then any condition
+          const nm = prices.find((p: any) => p.condition === 'NM' && p.market > 0);
+          const any = prices.find((p: any) => p.market > 0);
+          const hit = nm || any;
+          if (hit?.market > 0) {
+            price = hit.market;
+            source = 'scrydex';
+            break outer;
           }
         }
       }

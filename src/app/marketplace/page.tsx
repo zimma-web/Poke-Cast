@@ -265,6 +265,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" | "info" } | null>(null);
   const [recommendedPrice, setRecommendedPrice] = useState<number | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
+  const [priceSource, setPriceSource] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedCard) {
@@ -278,8 +279,10 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
         const data = await res.json();
         if (data.price && data.price > 0) {
           setRecommendedPrice(data.price);
+          setPriceSource(data.source || null);
         } else {
           setRecommendedPrice(null);
+          setPriceSource(null);
         }
       } catch (err) {
         console.error("Failed to fetch price:", err);
@@ -412,13 +415,26 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
                 className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
               {loadingPrice && <p className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Fetching market price...</p>}
               {!loadingPrice && recommendedPrice !== null && (
-                <button 
-                  type="button"
-                  onClick={() => setBuyoutPrice(recommendedPrice.toFixed(2))}
-                  className="text-[10px] text-fuchsia-400 mt-1 hover:text-fuchsia-300 text-left w-full transition-colors flex items-center gap-1"
-                >
-                  <Tag className="w-3 h-3" /> Recommended: {recommendedPrice.toFixed(2)} USDC
-                </button>
+                <div className="mt-1 space-y-0.5">
+                  <button 
+                    type="button"
+                    onClick={() => setBuyoutPrice(recommendedPrice.toFixed(2))}
+                    className="text-[10px] text-fuchsia-400 hover:text-fuchsia-300 text-left w-full transition-colors flex items-center gap-1"
+                  >
+                    <Tag className="w-3 h-3" />
+                    {priceSource === 'rarity_estimate' ? 'Est.' : 'Market'}: {recommendedPrice.toFixed(2)} USDC
+                    {priceSource === 'rarity_estimate' && <span className="text-zinc-600">(by rarity)</span>}
+                  </button>
+                  {selectedCard && (
+                    <a
+                      href={`https://scrydex.com/pokemon/cards/${selectedCard.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}/${selectedCard.id}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
+                    >
+                      <ExternalLink className="w-2.5 h-2.5" /> Check live price on Scrydex
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           </div>
