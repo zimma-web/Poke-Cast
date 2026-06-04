@@ -7,11 +7,12 @@ import {
   Store, Plus, Search, X, Star, ChevronRight,
   Clock, ArrowLeftRight, CheckCircle, XCircle,
   AlertTriangle, Loader2, Flag, Package, Wallet,
-  ExternalLink, Coins, Calendar, Check, AlertCircle
+  ExternalLink, Coins, Calendar, Check, AlertCircle, Tag
 } from "lucide-react";
 import { useCollectionStore } from "@/lib/store";
 import sdk from "@farcaster/miniapp-sdk";
 import { useSendTransaction, useAccount } from "wagmi";
+import { sendUSDCOnBase } from "@/lib/wallet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CardMeta { id: string; name: string; smallImage?: string; largeImage?: string; rarity?: string; setId?: string; }
@@ -262,6 +263,38 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   const [statusText, setStatusText] = useState("");
   const [picker, setPicker] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" | "info" } | null>(null);
+  const [recommendedPrice, setRecommendedPrice] = useState<number | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState(false);
+
+  useEffect(() => {
+    if (!selectedCard) {
+      setRecommendedPrice(null);
+      return;
+    }
+    const fetchPrice = async () => {
+      setLoadingPrice(true);
+      try {
+        const res = await fetch(`https://api.pokemontcg.io/v2/cards/${selectedCard.id}`);
+        const data = await res.json();
+        const tcgplayer = data?.data?.tcgplayer;
+        const cardmarket = data?.data?.cardmarket;
+        let price = null;
+        if (tcgplayer?.prices?.holofoil?.market) price = tcgplayer.prices.holofoil.market;
+        else if (tcgplayer?.prices?.reverseHolofoil?.market) price = tcgplayer.prices.reverseHolofoil.market;
+        else if (tcgplayer?.prices?.normal?.market) price = tcgplayer.prices.normal.market;
+        else if (cardmarket?.prices?.averageSellPrice) price = cardmarket.prices.averageSellPrice;
+        
+        if (price) setRecommendedPrice(price);
+        else setRecommendedPrice(null);
+      } catch (err) {
+        console.error("Failed to fetch price:", err);
+        setRecommendedPrice(null);
+      } finally {
+        setLoadingPrice(false);
+      }
+    };
+    fetchPrice();
+  }, [selectedCard]);
 
   const showToast = (msg: string, type: "ok" | "err" | "info" = "ok") => {
     setToast({ msg, type });
@@ -382,6 +415,16 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
               <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Buyout Price (USDC)</p>
               <input value={buyoutPrice} onChange={e => setBuyoutPrice(e.target.value)} type="number" step="0.01" placeholder="Optional buyout"
                 className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+              {loadingPrice && <p className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Fetching market price...</p>}
+              {!loadingPrice && recommendedPrice !== null && (
+                <button 
+                  type="button"
+                  onClick={() => setBuyoutPrice(recommendedPrice.toFixed(2))}
+                  className="text-[10px] text-fuchsia-400 mt-1 hover:text-fuchsia-300 text-left w-full transition-colors flex items-center gap-1"
+                >
+                  <Tag className="w-3 h-3" /> Recommended: {recommendedPrice.toFixed(2)} USDC
+                </button>
+              )}
             </div>
           </div>
 
@@ -537,18 +580,25 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
   const highestBidVal = data?.auction ? (data.auction.highest_bid > 0 ? data.auction.highest_bid : data.auction.start_price) : 0;
   const { timeLeft, isEnded } = useCountdown(data?.auction?.end_at || new Date().toISOString());
 
-  // Handle placing a soft commitment bid
+  // Handle placing an on-chain commitment bid
   const handlePlaceBid = async () => {
     if (!userId || !bidAmount) return;
     setSubmitting(true);
     try {
+      const bidVal = parseFloat(bidAmount);
+      // Execute the on-chain USDC transfer to Treasury
+      const { txHash } = await sendUSDCOnBase({
+        to: TREASURY_ADDRESS,
+        amount: bidVal
+      });
+
       const res = await fetch("/api/marketplace", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "place_bid", payload: { auctionId, bidderId: userId, amount: bidAmount } }),
+        body: JSON.stringify({ action: "place_bid", payload: { auctionId, bidderId: userId, amount: bidAmount, txHash } }),
       });
       const d = await res.json();
       if (d.error) throw new Error(d.error);
-      showToast("Bid successfully placed! 🪙");
+      showToast("Bid successfully placed and locked! 🪙");
       load();
       onRefresh();
     } catch (e: any) { showToast(e.message, "err"); }
@@ -902,7 +952,7 @@ function AuctionDetailSheet({ auctionId, userId, onClose, onRefresh }: {
                 <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-3xl p-4 space-y-4">
                   {/* Bidding row */}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Place Bid (Soft-Commitment)</p>
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Place Bid (On-Chain Escrow)</p>
                     <div className="flex gap-2">
                       <input value={bidAmount} onChange={e => setBidAmount(e.target.value)} type="number" step="0.1"
                         className="flex-1 h-11 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 font-mono" />

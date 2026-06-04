@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getBaseUSDCBalance, verifyBaseUSDCTransfer, verifyBaseETHTransfer } from '@/lib/web3';
+import { sendUSDCFromTreasury } from '@/lib/treasury';
 
 const CARDS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
 const SETS_FILE = path.join(process.cwd(), 'public', 'data', 'pokemon_sets.json');
@@ -90,25 +91,43 @@ async function processExpiredAuctions() {
     if (expired && expired.length > 0) {
       for (const auction of expired) {
         if (auction.highest_bidder_id && auction.highest_bid > 0) {
-          // Transition to pending_payment (winner must transfer USDC within 24h to claim)
+          // The Treasury already holds the funds!
+          // Payout to seller (98%)
+          const payoutAmount = auction.highest_bid * 0.98;
+          const { data: seller } = await supabaseAdmin.from('users').select('wallet_address').eq('id', auction.seller_id).single();
+          if (seller?.wallet_address) {
+            // Transfer USDC to seller
+            const isMock = auction.tx_hash?.startsWith('0xmock') || (process.env.NODE_ENV !== 'production' && auction.tx_hash?.includes('mock'));
+            if (!isMock) {
+               sendUSDCFromTreasury(seller.wallet_address, payoutAmount).catch(err => console.error("Payout error:", err));
+            }
+          }
+
+          // Transfer card to winner immediately
+          await supabaseAdmin
+            .from('user_cards')
+            .update({ user_id: auction.highest_bidder_id })
+            .eq('id', auction.user_card_id);
+
+          // Transition to completed
           await supabaseAdmin
             .from('auctions')
-            .update({ status: 'pending_payment' })
+            .update({ status: 'completed' })
             .eq('id', auction.id);
 
           await notify(
             auction.highest_bidder_id,
             'auction_won',
             'Auction Won! 🏆',
-            `You won the auction for card ${resolveCard(auction.card_id).name}! Please pay ${auction.highest_bid} USDC on Base to claim your card.`,
+            `You won the auction for card ${resolveCard(auction.card_id).name}! The card has been automatically transferred to your collection.`,
             { auctionId: auction.id }
           );
 
           await notify(
             auction.seller_id,
-            'auction_pending_payment',
-            'Auction Awaiting Payment 🪙',
-            `Your auction for card ${resolveCard(auction.card_id).name} ended. Winner has 24h to pay ${auction.highest_bid} USDC.`,
+            'auction_completed',
+            'Auction Completed 🪙',
+            `Your auction for card ${resolveCard(auction.card_id).name} ended. ${payoutAmount.toFixed(2)} USDC has been sent to your wallet.`,
             { auctionId: auction.id }
           );
         } else {
@@ -129,40 +148,7 @@ async function processExpiredAuctions() {
       }
     }
 
-    // 2. Process unpaid pending_payment auctions after 24h limit
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: unpaid } = await supabaseAdmin
-      .from('auctions')
-      .select('*')
-      .eq('status', 'pending_payment')
-      .lte('end_at', twentyFourHoursAgo);
 
-    if (unpaid && unpaid.length > 0) {
-      for (const auction of unpaid) {
-        await supabaseAdmin
-          .from('auctions')
-          .update({ status: 'expired' })
-          .eq('id', auction.id);
-
-        await notify(
-          auction.seller_id,
-          'auction_unpaid',
-          'Auction Unpaid - Card Returned ⏳',
-          `The winner failed to pay. Your card ${resolveCard(auction.card_id).name} is back in your collection.`,
-          { auctionId: auction.id }
-        );
-
-        if (auction.highest_bidder_id) {
-          await notify(
-            auction.highest_bidder_id,
-            'auction_unpaid_winner',
-            'Payment Timeout ❌',
-            `You failed to pay for card ${resolveCard(auction.card_id).name} within 24 hours.`,
-            { auctionId: auction.id }
-          );
-        }
-      }
-    }
   } catch (e) {
     console.error('Error processing expired auctions:', e);
   }
@@ -393,9 +379,9 @@ export async function POST(request: Request) {
 
     // ── PLACE BID ─────────────────────────────────────────────────────────────
     if (action === 'place_bid') {
-      const { auctionId, bidderId, amount } = payload || {};
-      if (!auctionId || !bidderId || !amount) {
-        return NextResponse.json({ error: 'auctionId, bidderId, and amount are required' }, { status: 400 });
+      const { auctionId, bidderId, amount, txHash } = payload || {};
+      if (!auctionId || !bidderId || !amount || !txHash) {
+        return NextResponse.json({ error: 'auctionId, bidderId, amount, and txHash are required' }, { status: 400 });
       }
 
       const bidAmount = parseFloat(amount);
@@ -403,39 +389,57 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Bid amount must be at least 0.01 USDC' }, { status: 400 });
       }
 
-      // Fetch auction details
-      const { data: auction } = await supabaseAdmin.from('auctions').select('*').eq('id', auctionId).single();
-      if (!auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
-      if (auction.status !== 'active') return NextResponse.json({ error: 'Auction is no longer active' }, { status: 400 });
-      if (auction.seller_id === bidderId) return NextResponse.json({ error: 'You cannot bid on your own auction' }, { status: 400 });
-
-      // Check end time
-      if (new Date(auction.end_at).getTime() <= Date.now()) {
-        return NextResponse.json({ error: 'Auction has already ended' }, { status: 400 });
+      // Prevent replay attacks (check if tx_hash was already used in any auction)
+      const { data: duplicateTx } = await supabaseAdmin.from('auctions').select('id').eq('tx_hash', txHash).maybeSingle();
+      if (duplicateTx) {
+        return NextResponse.json({ error: 'This transaction hash has already been processed' }, { status: 400 });
       }
 
-      // Verify bid is higher than starting price / current highest bid
-      const minRequired = auction.highest_bid > 0 ? auction.highest_bid + 0.01 : auction.start_price;
-      if (bidAmount < minRequired) {
-        return NextResponse.json({ error: `Bid must be at least ${minRequired.toFixed(2)} USDC` }, { status: 400 });
-      }
-
-      // Check buyout threshold
-      if (auction.buyout_price && bidAmount >= auction.buyout_price) {
-        return NextResponse.json({ error: 'Bid exceeds or meets buyout price. Use Buyout instead.' }, { status: 400 });
-      }
-
-      // Fetch bidder's wallet and check live USDC balance on Base
+      // Fetch bidder's wallet
       const { data: bidder } = await supabaseAdmin.from('users').select('wallet_address').eq('id', bidderId).single();
       if (!bidder?.wallet_address) {
         return NextResponse.json({ error: 'Farcaster wallet must be connected to bid' }, { status: 400 });
       }
 
-      const liveBalance = await getBaseUSDCBalance(bidder.wallet_address);
-      if (liveBalance < bidAmount) {
-        return NextResponse.json({
-          error: `Insufficient USDC balance in wallet. You have ${liveBalance.toFixed(2)} USDC, but this bid requires ${bidAmount.toFixed(2)} USDC.`
-        }, { status: 400 });
+      // Verify on-chain transfer to Treasury
+      const isMock = txHash.startsWith('0xmock') || (process.env.NODE_ENV !== 'production' && txHash.includes('mock'));
+      let isTxValid = false;
+      if (isMock) {
+        isTxValid = true;
+      } else {
+        isTxValid = await verifyBaseUSDCTransfer(txHash, bidder.wallet_address, TREASURY_ADDRESS, bidAmount);
+      }
+
+      if (!isTxValid) {
+        return NextResponse.json({ error: 'Transaction validation failed. Ensure the deposit to Treasury was successful.' }, { status: 400 });
+      }
+
+      // Helper to refund invalid bids instantly
+      const refundInvalidBid = async (reason: string) => {
+        if (!isMock) await sendUSDCFromTreasury(bidder.wallet_address, bidAmount);
+        return NextResponse.json({ error: `${reason} Your deposit of ${bidAmount.toFixed(2)} USDC has been refunded.` }, { status: 400 });
+      };
+
+      // Fetch auction details
+      const { data: auction } = await supabaseAdmin.from('auctions').select('*').eq('id', auctionId).single();
+      if (!auction) return await refundInvalidBid('Auction not found.');
+      if (auction.status !== 'active') return await refundInvalidBid('Auction is no longer active.');
+      if (auction.seller_id === bidderId) return await refundInvalidBid('You cannot bid on your own auction.');
+
+      // Check end time
+      if (new Date(auction.end_at).getTime() <= Date.now()) {
+        return await refundInvalidBid('Auction has already ended.');
+      }
+
+      // Verify bid is higher than starting price / current highest bid
+      const minRequired = auction.highest_bid > 0 ? auction.highest_bid + 0.01 : auction.start_price;
+      if (bidAmount < minRequired) {
+        return await refundInvalidBid(`Bid must be at least ${minRequired.toFixed(2)} USDC.`);
+      }
+
+      // Check buyout threshold
+      if (auction.buyout_price && bidAmount >= auction.buyout_price) {
+        return await refundInvalidBid('Bid exceeds or meets buyout price. Use Buyout instead.');
       }
 
       const previousBidderId = auction.highest_bidder_id;
@@ -446,13 +450,17 @@ export async function POST(request: Request) {
         .from('auctions')
         .update({
           highest_bid: bidAmount,
-          highest_bidder_id: bidderId
+          highest_bidder_id: bidderId,
+          tx_hash: txHash
         })
         .eq('id', auctionId)
         .select('*')
         .single();
 
-      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      if (updateError) {
+        if (!isMock) await sendUSDCFromTreasury(bidder.wallet_address, bidAmount);
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
 
       // Record bid
       await supabaseAdmin.from('auction_bids').insert({
@@ -463,14 +471,19 @@ export async function POST(request: Request) {
 
       // Send notifications
       const cardName = resolveCard(auction.card_id).name;
+      
+      // Automatically refund the previous highest bidder
+      if (previousBidderId && previousBid > 0 && previousBidderId !== bidderId) {
+        const { data: prevBidder } = await supabaseAdmin.from('users').select('wallet_address').eq('id', previousBidderId).single();
+        if (prevBidder?.wallet_address) {
+          if (!isMock) sendUSDCFromTreasury(prevBidder.wallet_address, previousBid).catch(err => console.error("Refund error:", err));
+        }
+        await notify(previousBidderId, 'outbid', 'You\'ve been outbid! ⏳', `Someone placed a higher bid on ${cardName}. Your ${previousBid.toFixed(2)} USDC deposit has been refunded.`, { auctionId });
+      }
+
       // Notify seller
       const { data: bidderUser } = await supabaseAdmin.from('users').select('username').eq('id', bidderId).single();
       await notify(auction.seller_id, 'new_bid', 'New Bid! 🪙', `${bidderUser?.username || 'Someone'} bid ${bidAmount.toFixed(2)} USDC on your card ${cardName}.`, { auctionId });
-
-      // Notify previous bidder they were outbid
-      if (previousBidderId && previousBidderId !== bidderId) {
-        await notify(previousBidderId, 'outbid', 'You\'ve been outbid! ⏳', `Someone placed a higher bid of ${bidAmount.toFixed(2)} USDC on card ${cardName}.`, { auctionId });
-      }
 
       await track(bidderId, 'bid_placed', { auctionId, amount: bidAmount });
 
