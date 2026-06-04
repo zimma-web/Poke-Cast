@@ -427,11 +427,11 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
                   </button>
                   {selectedCard && (
                     <a
-                      href={`https://scrydex.com/pokemon/cards/${selectedCard.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}/${selectedCard.id}`}
+                      href={`https://prices.pokemontcg.io/tcgplayer/${selectedCard.id}`}
                       target="_blank" rel="noopener noreferrer"
                       className="text-[10px] text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
                     >
-                      <ExternalLink className="w-2.5 h-2.5" /> Check live price on Scrydex
+                      <ExternalLink className="w-2.5 h-2.5" /> Check live price on TCGPlayer
                     </a>
                   )}
                 </div>
