@@ -367,5 +367,37 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE NOT N
 ALTER TABLE auctions ADD COLUMN IF NOT EXISTS additional_user_card_ids UUID[];
 ALTER TABLE auctions ADD COLUMN IF NOT EXISTS additional_card_ids TEXT[];
 
+-- SQL Database Migration: Card Requests (WTB) System
+CREATE TABLE IF NOT EXISTS card_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  card_id TEXT NOT NULL,
+  budget NUMERIC(12, 2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active', -- 'active', 'completed', 'cancelled'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  CONSTRAINT chk_request_status CHECK (status IN ('active', 'completed', 'cancelled')),
+  CONSTRAINT chk_budget CHECK (budget >= 0.01)
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_requests_status ON card_requests(status);
+CREATE INDEX IF NOT EXISTS idx_card_requests_requester ON card_requests(requester_id);
+
+CREATE TABLE IF NOT EXISTS card_request_offers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES card_requests(id) ON DELETE CASCADE,
+  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_card_id UUID NOT NULL REFERENCES user_cards(id) ON DELETE CASCADE,
+  price NUMERIC(12, 2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'accepted', 'rejected', 'cancelled'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  CONSTRAINT chk_offer_status CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
+  CONSTRAINT chk_price CHECK (price >= 0.01),
+  UNIQUE (request_id, seller_id, user_card_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_request_offers_request ON card_request_offers(request_id);
+CREATE INDEX IF NOT EXISTS idx_request_offers_seller ON card_request_offers(seller_id);
+CREATE INDEX IF NOT EXISTS idx_request_offers_user_card ON card_request_offers(user_card_id);
+
 
 
