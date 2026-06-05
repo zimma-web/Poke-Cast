@@ -739,6 +739,196 @@ export async function POST(request: Request) {
       return NextResponse.json({ history: history || [] });
     }
 
+    // ─── TOGGLE ADMIN ROLE ───────────────────────────────────────────────────
+    if (action === 'toggle_admin') {
+      const { userId } = payload || {};
+      if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+
+      const { data: user } = await supabaseAdmin.from('users').select('is_admin, username').eq('id', userId).single();
+      const newAdminState = !user?.is_admin;
+
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ is_admin: newAdminState })
+        .eq('id', userId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) {
+        const actionVerb = newAdminState ? 'Granted admin role' : 'Revoked admin role';
+        await writeAuditLog(effectiveAdminId, 'TOGGLE_ADMIN', `${actionVerb} for user ${user?.username || userId}`, userId);
+      }
+      return NextResponse.json({ success: true, is_admin: newAdminState });
+    }
+
+    // ─── ADMIN AUCTIONS LIST ─────────────────────────────────────────────────
+    if (action === 'admin_auctions_list') {
+      const { data: auctions, error } = await supabaseAdmin
+        .from('auctions')
+        .select('*, seller:seller_id(username), bidder:highest_bidder_id(username)')
+        .order('created_at', { ascending: false });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ auctions: auctions || [] });
+    }
+
+    // ─── ADMIN AUCTION CANCEL ────────────────────────────────────────────────
+    if (action === 'admin_auction_cancel') {
+      const { auctionId } = payload || {};
+      if (!auctionId) return NextResponse.json({ error: 'auctionId is required' }, { status: 400 });
+
+      const { data: auction } = await supabaseAdmin.from('auctions').select('status, seller_id').eq('id', auctionId).single();
+      if (!auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
+
+      const { error } = await supabaseAdmin
+        .from('auctions')
+        .update({ status: 'cancelled' })
+        .eq('id', auctionId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'AUCTION_CANCEL', `Force-cancelled auction ${auctionId}`, auction.seller_id);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── ADMIN AUCTION COMPLETE ──────────────────────────────────────────────
+    if (action === 'admin_auction_complete') {
+      const { auctionId } = payload || {};
+      if (!auctionId) return NextResponse.json({ error: 'auctionId is required' }, { status: 400 });
+
+      const { data: auction } = await supabaseAdmin.from('auctions').select('*').eq('id', auctionId).single();
+      if (!auction) return NextResponse.json({ error: 'Auction not found' }, { status: 404 });
+      if (auction.status !== 'active' && auction.status !== 'pending_payment') {
+        return NextResponse.json({ error: 'Auction is not in active or pending state' }, { status: 400 });
+      }
+      if (!auction.highest_bidder_id) {
+        return NextResponse.json({ error: 'Cannot complete auction without a highest bidder' }, { status: 400 });
+      }
+
+      // 1. Transfer main card
+      const { error: transferError } = await supabaseAdmin
+        .from('user_cards')
+        .update({ user_id: auction.highest_bidder_id })
+        .eq('id', auction.user_card_id);
+
+      if (transferError) return NextResponse.json({ error: 'Failed to transfer main card' }, { status: 500 });
+
+      // 2. Transfer additional cards
+      if (auction.additional_user_card_ids && Array.isArray(auction.additional_user_card_ids)) {
+        const { error: additionalTransferError } = await supabaseAdmin
+          .from('user_cards')
+          .update({ user_id: auction.highest_bidder_id })
+          .in('id', auction.additional_user_card_ids);
+
+        if (additionalTransferError) console.error('Failed to transfer additional cards:', additionalTransferError);
+      }
+
+      // 3. Award +15 PokePoints to seller
+      try {
+        const { awardPoints } = await import('@/lib/pokepoints');
+        await awardPoints(auction.seller_id, 'marketplace_sale', 15, auctionId, { price: auction.highest_bid });
+      } catch (e) {
+        console.error('Failed to award PokePoints:', e);
+      }
+
+      // 4. Update status to completed
+      const { error: updateError } = await supabaseAdmin
+        .from('auctions')
+        .update({ status: 'completed' })
+        .eq('id', auctionId);
+
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'AUCTION_COMPLETE', `Force-completed auction ${auctionId} for buyer ${auction.highest_bidder_id}`, auction.seller_id);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── ADMIN QUESTS LIST ───────────────────────────────────────────────────
+    if (action === 'admin_quests_list') {
+      const { data: quests, error } = await supabaseAdmin
+        .from('quest_definitions')
+        .select('*')
+        .order('is_main', { ascending: true })
+        .order('id', { ascending: true });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ quests: quests || [] });
+    }
+
+    // ─── ADMIN QUEST UPDATE ──────────────────────────────────────────────────
+    if (action === 'admin_quest_update') {
+      const { questId, title, description, target, reward, link } = payload || {};
+      if (!questId) return NextResponse.json({ error: 'questId is required' }, { status: 400 });
+
+      const { error } = await supabaseAdmin
+        .from('quest_definitions')
+        .upsert({
+          id: questId,
+          title,
+          description,
+          target: Number(target) || 1,
+          reward: Number(reward) || 1,
+          link: link || null
+        });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (effectiveAdminId) await writeAuditLog(effectiveAdminId, 'QUEST_UPDATE', `Updated quest definition for ${questId}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // ─── ADMIN LIVE LOGS ─────────────────────────────────────────────────────
+    if (action === 'admin_live_logs') {
+      const { limit = 100 } = payload || {};
+
+      // Query recent pack openings
+      const { data: packs } = await supabaseAdmin
+        .from('pack_openings')
+        .select('*, user:user_id(username)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      // Query recent ticket purchases
+      const { data: purchases } = await supabaseAdmin
+        .from('ticket_purchases')
+        .select('*, user:user_id(username)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      // Query recent point adjustments (user_points_history)
+      const { data: points } = await supabaseAdmin
+        .from('user_points_history')
+        .select('*, user:user_id(username)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      // Merge, sort, and slice logs
+      const allLogs = [
+        ...(packs || []).map(p => ({
+          id: p.id,
+          type: 'pack_open',
+          username: p.user?.username || `FID ${p.user_id}`,
+          details: `Opened pack from set: ${p.set_id}`,
+          tx_hash: p.tx_hash,
+          created_at: p.created_at
+        })),
+        ...(purchases || []).map(p => ({
+          id: p.id,
+          type: 'topup',
+          username: p.user?.username || `FID ${p.user_id}`,
+          details: `Purchased ${p.amount} tickets for $${p.cost_usd}`,
+          tx_hash: p.tx_hash,
+          created_at: p.created_at
+        })),
+        ...(points || []).map(p => ({
+          id: p.id,
+          type: 'points',
+          username: p.user?.username || `FID ${p.user_id}`,
+          details: `Earned ${p.points} PokePoints via ${p.action_type}`,
+          created_at: p.created_at
+        }))
+      ];
+
+      allLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return NextResponse.json({ logs: allLogs.slice(0, limit) });
+    }
+
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error: any) {
     console.error('Admin API Error:', error);

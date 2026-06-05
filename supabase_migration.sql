@@ -399,5 +399,34 @@ CREATE INDEX IF NOT EXISTS idx_request_offers_request ON card_request_offers(req
 CREATE INDEX IF NOT EXISTS idx_request_offers_seller ON card_request_offers(seller_id);
 CREATE INDEX IF NOT EXISTS idx_request_offers_user_card ON card_request_offers(user_card_id);
 
+-- SQL Database Migration: Dynamic Quest Definitions
+CREATE TABLE IF NOT EXISTS quest_definitions (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  target INTEGER DEFAULT 1 NOT NULL,
+  reward INTEGER DEFAULT 1 NOT NULL,
+  is_main BOOLEAN DEFAULT FALSE NOT NULL,
+  link TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+-- Seed initial quest definitions (updated with nerf values)
+INSERT INTO quest_definitions (id, title, description, target, reward, is_main, link) VALUES
+('daily_login', 'Daily Check-in', 'Claim your daily login streak reward', 1, 2, false, null),
+('open_pack', 'Booster Ripper', 'Open at least 1 booster pack today', 1, 2, false, null),
+('place_bid', 'Auction Bidder', 'Place at least 1 bid in the Auction House', 1, 2, false, null),
+('create_auction', 'Card Trader', 'List at least 1 card for sale in the Auction House', 1, 3, false, null),
+('main_follow_dev', 'Follow Developer', 'Follow @pokecast on Warpcast', 1, 5, true, 'https://farcaster.xyz/pokecast'),
+('main_join_channel', 'Like PokéCast Post', 'Like PokéCast post on Warpcast', 1, 5, true, 'https://farcaster.xyz/pokecast/0x0ba20c68'),
+('main_share_app', 'Share App', 'Share PokéCast on Warpcast', 1, 5, true, 'https://warpcast.com/~/compose?text=I%20am%20collecting%20Pok%C3%A9mon%20cards%20on%20Pok%C3%A9Cast%21%20Come%20rip%20packs%20with%20me%20%F0%9F%8E%B4%E2%9C%A8&embeds[]=https://poke-cast.vercel.app')
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  target = EXCLUDED.target,
+  reward = EXCLUDED.reward,
+  is_main = EXCLUDED.is_main,
+  link = EXCLUDED.link;
+
 
 

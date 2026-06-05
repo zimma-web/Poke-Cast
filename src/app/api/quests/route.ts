@@ -26,6 +26,25 @@ export async function GET(request: Request) {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
+    // Fetch quest definitions from database, fallback to hardcoded if table doesn't exist/fails
+    let questsConfig = QUESTS_CONFIG;
+    let mainQuestsConfig = MAIN_QUESTS_CONFIG;
+    
+    try {
+      const { data: dbConfigs, error: dbConfigsError } = await supabaseAdmin
+        .from('quest_definitions')
+        .select('*');
+        
+      if (!dbConfigsError && dbConfigs && dbConfigs.length > 0) {
+        const daily = dbConfigs.filter(c => !c.is_main);
+        const main = dbConfigs.filter(c => c.is_main);
+        if (daily.length > 0) questsConfig = daily;
+        if (main.length > 0) mainQuestsConfig = main;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch quest definitions from database, using fallback config:', e);
+    }
+
     // 1. Fetch current quests for the user for today
     const { data: rawQuests, error: fetchError } = await supabaseAdmin
       .from('user_quests')
@@ -40,9 +59,9 @@ export async function GET(request: Request) {
     let quests = rawQuests || [];
 
     // 2. Initialize any missing daily quests
-    if (quests.length < QUESTS_CONFIG.length) {
+    if (quests.length < questsConfig.length) {
       const existingIds = quests.map(q => q.quest_id);
-      const missingConfigs = QUESTS_CONFIG.filter(c => !existingIds.includes(c.id));
+      const missingConfigs = questsConfig.filter(c => !existingIds.includes(c.id));
 
       if (missingConfigs.length > 0) {
         const inserts = missingConfigs.map(q => ({
@@ -78,9 +97,9 @@ export async function GET(request: Request) {
     }
 
     // 4. Initialize main quests if not fully initialized
-    if (!mainQuests || mainQuests.length < MAIN_QUESTS_CONFIG.length) {
+    if (!mainQuests || mainQuests.length < mainQuestsConfig.length) {
       const existingIds = mainQuests ? mainQuests.map(q => q.quest_id) : [];
-      const missingConfigs = MAIN_QUESTS_CONFIG.filter(c => !existingIds.includes(c.id));
+      const missingConfigs = mainQuestsConfig.filter(c => !existingIds.includes(c.id));
 
       if (missingConfigs.length > 0) {
         const inserts = missingConfigs.map(q => ({
@@ -129,7 +148,7 @@ export async function GET(request: Request) {
 
     // Map database records with the static metadata configurations (titles, descriptions, rewards)
     const enrichedQuests = quests.map(q => {
-      const config = QUESTS_CONFIG.find(c => c.id === q.quest_id) || { title: q.quest_id, desc: '', reward: 1 };
+      const config = questsConfig.find(c => c.id === q.quest_id) || { title: q.quest_id, desc: '', reward: 1 };
       return {
         ...q,
         title: config.title,
@@ -139,7 +158,7 @@ export async function GET(request: Request) {
     });
 
     const enrichedMainQuests = (mainQuests || []).map(q => {
-      const config = MAIN_QUESTS_CONFIG.find(c => c.id === q.quest_id) || { title: q.quest_id, desc: '', reward: 1, link: '' };
+      const config = mainQuestsConfig.find(c => c.id === q.quest_id) || { title: q.quest_id, desc: '', reward: 1, link: '' };
       return {
         ...q,
         title: config.title,
@@ -214,7 +233,22 @@ export async function POST(request: Request) {
 
     if (userError) return NextResponse.json({ error: userError.message }, { status: 500 });
 
-    const config = QUESTS_CONFIG.find(c => c.id === questId) || MAIN_QUESTS_CONFIG.find(c => c.id === questId);
+    // Fetch dynamic config, fallback to hardcoded
+    let config = QUESTS_CONFIG.find(c => c.id === questId) || MAIN_QUESTS_CONFIG.find(c => c.id === questId);
+    try {
+      const { data: dbConfig, error: dbConfigError } = await supabaseAdmin
+        .from('quest_definitions')
+        .select('*')
+        .eq('id', questId)
+        .maybeSingle();
+        
+      if (!dbConfigError && dbConfig) {
+        config = dbConfig;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch quest definition from database, using fallback config:', e);
+    }
+
     if (!config) return NextResponse.json({ error: 'Invalid quest config' }, { status: 400 });
 
     const newTickets = (user.pack_tickets || 0) + config.reward;

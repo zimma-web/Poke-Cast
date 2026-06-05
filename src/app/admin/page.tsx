@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 
 
-type Tab = "overview" | "users" | "packs" | "events" | "cards" | "analytics" | "audit" | "market";
+type Tab = "overview" | "users" | "quests" | "packs" | "events" | "cards" | "analytics" | "audit" | "market" | "logs";
 
 // ─── Small helper components ──────────────────────────────────────────────────
 
@@ -167,6 +167,15 @@ export default function AdminDashboard() {
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [marketSearch, setMarketSearch] = useState("");
   const [packSearch, setPackSearch] = useState("");
+
+  // Quests state
+  const [questsList, setQuestsList] = useState<any[]>([]);
+  const [loadingQuests, setLoadingQuests] = useState(false);
+  const [editingQuest, setEditingQuest] = useState<any>(null);
+
+  // Live Logs state
+  const [liveLogs, setLiveLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Auth state: dual-mode (role-based via FID or legacy password)
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean | null>(null);
@@ -292,6 +301,26 @@ export default function AdminDashboard() {
     finally { setLoadingAudit(false); }
   }, [adminFetch]);
 
+  const fetchQuests = useCallback(async () => {
+    setLoadingQuests(true);
+    try {
+      const res = await adminFetch("admin_quests_list");
+      const data = await res.json();
+      setQuestsList(data.quests || []);
+    } catch (e: any) { showToast(e.message || "Failed to load quest definitions", "error"); }
+    finally { setLoadingQuests(false); }
+  }, [adminFetch, showToast]);
+
+  const fetchLiveLogs = useCallback(async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await adminFetch("admin_live_logs", { limit: 100 });
+      const data = await res.json();
+      setLiveLogs(data.logs || []);
+    } catch (e: any) { showToast(e.message || "Failed to load live logs", "error"); }
+    finally { setLoadingLogs(false); }
+  }, [adminFetch, showToast]);
+
   // ─── Auth init ────────────────────────────────────────────────────────────
   useEffect(() => {
     const storedPwd = sessionStorage.getItem("pokecast_admin_password");
@@ -365,6 +394,62 @@ export default function AdminDashboard() {
     } catch (e: any) { showToast(e.message, "error"); }
   };
 
+  const handleToggleAdmin = async (userId: string) => {
+    try {
+      const res = await adminFetch("toggle_admin", { userId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(data.is_admin ? "Admin role granted" : "Admin role revoked");
+      fetchUserDetail(userId);
+      fetchUsers(userSearch);
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleAdminAuctionCancel = async (auctionId: string) => {
+    if (!confirm("Are you sure you want to FORCE CANCEL this auction? The card(s) will be unlocked and returned to the seller.")) return;
+    try {
+      const res = await adminFetch("admin_auction_cancel", { auctionId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Auction cancelled successfully", "success");
+      fetchMarketAdmin();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleAdminAuctionComplete = async (auctionId: string) => {
+    if (!confirm("Are you sure you want to FORCE COMPLETE this auction? This will transfer card ownership to the highest bidder and credit PokePoints to the seller.")) return;
+    try {
+      const res = await adminFetch("admin_auction_complete", { auctionId });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Auction completed successfully", "success");
+      fetchMarketAdmin();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
+  const handleQuestSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuest) return;
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+    const payload = {
+      questId: editingQuest.id,
+      title: fd.get("title") as string,
+      target: parseInt(fd.get("target") as string) || 1,
+      reward: parseInt(fd.get("reward") as string) || 1,
+      link: fd.get("link") as string || null,
+      description: fd.get("description") as string || ""
+    };
+    try {
+      const res = await adminFetch("admin_quest_update", payload);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast("Quest definition updated successfully", "success");
+      setEditingQuest(null);
+      fetchQuests();
+    } catch (err: any) { showToast(err.message, "error"); }
+  };
+
   useEffect(() => {
     if (isAdminAuthorized !== true) return;
     if (activeTab === "users") fetchUsers(userSearch);
@@ -374,7 +459,9 @@ export default function AdminDashboard() {
     else if (activeTab === "analytics") fetchAnalytics();
     else if (activeTab === "audit") fetchAuditLogs();
     else if (activeTab === "market") fetchMarketAdmin();
-  }, [activeTab, isAdminAuthorized, fetchUsers, fetchPacks, fetchEvents, fetchCards, fetchAnalytics, fetchAuditLogs, fetchMarketAdmin, userSearch]);
+    else if (activeTab === "quests") fetchQuests();
+    else if (activeTab === "logs") fetchLiveLogs();
+  }, [activeTab, isAdminAuthorized, fetchUsers, fetchPacks, fetchEvents, fetchCards, fetchAnalytics, fetchAuditLogs, fetchMarketAdmin, fetchQuests, fetchLiveLogs, userSearch]);
 
   useEffect(() => {
     if (activeTab === "cards" && isAdminAuthorized === true) fetchCards();
@@ -730,12 +817,14 @@ export default function AdminDashboard() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "overview", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "users", label: "Users", icon: <Users className="w-4 h-4" />, badge: stats?.totalUsers },
+    { id: "quests", label: "Quests", icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: "packs", label: "Packs", icon: <Package className="w-4 h-4" /> },
     { id: "events", label: "Events", icon: <Calendar className="w-4 h-4" /> },
     { id: "cards", label: "Cards", icon: <Layers className="w-4 h-4" /> },
+    { id: "market", label: "Market", icon: <ShieldAlert className="w-4 h-4" />, badge: marketStats?.unresolvedReports || undefined },
+    { id: "logs", label: "Live Logs", icon: <Activity className="w-4 h-4" /> },
     { id: "analytics", label: "Analytics", icon: <TrendingUp className="w-4 h-4" /> },
     { id: "audit", label: "Audit Log", icon: <Clock className="w-4 h-4" /> },
-    { id: "market", label: "Market", icon: <ShieldAlert className="w-4 h-4" />, badge: marketStats?.unresolvedReports || undefined },
   ];
 
   // ─── MAIN ADMIN PANEL ─────────────────────────────────────────────────────
@@ -1067,6 +1156,14 @@ export default function AdminDashboard() {
                           <EyeOff className="w-3.5 h-3.5" /> Hide from Public
                         </button>
                       )}
+                      <button onClick={() => handleToggleAdmin(selectedUser.id)}
+                        className={`h-9 border rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                          selectedUser.is_admin 
+                            ? "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20 hover:bg-fuchsia-500/25" 
+                            : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 border-zinc-700"
+                        }`}>
+                        <ShieldAlert className="w-3.5 h-3.5" /> {selectedUser.is_admin ? "Revoke Admin" : "Make Admin"}
+                      </button>
                       <button onClick={() => handleResetStreak(selectedUser.id)}
                         className="h-9 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
                         <RotateCcw className="w-3.5 h-3.5" /> Reset Streak
@@ -1084,6 +1181,129 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── QUESTS TAB ───────────────────────────────────────────────── */}
+        {activeTab === "quests" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Quest Management</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Adjust quest requirements, ticket rewards, and link associations dynamically</p>
+              </div>
+              <button onClick={fetchQuests} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Quest Edit Form */}
+            {editingQuest && (
+              <form onSubmit={handleQuestSave} className="bg-zinc-900/60 border border-fuchsia-500/20 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-zinc-100">Edit Quest Definition ({editingQuest.id})</h3>
+                  <button type="button" onClick={() => setEditingQuest(null)} className="text-zinc-500 hover:text-zinc-300 transition-colors"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Title *</label>
+                    <input name="title" required defaultValue={editingQuest.title}
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Target *</label>
+                    <input name="target" type="number" required min="1" defaultValue={editingQuest.target}
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Reward Tickets *</label>
+                    <input name="reward" type="number" required min="1" defaultValue={editingQuest.reward}
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Link (Warpcast/Social URL)</label>
+                    <input name="link" defaultValue={editingQuest.link || ""} placeholder="https://..."
+                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Description</label>
+                    <textarea name="description" defaultValue={editingQuest.description} rows={2} placeholder="Quest instructions..."
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-200 resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button type="button" onClick={() => setEditingQuest(null)}
+                    className="h-9 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-all">Cancel</button>
+                  <button type="submit" className="h-9 px-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    <Save className="w-3.5 h-3.5" /> Save Quest
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {loadingQuests ? (
+              <div className="space-y-2">{Array(4).fill(0).map((_, i) => <div key={i} className="h-20 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+            ) : questsList.length === 0 ? (
+              <div className="text-center py-16 space-y-3">
+                <FileSpreadsheet className="w-8 h-8 text-zinc-750 mx-auto" />
+                <p className="text-sm text-zinc-600">No quests found. Dynamic quests definitions will load when Supabase is seeded.</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Daily Quests Category */}
+                <div className="space-y-3">
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-800 pb-2">Daily Quests</h2>
+                  {questsList.filter(q => !q.is_main).map((quest) => (
+                    <div key={quest.id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-zinc-700 transition-colors">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-zinc-100">{quest.title}</span>
+                          <span className="text-[10px] font-mono text-zinc-500">{quest.id}</span>
+                        </div>
+                        <p className="text-xs text-zinc-500">{quest.description || "No description."}</p>
+                        <div className="flex gap-2 items-center text-[11px] text-zinc-500 pt-1">
+                          <span>Target: <strong className="text-zinc-300">{quest.target}</strong></span>
+                          <span>·</span>
+                          <span className="text-amber-400 font-semibold">Reward: {quest.reward} Tickets</span>
+                        </div>
+                      </div>
+                      <button onClick={() => { setEditingQuest(quest); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="w-full h-8 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-zinc-700/60">
+                        <Edit3 className="w-3.5 h-3.5" /> Edit Quest
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Main Quests Category */}
+                <div className="space-y-3">
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-800 pb-2">Main Quests (One-time)</h2>
+                  {questsList.filter(q => q.is_main).map((quest) => (
+                    <div key={quest.id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-zinc-700 transition-colors">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-zinc-100">{quest.title}</span>
+                          <span className="text-[10px] font-mono text-zinc-500">{quest.id}</span>
+                        </div>
+                        <p className="text-xs text-zinc-500">{quest.description || "No description."}</p>
+                        {quest.link && (
+                          <p className="text-[10px] text-zinc-500 truncate">Link: {quest.link}</p>
+                        )}
+                        <div className="flex gap-2 items-center text-[11px] text-zinc-500 pt-1">
+                          <span>Target: <strong className="text-zinc-300">{quest.target}</strong></span>
+                          <span>·</span>
+                          <span className="text-amber-400 font-semibold">Reward: {quest.reward} Tickets</span>
+                        </div>
+                      </div>
+                      <button onClick={() => { setEditingQuest(quest); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="w-full h-8 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-zinc-700/60">
+                        <Edit3 className="w-3.5 h-3.5" /> Edit Quest
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1581,16 +1801,75 @@ export default function AdminDashboard() {
                           <p className="text-[10px] font-mono text-zinc-700">{listing.id}</p>
                         </div>
                         {(listing.status === "active" || listing.status === "pending_payment") && (
-                          <button onClick={() => handleMarketRemoveListing(listing.id)}
-                            className="shrink-0 px-2.5 py-1 bg-rose-500/10 text-rose-400 text-[10px] font-semibold rounded-lg border border-rose-500/15 hover:bg-rose-500/20 transition-all">
-                            Cancel Auction
-                          </button>
+                          <div className="flex gap-1.5 shrink-0">
+                            <button onClick={() => handleAdminAuctionCancel(listing.id)}
+                              className="px-2.5 py-1 bg-rose-500/10 text-rose-400 text-[10px] font-semibold rounded-lg border border-rose-500/15 hover:bg-rose-500/20 transition-all">
+                              Cancel
+                            </button>
+                            {listing.highest_bidder_id && (
+                              <button onClick={() => handleAdminAuctionComplete(listing.id)}
+                                className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold rounded-lg border border-emerald-500/15 hover:bg-emerald-500/20 transition-all">
+                                Complete
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── LIVE LOGS FEED TAB ────────────────────────────────────────── */}
+        {activeTab === "logs" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-black text-zinc-100">Live System Events</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Real-time listing of card packs ripped, ticket topups, and PokePoints transactions</p>
+              </div>
+              <button onClick={fetchLiveLogs} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {loadingLogs ? (
+              <div className="space-y-2">{Array(8).fill(0).map((_, i) => <div key={i} className="h-14 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
+            ) : liveLogs.length === 0 ? (
+              <div className="text-center py-16">
+                <Activity className="w-8 h-8 text-zinc-700 mx-auto mb-2 animate-pulse" />
+                <p className="text-sm text-zinc-650">No events logged yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                {liveLogs.map((log, i) => {
+                  const logColors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+                    pack_open: { bg: "bg-amber-500/10 border-amber-500/20", text: "text-amber-400", icon: <PackageOpen className="w-3.5 h-3.5" /> },
+                    topup: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-400", icon: <Ticket className="w-3.5 h-3.5" /> },
+                    points: { bg: "bg-violet-500/10 border-violet-500/20", text: "text-violet-400", icon: <Sparkles className="w-3.5 h-3.5" /> }
+                  };
+                  const style = logColors[log.type] || { bg: "bg-zinc-800", text: "text-zinc-400", icon: <Activity className="w-3.5 h-3.5" /> };
+                  return (
+                    <div key={log.id || i} className="flex items-start gap-3 px-3 py-2.5 bg-zinc-900/40 border border-zinc-800/40 rounded-xl hover:border-zinc-700 transition-colors">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
+                        {style.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-zinc-300">
+                          <span className="font-bold text-zinc-200">{log.username}</span> {log.details}
+                        </p>
+                        {log.tx_hash && (
+                          <p className="text-[10px] font-mono text-zinc-500 truncate mt-0.5">TX: {log.tx_hash}</p>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-zinc-600 shrink-0 font-mono">{new Date(log.created_at).toLocaleString()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
