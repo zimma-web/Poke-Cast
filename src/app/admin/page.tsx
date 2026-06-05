@@ -53,52 +53,52 @@ function StatCard({ icon, label, value, sub, accent }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; accent?: string;
 }) {
   return (
-    <div className={`bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm hover:border-zinc-700 transition-colors`}>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accent || "bg-fuchsia-500/10 text-fuchsia-400"}`}>
+    <div className="bg-black border-2 border-dotted border-[#2A3FE5] p-4 flex items-start gap-3 hover:border-[#F4B9B0] transition-colors rounded-none">
+      <div className={`w-10 h-10 border border-dotted border-[#2A3FE5] flex items-center justify-center shrink-0 text-white ${accent || "bg-black text-[#F4B9B0]"}`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
-        <p className="text-2xl font-black text-white leading-none">{typeof value === "number" ? value.toLocaleString() : value}</p>
-        {sub && <p className="text-[11px] text-zinc-500 mt-1">{sub}</p>}
+        <p className="text-[9px] font-bold uppercase tracking-widest text-[#F4B9B0] mb-1.5 pacman-mono">{label}</p>
+        <p className="text-sm font-black text-white leading-none tracking-wider">{typeof value === "number" ? value.toLocaleString() : value}</p>
+        {sub && <p className="text-[9px] text-zinc-500 mt-1.5 pacman-mono">{sub}</p>}
       </div>
     </div>
   );
 }
 
 function Toast({ message, type, onClose }: { message: string; type: "success" | "error" | "info"; onClose: () => void }) {
-  const colors = {
-    success: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300",
-    error: "bg-rose-500/15 border-rose-500/30 text-rose-300",
-    info: "bg-sky-500/15 border-sky-500/30 text-sky-300",
+  const borderColors = {
+    success: "border-[#16A34A] text-[#16A34A]",
+    error: "border-[#DC2626] text-[#DC2626]",
+    info: "border-[#2A3FE5] text-[#2A3FE5]",
   };
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl max-w-sm animate-in slide-in-from-right-4 ${colors[type]}`}>
-      {type === "success" && <CheckCircle className="w-4 h-4 shrink-0" />}
-      {type === "error" && <AlertCircle className="w-4 h-4 shrink-0" />}
-      {type === "info" && <Clock className="w-4 h-4 shrink-0" />}
-      <span className="text-sm font-medium">{message}</span>
-      <button onClick={onClose} className="ml-auto opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
+    <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 bg-black border-4 border-double shadow-[4px_4px_0px_rgba(255,255,255,0.15)] max-w-sm animate-in slide-in-from-right-4 rounded-none ${borderColors[type] || "border-white text-white"}`}>
+      {type === "success" && <CheckCircle className="w-4 h-4 shrink-0 text-[#16A34A]" />}
+      {type === "error" && <AlertCircle className="w-4 h-4 shrink-0 text-[#DC2626]" />}
+      {type === "info" && <Clock className="w-4 h-4 shrink-0 text-[#2A3FE5]" />}
+      <span className="text-[10px] font-bold uppercase tracking-wider text-white">{message}</span>
+      <button onClick={onClose} className="ml-auto text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
     </div>
   );
 }
 
 function Badge({ children, color = "zinc" }: { children: React.ReactNode; color?: "zinc" | "fuchsia" | "emerald" | "rose" | "amber" | "sky" }) {
   const colors = {
-    zinc: "bg-zinc-800 text-zinc-300",
-    fuchsia: "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/20",
-    emerald: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
-    rose: "bg-rose-500/15 text-rose-300 border border-rose-500/20",
-    amber: "bg-amber-500/15 text-amber-300 border border-amber-500/20",
-    sky: "bg-sky-500/15 text-sky-300 border border-sky-500/20",
+    zinc: "border-zinc-700 text-zinc-400 bg-black",
+    fuchsia: "border-[#F4B9B0] text-[#F4B9B0] bg-black",
+    emerald: "border-[#16A34A] text-[#16A34A] bg-black",
+    rose: "border-[#DC2626] text-[#DC2626] bg-black",
+    amber: "border-[#D97706] text-[#D97706] bg-black",
+    sky: "border-[#2A3FE5] text-[#2A3FE5] bg-black",
   };
-  return <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full ${colors[color]}`}>{children}</span>;
+  return <span className={`text-[8px] font-bold uppercase px-2 py-0.5 border border-solid rounded-none pacman-mono ${colors[color]}`}>{children}</span>;
 }
 
 function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-base font-bold text-zinc-100">{title}</h2>
+    <div className="flex items-center justify-between mb-4 pb-2 border-b border-dotted border-[#2A3FE5]">
+      <h2 className="text-[11px] font-black text-[#F4B9B0] uppercase tracking-wider">{title}</h2>
       {action}
     </div>
   );
@@ -108,18 +108,18 @@ function SectionHeader({ title, action }: { title: string; action?: React.ReactN
 function BarChart({ data }: { data: { date: string; users: number }[] }) {
   const max = Math.max(...data.map(d => d.users), 1);
   return (
-    <div className="flex items-end gap-1.5 h-24 w-full">
+    <div className="flex items-end gap-2 h-28 w-full border-b border-l border-dotted border-[#2A3FE5] p-2">
       {data.map((d, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
           <div
-            className="w-full bg-fuchsia-500/30 rounded-t-lg transition-all duration-500 group-hover:bg-fuchsia-500/60 relative"
-            style={{ height: `${Math.max(4, (d.users / max) * 88)}px` }}
+            className="w-full bg-[#2A3FE5] border border-solid border-[#F4B9B0] transition-all group-hover:bg-[#F4B9B0] relative rounded-none"
+            style={{ height: `${Math.max(4, (d.users / max) * 80)}px` }}
           >
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-zinc-200 text-[9px] font-mono px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black border border-solid border-[#F4B9B0] text-white text-[8px] px-1.5 py-0.5 rounded-none opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 pacman-mono">
               {d.users} users
             </div>
           </div>
-          <span className="text-[9px] text-zinc-600 font-mono">{d.date.slice(5)}</span>
+          <span className="text-[8px] text-[#F4B9B0] font-mono mt-1 pacman-mono">{d.date.slice(5)}</span>
         </div>
       ))}
     </div>
@@ -761,50 +761,76 @@ export default function AdminDashboard() {
   // ─── Login Gate ───────────────────────────────────────────────────────────
   if (isAdminAuthorized === null) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-dotted border-[#F4B9B0] border-t-transparent rounded-none animate-spin" />
       </div>
     );
   }
 
   if (isAdminAuthorized === false) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-500/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500/8 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="w-full max-w-sm bg-zinc-900/50 border border-zinc-800/80 rounded-3xl p-8 backdrop-blur-xl shadow-2xl space-y-6 relative z-10">
-          <div className="text-center space-y-2">
-            <div className="mx-auto w-14 h-14 bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 rounded-2xl flex items-center justify-center mb-3">
+      <div className="min-h-screen bg-black text-white flex items-center justify-center p-6 relative overflow-hidden pacman-theme">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+          .pacman-theme {
+            font-family: 'Press Start 2P', monospace !important;
+            background-color: #000000 !important;
+            color: #ffffff !important;
+          }
+          .pacman-theme input {
+            font-family: 'Space Mono', monospace !important;
+            font-size: 11px !important;
+            background-color: #000000 !important;
+            border: 2px dotted #2A3FE5 !important;
+            color: #ffffff !important;
+            border-radius: 0px !important;
+            padding: 8px 12px !important;
+          }
+          .pacman-theme input:focus {
+            border: 2px solid #F4B9B0 !important;
+            outline: none !important;
+          }
+          .pacman-theme button {
+            font-family: 'Press Start 2P', monospace !important;
+            text-transform: uppercase;
+            border-radius: 0px !important;
+          }
+          .pacman-mono {
+            font-family: 'Space Mono', monospace !important;
+          }
+        `}</style>
+        <div className="w-full max-w-sm bg-black border-4 border-dotted border-[#2A3FE5] p-8 shadow-[6px_6px_0px_rgba(255,255,255,0.15)] space-y-6 relative z-10 rounded-none">
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-14 h-14 border-2 border-dotted border-[#F4B9B0] text-[#F4B9B0] flex items-center justify-center mb-3">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <h1 className="text-xl font-black tracking-tight text-zinc-100">PokéCast Admin</h1>
-            <p className="text-xs text-zinc-500">Restricted access — authorized personnel only</p>
+            <h1 className="text-sm font-black tracking-wider text-white uppercase">PokéCast Admin</h1>
+            <p className="text-[9px] text-zinc-500 uppercase font-mono pacman-mono">Restricted access — authorized personnel only</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Admin Password</label>
+            <div className="space-y-2">
+              <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Admin Password</label>
               <input
                 type="password"
                 placeholder="Enter password..."
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
-                className="w-full h-11 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-center text-sm font-mono tracking-wider text-zinc-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-500/50 transition-all"
+                className="w-full h-10 bg-black border-2 border-dotted border-[#2A3FE5] text-center text-xs tracking-wider text-white focus:outline-none"
                 autoFocus
               />
             </div>
 
             {loginError && (
-              <p className="text-xs text-rose-400 text-center bg-rose-500/5 border border-rose-500/10 p-2.5 rounded-xl">{loginError}</p>
+              <p className="text-[9px] text-[#DC2626] text-center bg-black border border-dotted border-[#DC2626] p-2.5 rounded-none pacman-mono">{loginError}</p>
             )}
 
             <button
               type="submit"
               disabled={loginLoading || !adminPassword}
-              className="w-full h-11 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full h-11 bg-black border-2 border-dotted border-[#F4B9B0] hover:bg-[#F4B9B0] hover:text-black disabled:opacity-40 disabled:cursor-not-allowed text-[#F4B9B0] font-bold rounded-none transition-all duration-200 flex items-center justify-center gap-2"
             >
-              {loginLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Lock className="w-4 h-4" />}
+              {loginLoading ? <div className="w-4 h-4 border-2 border-[#F4B9B0] border-t-transparent rounded-none animate-spin" /> : <Lock className="w-4 h-4" />}
               {loginLoading ? "Authenticating..." : "Access Admin Panel"}
             </button>
           </form>
@@ -829,26 +855,91 @@ export default function AdminDashboard() {
 
   // ─── MAIN ADMIN PANEL ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+    <div className="min-h-screen bg-black text-white pacman-theme selection:bg-[#F4B9B0] selection:text-black">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        
+        /* Apply fonts globally */
+        .pacman-theme {
+          font-family: 'Press Start 2P', monospace !important;
+          background-color: #000000 !important;
+          color: #ffffff !important;
+        }
+        
+        .pacman-mono {
+          font-family: 'Space Mono', monospace !important;
+        }
+        
+        /* Form elements styles */
+        .pacman-theme input, .pacman-theme select, .pacman-theme textarea {
+          font-family: 'Space Mono', monospace !important;
+          font-size: 11px !important;
+          background-color: #000000 !important;
+          border: 2px dotted #2A3FE5 !important;
+          color: #ffffff !important;
+          border-radius: 0px !important;
+          padding: 8px 12px !important;
+          transition: all 0.2s ease-in-out;
+        }
+        .pacman-theme input:focus, .pacman-theme select:focus, .pacman-theme textarea:focus {
+          border: 2px solid #F4B9B0 !important;
+          outline: none !important;
+          box-shadow: 0 0 8px rgba(244, 185, 176, 0.4);
+        }
+        
+        /* Custom buttons */
+        .pacman-theme button {
+          font-family: 'Press Start 2P', monospace !important;
+          text-transform: uppercase;
+          transition: all 0.15s ease-in-out;
+          border-radius: 0px !important;
+        }
+        .pacman-theme button:active {
+          transform: translate(2px, 2px);
+        }
+        
+        /* Dotted outlines */
+        .pacman-border-dotted {
+          border: 4px dotted #2A3FE5 !important;
+        }
+        
+        /* Scrollbar styles */
+        .pacman-theme ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .pacman-theme ::-webkit-scrollbar-track {
+          background: #000000;
+          border: 2px dotted #2A3FE5;
+        }
+        .pacman-theme ::-webkit-scrollbar-thumb {
+          background: #F4B9B0;
+          border-radius: 0px;
+        }
+        .pacman-theme ::-webkit-scrollbar-thumb:hover {
+          background: #2A3FE5;
+        }
+      `}</style>
+      
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-zinc-800/60 bg-zinc-950/90 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 border-b-4 border-dotted border-zinc-800 bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-7 h-7 bg-fuchsia-500/15 border border-fuchsia-500/30 rounded-lg flex items-center justify-center">
-              <ShieldCheck className="w-3.5 h-3.5 text-fuchsia-400" />
+            <div className="w-8 h-8 border-2 border-dotted border-[#F4B9B0] flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4 text-[#F4B9B0]" />
             </div>
-            <span className="font-black text-sm tracking-tight text-zinc-100 hidden sm:block">PokéCast Admin</span>
+            <span className="font-black text-xs tracking-wider text-white hidden sm:block uppercase">PokéCast Admin</span>
           </div>
 
           {/* Tab Navigation (desktop) */}
-          <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto">
+          <nav className="hidden lg:flex items-center gap-2 overflow-x-auto pacman-mono">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${activeTab === tab.id ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/20" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"}`}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[10px] uppercase transition-all whitespace-nowrap ${activeTab === tab.id ? "bg-[#2A3FE5] text-white border-2 border-double border-[#F4B9B0]" : "bg-black text-zinc-400 hover:text-white border-2 border-dotted border-zinc-800"}`}
               >
                 {tab.icon}
                 {tab.label}
@@ -856,17 +947,17 @@ export default function AdminDashboard() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pacman-mono">
             <button
               onClick={() => { fetchStats(); showToast("Stats refreshed", "info"); }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none"
               title="Refresh stats"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-rose-400 hover:bg-rose-500/5 transition-all border border-transparent hover:border-rose-500/20"
+              className="flex items-center gap-1.5 px-3 py-2 border-2 border-dotted border-[#DC2626] text-[#DC2626] hover:bg-[#DC2626] hover:text-white transition-all text-[9px] font-bold rounded-none"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:block">Logout</span>
@@ -875,12 +966,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Mobile Tab Bar */}
-        <div className="lg:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+        <div className="lg:hidden flex items-center gap-2 px-4 pb-2 overflow-x-auto pacman-mono">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${activeTab === tab.id ? "bg-fuchsia-500/15 text-fuchsia-300" : "text-zinc-500 hover:text-zinc-300"}`}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[9px] uppercase whitespace-nowrap transition-all ${activeTab === tab.id ? "bg-[#2A3FE5] text-white border border-solid border-[#F4B9B0] rounded-none" : "bg-black text-zinc-550 border border-dotted border-zinc-800 rounded-none"}`}
             >
               {tab.icon}
               {tab.label}
@@ -894,32 +985,34 @@ export default function AdminDashboard() {
         {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
         {activeTab === "overview" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Admin Dashboard</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">System overview & live metrics</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Admin Dashboard</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">System overview & live metrics</p>
               </div>
               {stats && (
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${stats.databaseStatus === "Healthy" ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
-                  <span className="text-xs font-mono text-zinc-400">{stats.databaseStatus} · {stats.databaseLatencyMs}ms</span>
+                <div className="flex items-center gap-2 pacman-mono">
+                  <div className={`w-3.5 h-3.5 border border-solid border-white ${stats.databaseStatus === "Healthy" ? "bg-[#16A34A] animate-pulse" : "bg-[#DC2626]"}`} />
+                  <span className="text-[9px] uppercase tracking-wider text-white">{stats.databaseStatus} · {stats.databaseLatencyMs}ms</span>
                 </div>
               )}
             </div>
 
             {loadingStats ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array(8).fill(0).map((_, i) => <div key={i} className="h-24 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}
+                {Array(8).fill(0).map((_, i) => (
+                  <div key={i} className="h-24 bg-black border-2 border-dotted border-[#2A3FE5] animate-pulse rounded-none" />
+                ))}
               </div>
             ) : stats && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <StatCard icon={<Users className="w-5 h-5" />} label="Total Users" value={stats.totalUsers} sub="All-time registrations" />
-                <StatCard icon={<Activity className="w-5 h-5" />} label="Daily Active" value={stats.dailyActiveUsers} sub="Last 24 hours" accent="bg-emerald-500/10 text-emerald-400" />
-                <StatCard icon={<Sparkles className="w-5 h-5" />} label="New Today" value={stats.newUsersToday} sub="New signups today" accent="bg-sky-500/10 text-sky-400" />
-                <StatCard icon={<Layers className="w-5 h-5" />} label="Cards Owned" value={stats.totalCardsClaimed} sub="Total across all users" accent="bg-violet-500/10 text-violet-400" />
-                <StatCard icon={<Package className="w-5 h-5" />} label="Packs Opened" value={stats.totalPacksOpened} sub="All-time pack opens" accent="bg-amber-500/10 text-amber-400" />
-                <StatCard icon={<Heart className="w-5 h-5" />} label="Wishlist Entries" value={stats.totalWishlists} sub="Cards being wished for" accent="bg-rose-500/10 text-rose-400" />
-                <StatCard icon={<RefreshCw className="w-5 h-5" />} label="Trade Offers" value={stats.totalTrades} sub="All-time trade attempts" accent="bg-teal-500/10 text-teal-400" />
+                <StatCard icon={<Activity className="w-5 h-5" />} label="Daily Active" value={stats.dailyActiveUsers} sub="Last 24 hours" accent="bg-black text-[#16A34A] border-[#16A34A]" />
+                <StatCard icon={<Sparkles className="w-5 h-5" />} label="New Today" value={stats.newUsersToday} sub="New signups today" accent="bg-black text-[#F4B9B0] border-[#F4B9B0]" />
+                <StatCard icon={<Layers className="w-5 h-5" />} label="Cards Owned" value={stats.totalCardsClaimed} sub="Total across all users" accent="bg-black text-[#2A3FE5] border-[#2A3FE5]" />
+                <StatCard icon={<Package className="w-5 h-5" />} label="Packs Opened" value={stats.totalPacksOpened} sub="All-time pack opens" accent="bg-black text-[#D97706] border-[#D97706]" />
+                <StatCard icon={<Heart className="w-5 h-5" />} label="Wishlist Entries" value={stats.totalWishlists} sub="Cards being wished for" accent="bg-black text-[#DC2626] border-[#DC2626]" />
+                <StatCard icon={<RefreshCw className="w-5 h-5" />} label="Trade Offers" value={stats.totalTrades} sub="All-time trade attempts" accent="bg-black text-white border-white" />
                 <StatCard icon={<Database className="w-5 h-5" />} label="Card DB" value={stats.totalAvailableCards} sub={`Across ${stats.totalAvailableSets} sets`} />
               </div>
             )}
@@ -927,21 +1020,21 @@ export default function AdminDashboard() {
             {/* Quick actions */}
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { label: "Manage Users", desc: "Search, ban, & ticket management", tab: "users" as Tab, icon: <Users className="w-4 h-4" />, color: "fuchsia" },
-                { label: "Pack Settings", desc: "Enable/disable & feature packs", tab: "packs" as Tab, icon: <Package className="w-4 h-4" />, color: "amber" },
-                { label: "Create Event", desc: "Launch limited-time events", tab: "events" as Tab, icon: <Calendar className="w-4 h-4" />, color: "sky" },
-                { label: "View Analytics", desc: "DAU trends & top cards", tab: "analytics" as Tab, icon: <TrendingUp className="w-4 h-4" />, color: "emerald" },
+                { label: "Manage Users", desc: "Search, ban, & ticket management", tab: "users" as Tab, icon: <Users className="w-4 h-4" /> },
+                { label: "Pack Settings", desc: "Enable/disable & feature packs", tab: "packs" as Tab, icon: <Package className="w-4 h-4" /> },
+                { label: "Create Event", desc: "Launch limited-time events", tab: "events" as Tab, icon: <Calendar className="w-4 h-4" /> },
+                { label: "View Analytics", desc: "DAU trends & top cards", tab: "analytics" as Tab, icon: <TrendingUp className="w-4 h-4" /> },
               ].map((qa) => (
                 <button
                   key={qa.tab}
                   onClick={() => setActiveTab(qa.tab)}
-                  className="bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-4 text-left transition-all group"
+                  className="bg-black border-4 border-dotted border-[#2A3FE5] hover:border-[#F4B9B0] p-4 text-left transition-all rounded-none shadow-[4px_4px_0px_rgba(255,255,255,0.15)] group active:translate-y-[2px] active:translate-x-[2px]"
                 >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 bg-${qa.color}-500/10 text-${qa.color}-400 group-hover:bg-${qa.color}-500/20 transition-colors`}>
+                  <div className="w-10 h-10 border border-dotted border-[#2A3FE5] flex items-center justify-center mb-3 text-white bg-black shrink-0 group-hover:border-[#F4B9B0] transition-colors">
                     {qa.icon}
                   </div>
-                  <p className="text-sm font-bold text-zinc-200">{qa.label}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">{qa.desc}</p>
+                  <p className="text-[10px] font-bold text-white uppercase tracking-wider mb-1">{qa.label}</p>
+                  <p className="text-[9px] text-[#F4B9B0] pacman-mono uppercase leading-tight">{qa.desc}</p>
                 </button>
               ))}
             </div>
@@ -951,26 +1044,26 @@ export default function AdminDashboard() {
         {/* ── USERS TAB ────────────────────────────────────────────────── */}
         {activeTab === "users" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">User Management</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">{users.length} trainers loaded</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">User Management</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">{users.length} trainers loaded</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-colors">
+                <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-black border-2 border-dotted border-[#2A3FE5] hover:border-[#F4B9B0] hover:bg-black text-white text-[9px] font-bold transition-all rounded-none uppercase">
                   <FileSpreadsheet className="w-3.5 h-3.5" /> Export CSV
                 </button>
               </div>
             </div>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#2A3FE5]" />
               <input
                 type="text"
                 placeholder="Search by username or FID..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                className="w-full h-10 pl-9 pr-4 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 focus:border-fuchsia-500/40 transition-all"
+                className="w-full h-10 pl-9 pr-4 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none text-xs text-white placeholder-zinc-700 focus:border-[#F4B9B0] focus:outline-none"
               />
             </div>
 
@@ -978,34 +1071,40 @@ export default function AdminDashboard() {
               {/* User List */}
               <div className="lg:col-span-2 space-y-2">
                 {loadingUsers ? (
-                  Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)
+                  Array(5).fill(0).map((_, i) => (
+                    <div key={i} className="h-16 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />
+                  ))
                 ) : users.length === 0 ? (
-                  <div className="text-center py-12 text-zinc-600 text-sm">No trainers found</div>
+                  <div className="text-center py-12 text-zinc-500 text-[10px] uppercase pacman-mono border-2 border-dotted border-[#2A3FE5]">No trainers found</div>
                 ) : (
                   users.map((user) => (
                     <button
                       key={user.id}
                       onClick={() => fetchUserDetail(user.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${selectedUser?.id === user.id ? "bg-fuchsia-500/10 border-fuchsia-500/30" : "bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700"}`}
+                      className={`w-full flex items-center gap-3 p-3 border-2 transition-all text-left rounded-none ${selectedUser?.id === user.id ? "bg-[#2A3FE5]/10 border-solid border-[#F4B9B0]" : "bg-black border-dotted border-[#2A3FE5] hover:border-[#F4B9B0]"}`}
                     >
-                      <div className="w-10 h-10 rounded-xl overflow-hidden bg-zinc-800 shrink-0">
-                        {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm font-bold">{user.username?.[0]?.toUpperCase() || "?"}</div>}
+                      <div className="w-10 h-10 border border-dotted border-[#2A3FE5] overflow-hidden bg-black shrink-0 rounded-none flex items-center justify-center">
+                        {user.avatar ? (
+                          <img src={user.avatar} alt="" className="w-full h-full object-cover rounded-none" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold">{user.username?.[0]?.toUpperCase() || "?"}</div>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-bold text-zinc-100 truncate">{user.username || `FID ${user.fid}`}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider truncate">{user.username || `FID ${user.fid}`}</span>
                           {user.is_admin && <Badge color="fuchsia">Admin</Badge>}
                           {user.is_banned && <Badge color="rose">Banned</Badge>}
                           {user.is_hidden && <Badge color="amber">Hidden</Badge>}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[11px] text-zinc-500">FID {user.fid}</span>
-                          <span className="text-[11px] text-zinc-600">·</span>
-                          <span className="text-[11px] text-zinc-500">{user.totalCards} cards</span>
-                          <span className="text-[11px] text-zinc-600">·</span>
-                          <span className="text-[11px] text-amber-500">🎟 {user.pack_tickets}</span>
-                          <span className="text-[11px] text-zinc-600">·</span>
-                          <span className="text-[11px] text-indigo-400 font-bold">✨ {user.pokepoints || 0}</span>
+                        <div className="flex items-center gap-2 flex-wrap mt-1 text-[8px] text-[#F4B9B0] pacman-mono uppercase">
+                          <span>FID {user.fid}</span>
+                          <span>·</span>
+                          <span>{user.totalCards} cards</span>
+                          <span>·</span>
+                          <span>🎟 {user.pack_tickets}</span>
+                          <span>·</span>
+                          <span>✨ {user.pokepoints || 0}</span>
                         </div>
                       </div>
                     </button>
@@ -1016,34 +1115,38 @@ export default function AdminDashboard() {
               {/* User Detail Panel */}
               <div className="lg:col-span-3">
                 {!selectedUser ? (
-                  <div className="h-full min-h-[200px] flex items-center justify-center bg-zinc-900/40 border border-zinc-800/40 border-dashed rounded-2xl">
+                  <div className="h-full min-h-[250px] flex items-center justify-center bg-black border-4 border-dotted border-[#2A3FE5] rounded-none p-6">
                     <div className="text-center space-y-2">
-                      <UserCheck className="w-8 h-8 text-zinc-700 mx-auto" />
-                      <p className="text-sm text-zinc-600">Select a trainer to view details</p>
+                      <UserCheck className="w-8 h-8 text-[#2A3FE5] mx-auto" />
+                      <p className="text-[9px] uppercase tracking-wider text-[#F4B9B0] pacman-mono">Select a trainer to view details</p>
                     </div>
                   </div>
                 ) : loadingUserDetail ? (
-                  <div className="h-64 bg-zinc-900/40 border border-zinc-800/40 rounded-2xl animate-pulse" />
+                  <div className="h-64 bg-black border-4 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />
                 ) : (
-                  <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5 space-y-5">
+                  <div className="bg-black border-4 border-double border-[#F4B9B0] p-5 space-y-5 rounded-none shadow-[4px_4px_0px_rgba(255,255,255,0.15)]">
                     {/* Profile header */}
                     <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-800 shrink-0">
-                        {selectedUser.avatar ? <img src={selectedUser.avatar} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-400 text-xl font-bold">{selectedUser.username?.[0]?.toUpperCase()}</div>}
+                      <div className="w-12 h-12 border-2 border-dotted border-[#2A3FE5] bg-black shrink-0 rounded-none overflow-hidden flex items-center justify-center">
+                        {selectedUser.avatar ? (
+                          <img src={selectedUser.avatar} alt="" className="w-full h-full object-cover rounded-none" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white text-xs font-bold">{selectedUser.username?.[0]?.toUpperCase()}</div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-black text-zinc-100">{selectedUser.username}</h3>
+                          <h3 className="text-xs font-black text-white uppercase tracking-wider">{selectedUser.username}</h3>
                           {selectedUser.is_admin && <Badge color="fuchsia">Admin</Badge>}
                           {selectedUser.is_banned && <Badge color="rose">Banned</Badge>}
                           {selectedUser.is_hidden && <Badge color="amber">Hidden</Badge>}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5">FID {selectedUser.fid} · Joined {new Date(selectedUser.created_at).toLocaleDateString()}</p>
+                        <p className="text-[8px] text-zinc-500 mt-1 pacman-mono uppercase">FID {selectedUser.fid} · Joined {new Date(selectedUser.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
 
                     {/* Stats grid */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { label: "Pack Tickets", value: selectedUser.pack_tickets || 0, icon: "🎟" },
                         { label: "PokePoints", value: selectedUser.pokepoints || 0, icon: "✨" },
@@ -1052,17 +1155,17 @@ export default function AdminDashboard() {
                         { label: "Login Streak", value: selectedUser.login_streak || 0, icon: "🔥" },
                         { label: "Total Cards", value: selectedUserCards.length, icon: "🃏" },
                       ].map((s) => (
-                        <div key={s.label} className="bg-zinc-950/60 rounded-xl p-2.5 text-center">
-                          <div className="text-lg mb-0.5">{s.icon}</div>
-                          <div className="text-lg font-black text-zinc-100">{s.value.toLocaleString()}</div>
-                          <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{s.label}</div>
+                        <div key={s.label} className="bg-black border-2 border-dotted border-[#2A3FE5] p-2 text-center rounded-none">
+                          <div className="text-sm mb-0.5">{s.icon}</div>
+                          <div className="text-[10px] font-black text-white">{s.value.toLocaleString()}</div>
+                          <div className="text-[8px] text-[#F4B9B0] uppercase tracking-wider pacman-mono mt-1 leading-tight">{s.label}</div>
                         </div>
                       ))}
                     </div>
 
                     {/* Ticket management */}
                     <div className="space-y-2">
-                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Ticket Management</p>
+                      <p className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Ticket Management</p>
                       <div className="flex gap-2">
                         <input
                           type="number"
@@ -1070,12 +1173,12 @@ export default function AdminDashboard() {
                           max={9999}
                           value={ticketAmount}
                           onChange={(e) => setTicketAmount(Number(e.target.value))}
-                          className="w-20 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-sm text-zinc-200 text-center focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50"
+                          className="w-20 h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-2 text-xs text-white text-center focus:outline-none"
                         />
-                        <button onClick={() => handleAddTickets(selectedUser.id)} className="flex-1 h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                        <button onClick={() => handleAddTickets(selectedUser.id)} className="flex-1 h-9 bg-black hover:bg-[#16A34A] hover:text-white text-[#16A34A] border-2 border-dotted border-[#16A34A] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1">
                           <Plus className="w-3.5 h-3.5" /> Add
                         </button>
-                        <button onClick={() => handleRemoveTickets(selectedUser.id)} className="flex-1 h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                        <button onClick={() => handleRemoveTickets(selectedUser.id)} className="flex-1 h-9 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1">
                           <X className="w-3.5 h-3.5" /> Remove
                         </button>
                       </div>
@@ -1083,7 +1186,7 @@ export default function AdminDashboard() {
 
                     {/* PokePoints Management */}
                     <div className="space-y-2">
-                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">PokePoints Management</p>
+                      <p className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">PokePoints Management</p>
                       <div className="flex gap-2">
                         <input
                           type="number"
@@ -1091,12 +1194,12 @@ export default function AdminDashboard() {
                           max={99999}
                           value={pointsAmount}
                           onChange={(e) => setPointsAmount(Number(e.target.value))}
-                          className="w-20 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-sm text-zinc-200 text-center focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50"
+                          className="w-20 h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-2 text-xs text-white text-center focus:outline-none"
                         />
-                        <button onClick={() => handleAddPoints(selectedUser.id)} className="flex-1 h-9 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                        <button onClick={() => handleAddPoints(selectedUser.id)} className="flex-1 h-9 bg-black hover:bg-[#2A3FE5] hover:text-white text-[#2A3FE5] border-2 border-dotted border-[#2A3FE5] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1">
                           <Plus className="w-3.5 h-3.5" /> Add Points
                         </button>
-                        <button onClick={() => handleRemovePoints(selectedUser.id)} className="flex-1 h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                        <button onClick={() => handleRemovePoints(selectedUser.id)} className="flex-1 h-9 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1">
                           <X className="w-3.5 h-3.5" /> Remove Points
                         </button>
                       </div>
@@ -1105,22 +1208,22 @@ export default function AdminDashboard() {
                         placeholder="Reason for points adjustment (optional)..."
                         value={pointsReason}
                         onChange={(e) => setPointsReason(e.target.value)}
-                        className="w-full h-9 bg-zinc-950 border border-zinc-805 rounded-lg px-3 text-xs text-zinc-300 placeholder-zinc-650 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                        className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white placeholder-zinc-700 focus:outline-none"
                       />
                     </div>
 
                     {/* Grant cards */}
                     <div className="space-y-2">
-                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Grant Cards</p>
+                      <p className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Grant Cards</p>
                       <div className="flex gap-2">
                         <input type="number" min={1} max={100} value={grantCardCount} onChange={(e) => setGrantCardCount(Number(e.target.value))}
-                          className="w-20 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-sm text-zinc-200 text-center focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50" />
+                          className="w-20 h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-2 text-xs text-white text-center focus:outline-none" />
                         <select value={selectedSetFilter} onChange={(e) => setSelectedSetFilter(e.target.value)}
-                          className="flex-1 h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-2 text-xs text-zinc-300 focus:outline-none min-w-0">
+                          className="flex-1 h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-2 text-xs text-white focus:outline-none min-w-0">
                           {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                         <button onClick={() => handleUserGrantCards(selectedUser.id)}
-                          className="h-9 px-3 bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border border-violet-500/20 rounded-lg text-xs font-semibold transition-all flex items-center gap-1">
+                          className="h-9 px-3 bg-black hover:bg-[#2A3FE5] hover:text-white text-[#2A3FE5] border-2 border-dotted border-[#2A3FE5] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center gap-1">
                           <Sparkles className="w-3.5 h-3.5" /> Grant
                         </button>
                       </div>
@@ -1129,51 +1232,51 @@ export default function AdminDashboard() {
                     {/* Ban reason */}
                     {!selectedUser.is_banned && (
                       <input type="text" placeholder="Ban reason (optional)..." value={banReason} onChange={(e) => setBanReason(e.target.value)}
-                        className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-lg px-3 text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50" />
+                        className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white placeholder-zinc-700 focus:outline-none" />
                     )}
 
                     {/* Action buttons */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                       {selectedUser.is_banned ? (
                         <button onClick={() => handleUnbanUser(selectedUser.id)}
-                          className="col-span-2 h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          className="sm:col-span-2 h-9 bg-black hover:bg-[#16A34A] hover:text-white text-[#16A34A] border-2 border-dotted border-[#16A34A] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                           <ShieldCheck className="w-3.5 h-3.5" /> Unban User
                         </button>
                       ) : (
                         <button onClick={() => handleBanUser(selectedUser.id)}
-                          className="h-9 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          className="h-9 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                           <Ban className="w-3.5 h-3.5" /> Ban
                         </button>
                       )}
                       {selectedUser.is_hidden ? (
                         <button onClick={() => handleUnhideUser(selectedUser.id)}
-                          className="h-9 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          className="h-9 bg-black hover:bg-[#16A34A] hover:text-white text-[#16A34A] border-2 border-dotted border-[#16A34A] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                           <Eye className="w-3.5 h-3.5" /> Show to Public
                         </button>
                       ) : (
                         <button onClick={() => handleHideUser(selectedUser.id)}
-                          className="h-9 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                          className="h-9 bg-black hover:bg-[#D97706] hover:text-white text-[#D97706] border-2 border-dotted border-[#D97706] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                           <EyeOff className="w-3.5 h-3.5" /> Hide from Public
                         </button>
                       )}
                       <button onClick={() => handleToggleAdmin(selectedUser.id)}
-                        className={`h-9 border rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        className={`h-9 border-2 border-dotted text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5 rounded-none ${
                           selectedUser.is_admin 
-                            ? "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20 hover:bg-fuchsia-500/25" 
-                            : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 border-zinc-700"
+                            ? "bg-black hover:bg-[#F4B9B0] hover:text-black text-[#F4B9B0] border-[#F4B9B0] hover:border-solid" 
+                            : "bg-black hover:bg-white hover:text-black text-zinc-400 border-zinc-700 hover:border-solid"
                         }`}>
                         <ShieldAlert className="w-3.5 h-3.5" /> {selectedUser.is_admin ? "Revoke Admin" : "Make Admin"}
                       </button>
                       <button onClick={() => handleResetStreak(selectedUser.id)}
-                        className="h-9 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        className="h-9 bg-black hover:bg-[#D97706] hover:text-white text-[#D97706] border-2 border-dotted border-[#D97706] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                         <RotateCcw className="w-3.5 h-3.5" /> Reset Streak
                       </button>
                       <button onClick={() => handleUserClearCollection(selectedUser.id)}
-                        className="h-9 bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/20 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        className="h-9 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                         <Trash2 className="w-3.5 h-3.5" /> Clear Cards
                       </button>
                       <button onClick={() => handleUserDelete(selectedUser.id)}
-                        className="col-span-2 h-9 bg-rose-900/30 hover:bg-rose-800/40 text-rose-400 border border-rose-900/50 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        className="sm:col-span-2 h-9 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] border-4 border-double border-[#DC2626] rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                         <Trash2 className="w-3.5 h-3.5" /> Delete Account Permanently
                       </button>
                     </div>
@@ -1187,54 +1290,54 @@ export default function AdminDashboard() {
         {/* ── QUESTS TAB ───────────────────────────────────────────────── */}
         {activeTab === "quests" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Quest Management</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Adjust quest requirements, ticket rewards, and link associations dynamically</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Quest Management</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Adjust quest requirements, ticket rewards, and link associations dynamically</p>
               </div>
-              <button onClick={fetchQuests} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+              <button onClick={fetchQuests} className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Quest Edit Form */}
             {editingQuest && (
-              <form onSubmit={handleQuestSave} className="bg-zinc-900/60 border border-fuchsia-500/20 rounded-2xl p-5 space-y-4">
+              <form onSubmit={handleQuestSave} className="bg-black border-4 border-double border-[#F4B9B0] p-5 space-y-4 rounded-none shadow-[6px_6px_0px_rgba(255,255,255,0.15)]">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-zinc-100">Edit Quest Definition ({editingQuest.id})</h3>
-                  <button type="button" onClick={() => setEditingQuest(null)} className="text-zinc-500 hover:text-zinc-300 transition-colors"><X className="w-4 h-4" /></button>
+                  <h3 className="text-[10px] font-bold text-white uppercase tracking-wider">Edit Quest ({editingQuest.id})</h3>
+                  <button type="button" onClick={() => setEditingQuest(null)} className="text-zinc-500 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Title *</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Title *</label>
                     <input name="title" required defaultValue={editingQuest.title}
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Target *</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Target *</label>
                     <input name="target" type="number" required min="1" defaultValue={editingQuest.target}
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Reward Tickets *</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Reward Tickets *</label>
                     <input name="reward" type="number" required min="1" defaultValue={editingQuest.reward}
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Link (Warpcast/Social URL)</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Link (Warpcast/Social URL)</label>
                     <input name="link" defaultValue={editingQuest.link || ""} placeholder="https://..."
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Description</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Description</label>
                     <textarea name="description" defaultValue={editingQuest.description} rows={2} placeholder="Quest instructions..."
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-200 resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 py-2 text-xs text-white resize-none focus:outline-none" />
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button type="button" onClick={() => setEditingQuest(null)}
-                    className="h-9 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-all">Cancel</button>
-                  <button type="submit" className="h-9 px-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    className="h-9 px-4 border-2 border-dotted border-zinc-700 text-zinc-550 hover:text-white hover:border-white rounded-none text-[8px] font-bold uppercase transition-all">Cancel</button>
+                  <button type="submit" className="h-9 px-4 bg-black hover:bg-[#F4B9B0] hover:text-black text-[#F4B9B0] border-2 border-dotted border-[#F4B9B0] rounded-none text-[8px] font-bold transition-all uppercase flex items-center gap-1.5">
                     <Save className="w-3.5 h-3.5" /> Save Quest
                   </button>
                 </div>
@@ -1242,33 +1345,33 @@ export default function AdminDashboard() {
             )}
 
             {loadingQuests ? (
-              <div className="space-y-2">{Array(4).fill(0).map((_, i) => <div key={i} className="h-20 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+              <div className="space-y-2">{Array(4).fill(0).map((_, i) => <div key={i} className="h-20 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
             ) : questsList.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <FileSpreadsheet className="w-8 h-8 text-zinc-750 mx-auto" />
-                <p className="text-sm text-zinc-600">No quests found. Dynamic quests definitions will load when Supabase is seeded.</p>
+              <div className="text-center py-16 space-y-3 border-2 border-dotted border-[#2A3FE5]">
+                <FileSpreadsheet className="w-8 h-8 text-zinc-700 mx-auto" />
+                <p className="text-[9px] text-zinc-500 uppercase pacman-mono">No quests found. Dynamic quests definitions will load when Supabase is seeded.</p>
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Daily Quests Category */}
                 <div className="space-y-3">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-800 pb-2">Daily Quests</h2>
+                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-[#F4B9B0] border-b-2 border-dotted border-[#2A3FE5] pb-2">Daily Quests</h2>
                   {questsList.filter(q => !q.is_main).map((quest) => (
-                    <div key={quest.id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-zinc-700 transition-colors">
+                    <div key={quest.id} className="bg-black border-2 border-dotted border-[#2A3FE5] hover:border-[#F4B9B0] p-4 flex flex-col justify-between gap-3 rounded-none transition-colors">
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-zinc-100">{quest.title}</span>
-                          <span className="text-[10px] font-mono text-zinc-500">{quest.id}</span>
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider">{quest.title}</span>
+                          <span className="text-[8px] font-mono text-zinc-500 pacman-mono">{quest.id}</span>
                         </div>
-                        <p className="text-xs text-zinc-500">{quest.description || "No description."}</p>
-                        <div className="flex gap-2 items-center text-[11px] text-zinc-500 pt-1">
-                          <span>Target: <strong className="text-zinc-300">{quest.target}</strong></span>
+                        <p className="text-[9px] text-zinc-500 pacman-mono leading-tight">{quest.description || "No description."}</p>
+                        <div className="flex gap-2 items-center text-[8px] text-[#F4B9B0] pacman-mono uppercase pt-1 flex-wrap">
+                          <span>Target: <strong className="text-white">{quest.target}</strong></span>
                           <span>·</span>
-                          <span className="text-amber-400 font-semibold">Reward: {quest.reward} Tickets</span>
+                          <span className="text-[#D97706] font-semibold">Reward: {quest.reward} Tickets</span>
                         </div>
                       </div>
                       <button onClick={() => { setEditingQuest(quest); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        className="w-full h-8 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-zinc-700/60">
+                        className="w-full h-8 bg-black hover:bg-[#2A3FE5] hover:text-white text-[#2A3FE5] border-2 border-dotted border-[#2A3FE5] rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                         <Edit3 className="w-3.5 h-3.5" /> Edit Quest
                       </button>
                     </div>
@@ -1277,26 +1380,26 @@ export default function AdminDashboard() {
 
                 {/* Main Quests Category */}
                 <div className="space-y-3">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400 border-b border-zinc-800 pb-2">Main Quests (One-time)</h2>
+                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-[#F4B9B0] border-b-2 border-dotted border-[#2A3FE5] pb-2">Main Quests (One-time)</h2>
                   {questsList.filter(q => q.is_main).map((quest) => (
-                    <div key={quest.id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-zinc-700 transition-colors">
+                    <div key={quest.id} className="bg-black border-2 border-dotted border-[#2A3FE5] hover:border-[#F4B9B0] p-4 flex flex-col justify-between gap-3 rounded-none transition-colors">
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-zinc-100">{quest.title}</span>
-                          <span className="text-[10px] font-mono text-zinc-500">{quest.id}</span>
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider">{quest.title}</span>
+                          <span className="text-[8px] font-mono text-zinc-500 pacman-mono">{quest.id}</span>
                         </div>
-                        <p className="text-xs text-zinc-500">{quest.description || "No description."}</p>
+                        <p className="text-[9px] text-zinc-500 pacman-mono leading-tight">{quest.description || "No description."}</p>
                         {quest.link && (
-                          <p className="text-[10px] text-zinc-500 truncate">Link: {quest.link}</p>
+                          <p className="text-[8px] text-[#2A3FE5] truncate pacman-mono uppercase">Link: {quest.link}</p>
                         )}
-                        <div className="flex gap-2 items-center text-[11px] text-zinc-500 pt-1">
-                          <span>Target: <strong className="text-zinc-300">{quest.target}</strong></span>
+                        <div className="flex gap-2 items-center text-[8px] text-[#F4B9B0] pacman-mono uppercase pt-1 flex-wrap">
+                          <span>Target: <strong className="text-white">{quest.target}</strong></span>
                           <span>·</span>
-                          <span className="text-amber-400 font-semibold">Reward: {quest.reward} Tickets</span>
+                          <span className="text-[#D97706] font-semibold">Reward: {quest.reward} Tickets</span>
                         </div>
                       </div>
                       <button onClick={() => { setEditingQuest(quest); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        className="w-full h-8 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-zinc-700/60">
+                        className="w-full h-8 bg-black hover:bg-[#2A3FE5] hover:text-white text-[#2A3FE5] border-2 border-dotted border-[#2A3FE5] rounded-none text-[8px] font-bold transition-all uppercase flex items-center justify-center gap-1.5">
                         <Edit3 className="w-3.5 h-3.5" /> Edit Quest
                       </button>
                     </div>
@@ -1310,46 +1413,46 @@ export default function AdminDashboard() {
         {/* ── PACKS TAB ────────────────────────────────────────────────── */}
         {activeTab === "packs" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Pack Management</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Enable, disable, and feature expansion packs</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Pack Management</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Enable, disable, and feature expansion packs</p>
               </div>
             </div>
 
             {/* Search and Global Action Row (At the very top) */}
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#2A3FE5]" />
                 <input
                   type="text"
                   placeholder="Search pack by name or ID..."
                   value={packSearch}
                   onChange={(e) => setPackSearch(e.target.value)}
-                  className="w-full h-10 pl-9 pr-4 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 focus:border-fuchsia-500/40 transition-all"
+                  className="w-full h-10 pl-9 pr-4 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none text-xs text-white placeholder-zinc-700 focus:border-[#F4B9B0] focus:outline-none"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={handleEnableAllPacks}
-                  className="px-4 h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20 active:scale-95 shrink-0"
+                  className="px-3 h-10 bg-black hover:bg-[#16A34A] hover:text-white text-[#16A34A] border-2 border-dotted border-[#16A34A] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center gap-1.5"
                 >
                   <CheckCircle className="w-3.5 h-3.5" /> Enable All Packs
                 </button>
                 <button
                   onClick={handleDisableAllPacks}
-                  className="px-4 h-10 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-rose-950/20 active:scale-95 shrink-0"
+                  className="px-3 h-10 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none text-[8px] font-bold transition-all uppercase flex items-center gap-1.5"
                 >
                   <Ban className="w-3.5 h-3.5" /> Disable All Packs
                 </button>
-                <button onClick={fetchPacks} className="w-10 h-10 flex items-center justify-center bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-colors shrink-0">
+                <button onClick={fetchPacks} className="w-10 h-10 flex items-center justify-center bg-black border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none">
                   <RefreshCw className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {loadingPacks ? (
-              <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+              <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
             ) : (
               <div className="space-y-2">
                 {packs
@@ -1358,30 +1461,30 @@ export default function AdminDashboard() {
                     p.id.toLowerCase().includes(packSearch.toLowerCase())
                   )
                   .map((pack) => (
-                  <div key={pack.id} className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${pack.pack_enabled ? "bg-zinc-900/60 border-zinc-800/60" : "bg-zinc-900/30 border-zinc-800/30 opacity-60"}`}>
+                  <div key={pack.id} className={`flex items-center gap-3 p-3 border-2 transition-all rounded-none ${pack.pack_enabled ? "bg-black border-dotted border-[#2A3FE5]" : "bg-black border-dotted border-zinc-850 opacity-60"}`}>
                     {pack.logo && (
-                      <img src={pack.logo} alt={pack.name} className="w-10 h-10 object-contain rounded-xl bg-zinc-800 p-1 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <img src={pack.logo} alt={pack.name} className="w-10 h-10 object-contain rounded-none border border-dotted border-[#2A3FE5] bg-black p-1 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-zinc-100 truncate">{pack.name}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider truncate">{pack.name}</span>
                         {pack.featured_pack && <Badge color="amber">⭐ Featured</Badge>}
                         {!pack.pack_enabled && <Badge color="rose">Disabled</Badge>}
                       </div>
-                      <p className="text-[11px] text-zinc-500 mt-0.5">{pack.series || "—"} · {pack.id}</p>
+                      <p className="text-[8px] text-[#F4B9B0] mt-1 pacman-mono uppercase leading-none">{pack.series || "—"} · {pack.id}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       {/* Featured toggle */}
                       <button
                         onClick={() => handlePackUpdate(pack.id, pack.pack_enabled, !pack.featured_pack)}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${pack.featured_pack ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-zinc-800 text-zinc-400 hover:text-amber-300 border border-zinc-700"}`}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-none text-[8px] font-bold uppercase transition-all border-2 ${pack.featured_pack ? "bg-black border-double border-[#D97706] text-[#D97706]" : "bg-black border-dotted border-zinc-800 text-zinc-550 hover:border-[#D97706] hover:text-[#D97706]"}`}
                       >
                         <Star className="w-3 h-3" /> {pack.featured_pack ? "Featured" : "Feature"}
                       </button>
                       {/* Enable/Disable toggle */}
                       <button
                         onClick={() => handlePackUpdate(pack.id, !pack.pack_enabled, pack.featured_pack)}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${pack.pack_enabled ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 hover:bg-rose-500/15 hover:text-rose-300 hover:border-rose-500/20" : "bg-zinc-800 text-zinc-400 hover:text-emerald-300 border border-zinc-700"}`}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-none text-[8px] font-bold uppercase transition-all border-2 ${pack.pack_enabled ? "bg-black border-double border-[#16A34A] text-[#16A34A] hover:border-[#DC2626] hover:text-[#DC2626]" : "bg-black border-dotted border-[#DC2626] text-[#DC2626] hover:border-[#16A34A] hover:text-[#16A34A]"}`}
                       >
                         {pack.pack_enabled ? "Enabled" : "Enable"}
                       </button>
@@ -1392,28 +1495,28 @@ export default function AdminDashboard() {
             )}
 
             {/* Pack Simulator */}
-            <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 space-y-3">
+            <div className="bg-black border-4 border-dotted border-[#2A3FE5] p-4 space-y-3 rounded-none">
               <SectionHeader title="Pack Pull Simulator" />
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                 <select value={selectedSetFilter} onChange={(e) => setSelectedSetFilter(e.target.value)}
-                  className="flex-1 h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-xs text-zinc-300 focus:outline-none">
+                  className="flex-1 h-9 bg-black border-2 border-dotted border-[#2A3FE5] px-3 text-xs text-white focus:outline-none rounded-none">
                   {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <button onClick={() => handleSimulatePacks(selectedSetFilter)} disabled={simulating}
-                  className="flex items-center gap-1.5 px-4 h-9 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 text-white rounded-xl text-xs font-semibold transition-all">
-                  {simulating ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Cpu className="w-3.5 h-3.5" />}
+                  className="flex items-center justify-center gap-1.5 px-4 h-9 bg-black hover:bg-[#F4B9B0] hover:text-black text-[#F4B9B0] border-2 border-dotted border-[#F4B9B0] disabled:opacity-40 rounded-none text-[8px] font-bold uppercase transition-all shrink-0">
+                  {simulating ? <div className="w-3.5 h-3.5 border-2 border-[#F4B9B0] border-t-transparent rounded-none animate-spin" /> : <Cpu className="w-3.5 h-3.5" />}
                   Simulate 5,000 Pulls
                 </button>
               </div>
               {simResults.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-2.5 pt-2">
                   {simResults.sort((a, b) => b.count - a.count).map((r) => (
                     <div key={r.rarity} className="flex items-center gap-2">
-                      <div className="w-32 text-[11px] text-zinc-400 truncate">{r.rarity}</div>
-                      <div className="flex-1 h-5 bg-zinc-950 rounded-full overflow-hidden">
-                        <div className="h-full bg-fuchsia-500/40 rounded-full transition-all" style={{ width: `${r.percentage}%` }} />
+                      <div className="w-32 text-[8px] text-zinc-500 font-bold uppercase pacman-mono truncate">{r.rarity}</div>
+                      <div className="flex-1 h-5 bg-black border border-dotted border-[#2A3FE5] rounded-none overflow-hidden relative">
+                        <div className="h-full bg-[#2A3FE5] border-r-2 border-solid border-[#F4B9B0] transition-all" style={{ width: `${r.percentage}%` }} />
                       </div>
-                      <div className="w-10 text-[11px] text-zinc-400 text-right">{r.percentage}%</div>
+                      <div className="w-10 text-[8px] text-[#F4B9B0] font-mono text-right pacman-mono">{r.percentage}%</div>
                     </div>
                   ))}
                 </div>
@@ -1425,55 +1528,55 @@ export default function AdminDashboard() {
         {/* ── EVENTS TAB ───────────────────────────────────────────────── */}
         {activeTab === "events" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Event Management</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Create and manage limited-time event packs</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Event Management</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Create and manage limited-time event packs</p>
               </div>
               <button onClick={() => { setEditingEvent(null); setEventForm(true); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold transition-all">
+                className="flex items-center gap-1.5 px-3 py-2 bg-black hover:bg-[#F4B9B0] hover:text-black text-[#F4B9B0] border-2 border-dotted border-[#F4B9B0] rounded-none text-[8px] font-bold uppercase transition-all">
                 <Plus className="w-3.5 h-3.5" /> New Event
               </button>
             </div>
 
             {/* Event Create/Edit Form */}
             {eventForm && (
-              <form onSubmit={handleEventSave} className="bg-zinc-900/60 border border-fuchsia-500/20 rounded-2xl p-5 space-y-4">
+              <form onSubmit={handleEventSave} className="bg-black border-4 border-double border-[#F4B9B0] p-5 space-y-4 rounded-none shadow-[6px_6px_0px_rgba(255,255,255,0.15)]">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-zinc-100">{editingEvent ? "Edit Event" : "Create New Event"}</h3>
-                  <button type="button" onClick={() => { setEventForm(null); setEditingEvent(null); }} className="text-zinc-500 hover:text-zinc-300 transition-colors"><X className="w-4 h-4" /></button>
+                  <h3 className="text-[10px] font-bold text-white uppercase tracking-wider">{editingEvent ? "Edit Event" : "Create New Event"}</h3>
+                  <button type="button" onClick={() => { setEventForm(null); setEditingEvent(null); }} className="text-zinc-500 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Event Name *</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Event Name *</label>
                     <input name="name" required defaultValue={editingEvent?.name} placeholder="e.g. Summer Festival Event"
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Bonus Drop Rate (×)</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Bonus Drop Rate (×)</label>
                     <input name="bonus_drop_rate" type="number" min="0.1" max="10" step="0.1" defaultValue={editingEvent?.bonus_drop_rate || 1.0}
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Start Date *</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Start Date *</label>
                     <input name="start_date" type="datetime-local" required defaultValue={editingEvent?.start_date?.slice(0, 16)}
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">End Date *</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">End Date *</label>
                     <input name="end_date" type="datetime-local" required defaultValue={editingEvent?.end_date?.slice(0, 16)}
-                      className="w-full h-9 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full h-9 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Description</label>
+                    <label className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] pacman-mono">Description</label>
                     <textarea name="description" defaultValue={editingEvent?.description} rows={2} placeholder="Optional event description..."
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-zinc-200 resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
+                      className="w-full bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 py-2 text-xs text-white resize-none focus:outline-none" />
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button type="button" onClick={() => { setEventForm(null); setEditingEvent(null); }}
-                    className="h-9 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-all">Cancel</button>
-                  <button type="submit" className="h-9 px-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    className="h-9 px-4 border-2 border-dotted border-zinc-700 text-zinc-550 hover:text-white hover:border-white rounded-none text-[8px] font-bold uppercase transition-all">Cancel</button>
+                  <button type="submit" className="h-9 px-4 bg-black hover:bg-[#F4B9B0] hover:text-black text-[#F4B9B0] border-2 border-dotted border-[#F4B9B0] rounded-none text-[8px] font-bold transition-all uppercase flex items-center gap-1.5">
                     <Save className="w-3.5 h-3.5" /> {editingEvent ? "Save Changes" : "Create Event"}
                   </button>
                 </div>
@@ -1481,11 +1584,11 @@ export default function AdminDashboard() {
             )}
 
             {loadingEvents ? (
-              <div className="space-y-2">{Array(3).fill(0).map((_, i) => <div key={i} className="h-20 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+              <div className="space-y-2">{Array(3).fill(0).map((_, i) => <div key={i} className="h-20 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
             ) : events.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
+              <div className="text-center py-16 space-y-3 border-2 border-dotted border-[#2A3FE5]">
                 <Calendar className="w-8 h-8 text-zinc-700 mx-auto" />
-                <p className="text-sm text-zinc-600">No events yet. Create your first event pack!</p>
+                <p className="text-[9px] text-zinc-500 uppercase pacman-mono">No events yet. Create your first event pack!</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1494,32 +1597,32 @@ export default function AdminDashboard() {
                   const isLive = ev.is_active && new Date(ev.start_date) <= now && new Date(ev.end_date) >= now;
                   const isExpired = new Date(ev.end_date) < now;
                   return (
-                    <div key={ev.id} className={`bg-zinc-900/60 border rounded-2xl p-4 transition-all ${isLive ? "border-emerald-500/30" : isExpired ? "border-zinc-800/30 opacity-50" : "border-zinc-800/60"}`}>
-                      <div className="flex items-start justify-between gap-3">
+                    <div key={ev.id} className={`bg-black border-2 p-4 transition-all rounded-none ${isLive ? "border-solid border-[#16A34A]" : isExpired ? "border-dotted border-zinc-850 opacity-50" : "border-dotted border-[#2A3FE5]"}`}>
+                      <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-zinc-100">{ev.name}</span>
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">{ev.name}</span>
                             {isLive && <Badge color="emerald">🟢 Live</Badge>}
                             {isExpired && <Badge color="zinc">Expired</Badge>}
                             {!ev.is_active && !isExpired && <Badge color="zinc">Disabled</Badge>}
                             <Badge color="sky">{ev.bonus_drop_rate}× Drop Rate</Badge>
                           </div>
-                          {ev.description && <p className="text-xs text-zinc-500 mt-1">{ev.description}</p>}
-                          <p className="text-[11px] text-zinc-600 mt-1">
+                          {ev.description && <p className="text-[9px] text-zinc-500 mt-1.5 pacman-mono uppercase leading-tight">{ev.description}</p>}
+                          <p className="text-[8px] text-[#F4B9B0] mt-1.5 pacman-mono uppercase">
                             {new Date(ev.start_date).toLocaleString()} → {new Date(ev.end_date).toLocaleString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button onClick={() => { setEditingEvent(ev); setEventForm(true); }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors">
+                            className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-[#2A3FE5] text-[#2A3FE5] hover:border-[#F4B9B0] hover:text-[#F4B9B0] rounded-none transition-colors">
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => handleToggleEventActive(ev)}
-                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${ev.is_active ? "bg-emerald-500/15 text-emerald-400 hover:bg-rose-500/15 hover:text-rose-400" : "bg-zinc-800 text-zinc-500 hover:text-emerald-400"}`}>
+                            className={`w-8 h-8 flex items-center justify-center border-2 border-dotted rounded-none transition-colors ${ev.is_active ? "border-[#16A34A] text-[#16A34A] hover:border-[#DC2626] hover:text-[#DC2626]" : "border-zinc-800 text-zinc-550 hover:border-[#16A34A] hover:text-[#16A34A]"}`}>
                             {ev.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                           </button>
                           <button onClick={() => handleEventDelete(ev.id)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-rose-500/15 text-zinc-500 hover:text-rose-400 transition-colors">
+                            className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-[#DC2626] text-[#DC2626] hover:bg-[#DC2626] hover:text-white rounded-none transition-colors">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -1535,49 +1638,49 @@ export default function AdminDashboard() {
         {/* ── CARDS TAB ────────────────────────────────────────────────── */}
         {activeTab === "cards" && (
           <div className="space-y-4">
-            <div>
-              <h1 className="text-xl font-black text-zinc-100">Card Management</h1>
-              <p className="text-xs text-zinc-500 mt-0.5">Hide or unhide cards from player packs</p>
+            <div className="pb-2 border-b-2 border-dotted border-[#2A3FE5]">
+              <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Card Management</h1>
+              <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Hide or unhide cards from player packs</p>
             </div>
 
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#2A3FE5]" />
                 <input type="text" placeholder="Search cards..." value={cardSearch} onChange={(e) => setCardSearch(e.target.value)}
-                  className="w-full h-10 pl-9 pr-4 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 transition-all" />
+                  className="w-full h-10 pl-9 pr-4 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none text-xs text-white focus:outline-none" />
               </div>
               <select value={selectedSetFilter} onChange={(e) => setSelectedSetFilter(e.target.value)}
-                className="h-10 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-xs text-zinc-300 focus:outline-none max-w-[180px]">
+                className="h-10 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none max-w-[180px]">
                 {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
 
             {loadingCards ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                {Array(10).fill(0).map((_, i) => <div key={i} className="aspect-[3/4] bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}
+                {Array(10).fill(0).map((_, i) => <div key={i} className="aspect-[3/4] bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}
               </div>
             ) : cards.length === 0 ? (
-              <div className="text-center py-16 text-zinc-600 text-sm">No cards found</div>
+              <div className="text-center py-16 text-zinc-550 border-2 border-dotted border-[#2A3FE5] text-[9px] uppercase pacman-mono">No cards found</div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {cards.map((card) => (
-                  <div key={card.id} className={`group relative bg-zinc-900/60 border rounded-2xl overflow-hidden transition-all ${card.hidden ? "border-rose-500/20 opacity-40" : "border-zinc-800/60 hover:border-zinc-700"}`}>
-                    <div className="relative">
+                  <div key={card.id} className={`group relative bg-black border-2 overflow-hidden transition-all rounded-none ${card.hidden ? "border-dotted border-[#DC2626] opacity-40" : "border-dotted border-[#2A3FE5] hover:border-[#F4B9B0]"}`}>
+                    <div className="relative aspect-[3/4] w-full bg-black flex items-center justify-center p-2">
                       <img src={card.image || card.imageUrl} alt={card.name}
-                        className={`w-full aspect-[3/4] object-contain bg-zinc-900 p-2 transition-all ${card.hidden ? "grayscale" : ""}`}
+                        className={`w-full h-full object-contain transition-all ${card.hidden ? "grayscale" : ""}`}
                         onError={(e) => { (e.target as HTMLImageElement).src = "https://images.pokemontcg.io/base1/1.png"; }} />
                       {card.hidden && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-t-2xl">
-                          <EyeOff className="w-6 h-6 text-rose-400" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/75 rounded-none">
+                          <EyeOff className="w-6 h-6 text-[#DC2626]" />
                         </div>
                       )}
                     </div>
-                    <div className="p-2 space-y-1">
-                      <p className="text-xs font-bold text-zinc-200 truncate">{card.name}</p>
-                      <p className="text-[10px] text-zinc-500">{card.rarity || "—"}</p>
+                    <div className="p-2 space-y-1 bg-black border-t border-dotted border-[#2A3FE5]">
+                      <p className="text-[8px] font-bold text-white uppercase tracking-wider truncate">{card.name}</p>
+                      <p className="text-[8px] text-[#F4B9B0] pacman-mono uppercase truncate">{card.rarity || "—"}</p>
                     </div>
                     <button onClick={() => handleToggleCardHide(card)}
-                      className={`absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all ${card.hidden ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                      className={`absolute top-2 right-2 w-8 h-8 rounded-none border-2 border-dotted flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all ${card.hidden ? "bg-black border-[#16A34A] text-[#16A34A]" : "bg-black border-[#DC2626] text-[#DC2626]"}`}>
                       {card.hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                     </button>
                   </div>
@@ -1590,31 +1693,31 @@ export default function AdminDashboard() {
         {/* ── ANALYTICS TAB ────────────────────────────────────────────── */}
         {activeTab === "analytics" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Analytics</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Game activity and engagement metrics</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Analytics</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Game activity and engagement metrics</p>
               </div>
-              <button onClick={fetchAnalytics} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+              <button onClick={fetchAnalytics} className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {loadingAnalytics ? (
-              <div className="space-y-4">{Array(3).fill(0).map((_, i) => <div key={i} className="h-32 bg-zinc-900/60 border border-zinc-800/40 rounded-2xl animate-pulse" />)}</div>
+              <div className="space-y-4">{Array(3).fill(0).map((_, i) => <div key={i} className="h-32 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
             ) : analytics ? (
               <>
                 {/* Quick stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <StatCard icon={<Users className="w-5 h-5" />} label="New Today" value={analytics.newUsersToday} accent="bg-sky-500/10 text-sky-400" />
-                  <StatCard icon={<Package className="w-5 h-5" />} label="Rewards Today" value={analytics.packsOpenedToday} accent="bg-amber-500/10 text-amber-400" />
+                  <StatCard icon={<Users className="w-5 h-5" />} label="New Today" value={analytics.newUsersToday} accent="bg-black text-[#F4B9B0] border-[#F4B9B0]" />
+                  <StatCard icon={<Package className="w-5 h-5" />} label="Rewards Today" value={analytics.packsOpenedToday} accent="bg-black text-[#D97706] border-[#D97706]" />
                   {analytics.mostOpenedPack && (
-                    <StatCard icon={<Trophy className="w-5 h-5" />} label="Top Pack" value={analytics.mostOpenedPack.name} sub={`${analytics.mostOpenedPack.count.toLocaleString()} cards pulled`} accent="bg-fuchsia-500/10 text-fuchsia-400" />
+                    <StatCard icon={<Trophy className="w-5 h-5" />} label="Top Pack" value={analytics.mostOpenedPack.name} sub={`${analytics.mostOpenedPack.count.toLocaleString()} cards pulled`} accent="bg-black text-white border-white" />
                   )}
                 </div>
 
                 {/* DAU Chart */}
-                <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
+                <div className="bg-black border-4 border-dotted border-[#2A3FE5] p-4 rounded-none">
                   <SectionHeader title="Daily Active Users (Last 7 Days)" />
                   <BarChart data={analytics.dauData} />
                 </div>
@@ -1622,31 +1725,31 @@ export default function AdminDashboard() {
                 {/* Top cards */}
                 <div className="grid sm:grid-cols-2 gap-4">
                   {analytics.mostCollectedCard?.card && (
-                    <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
-                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">Most Collected Card</p>
+                    <div className="bg-black border-2 border-dotted border-[#2A3FE5] p-4 rounded-none">
+                      <p className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] mb-3 pacman-mono">Most Collected Card</p>
                       <div className="flex items-center gap-3">
                         <img src={analytics.mostCollectedCard.card.image || analytics.mostCollectedCard.card.imageUrl} alt={analytics.mostCollectedCard.card.name}
-                          className="w-16 h-22 object-contain rounded-xl bg-zinc-800 p-1" />
+                          className="w-16 h-22 object-contain border border-dotted border-[#2A3FE5] bg-black p-1 rounded-none" />
                         <div>
-                          <p className="font-bold text-zinc-100">{analytics.mostCollectedCard.card.name}</p>
-                          <p className="text-xs text-zinc-500">{analytics.mostCollectedCard.card.rarity}</p>
-                          <p className="text-2xl font-black text-fuchsia-400 mt-1">{analytics.mostCollectedCard.count.toLocaleString()}×</p>
-                          <p className="text-xs text-zinc-600">total copies owned</p>
+                          <p className="text-[9px] font-bold text-white uppercase tracking-wider">{analytics.mostCollectedCard.card.name}</p>
+                          <p className="text-[8px] text-zinc-500 pacman-mono uppercase leading-tight">{analytics.mostCollectedCard.card.rarity}</p>
+                          <p className="text-xl font-black text-[#F4B9B0] mt-1">{analytics.mostCollectedCard.count.toLocaleString()}×</p>
+                          <p className="text-[8px] text-zinc-650 pacman-mono uppercase mt-1">total copies owned</p>
                         </div>
                       </div>
                     </div>
                   )}
                   {analytics.mostWishlistedCard?.card && (
-                    <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
-                      <p className="text-xs font-mono uppercase tracking-widest text-zinc-500 mb-3">Most Wishlisted Card</p>
+                    <div className="bg-black border-2 border-dotted border-[#2A3FE5] p-4 rounded-none">
+                      <p className="text-[8px] font-mono uppercase tracking-widest text-[#F4B9B0] mb-3 pacman-mono">Most Wishlisted Card</p>
                       <div className="flex items-center gap-3">
                         <img src={analytics.mostWishlistedCard.card.image || analytics.mostWishlistedCard.card.imageUrl} alt={analytics.mostWishlistedCard.card.name}
-                          className="w-16 h-22 object-contain rounded-xl bg-zinc-800 p-1" />
+                          className="w-16 h-22 object-contain border border-dotted border-[#2A3FE5] bg-black p-1 rounded-none" />
                         <div>
-                          <p className="font-bold text-zinc-100">{analytics.mostWishlistedCard.card.name}</p>
-                          <p className="text-xs text-zinc-500">{analytics.mostWishlistedCard.card.rarity}</p>
-                          <p className="text-2xl font-black text-rose-400 mt-1">{analytics.mostWishlistedCard.count.toLocaleString()}×</p>
-                          <p className="text-xs text-zinc-600">on wishlists</p>
+                          <p className="text-[9px] font-bold text-white uppercase tracking-wider">{analytics.mostWishlistedCard.card.name}</p>
+                          <p className="text-[8px] text-zinc-500 pacman-mono uppercase leading-tight">{analytics.mostWishlistedCard.card.rarity}</p>
+                          <p className="text-xl font-black text-[#DC2626] mt-1">{analytics.mostWishlistedCard.count.toLocaleString()}×</p>
+                          <p className="text-[8px] text-zinc-650 pacman-mono uppercase mt-1">on wishlists</p>
                         </div>
                       </div>
                     </div>
@@ -1654,8 +1757,8 @@ export default function AdminDashboard() {
                 </div>
               </>
             ) : (
-              <div className="text-center py-12 text-zinc-600 text-sm">
-                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-zinc-700" />
+              <div className="text-center py-12 text-zinc-650 text-[9px] uppercase pacman-mono border-2 border-dotted border-[#2A3FE5]">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-zinc-700 animate-pulse" />
                 No analytics data yet
               </div>
             )}
@@ -1665,49 +1768,49 @@ export default function AdminDashboard() {
         {/* ── AUDIT LOG TAB ────────────────────────────────────────────── */}
         {activeTab === "audit" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Audit Log</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">All admin actions — persistent database record</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Audit Log</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">All admin actions — persistent database record</p>
               </div>
-              <button onClick={fetchAuditLogs} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+              <button onClick={fetchAuditLogs} className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {loadingAudit ? (
-              <div className="space-y-2">{Array(8).fill(0).map((_, i) => <div key={i} className="h-12 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
+              <div className="space-y-2">{Array(8).fill(0).map((_, i) => <div key={i} className="h-12 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
             ) : auditLogs.length === 0 ? (
-              <div className="text-center py-16">
+              <div className="text-center py-16 border-2 border-dotted border-[#2A3FE5]">
                 <Clock className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
-                <p className="text-sm text-zinc-600">No audit logs yet. Actions will appear here.</p>
+                <p className="text-[9px] text-zinc-500 uppercase pacman-mono">No audit logs yet. Actions will appear here.</p>
               </div>
             ) : (
               <div className="space-y-1.5">
                 {auditLogs.map((log, i) => {
                   const actionColors: Record<string, string> = {
-                    BAN_USER: "text-rose-400 bg-rose-500/10",
-                    UNBAN_USER: "text-emerald-400 bg-emerald-500/10",
-                    USER_DELETE: "text-red-400 bg-red-500/10",
-                    ADD_TICKETS: "text-amber-400 bg-amber-500/10",
-                    REMOVE_TICKETS: "text-orange-400 bg-orange-500/10",
-                    RESET_STREAK: "text-sky-400 bg-sky-500/10",
-                    USER_GRANT: "text-violet-400 bg-violet-500/10",
-                    USER_CLEAR: "text-orange-400 bg-orange-500/10",
-                    PACK_UPDATE: "text-fuchsia-400 bg-fuchsia-500/10",
-                    EVENT_CREATE: "text-teal-400 bg-teal-500/10",
-                    EVENT_UPDATE: "text-teal-400 bg-teal-500/10",
-                    EVENT_DELETE: "text-rose-400 bg-rose-500/10",
+                    BAN_USER: "text-[#DC2626] border-[#DC2626]",
+                    UNBAN_USER: "text-[#16A34A] border-[#16A34A]",
+                    USER_DELETE: "text-[#DC2626] border-[#DC2626]",
+                    ADD_TICKETS: "text-[#D97706] border-[#D97706]",
+                    REMOVE_TICKETS: "text-[#D97706] border-[#D97706]",
+                    RESET_STREAK: "text-[#2A3FE5] border-[#2A3FE5]",
+                    USER_GRANT: "text-[#F4B9B0] border-[#F4B9B0]",
+                    USER_CLEAR: "text-[#DC2626] border-[#DC2626]",
+                    PACK_UPDATE: "text-white border-white",
+                    EVENT_CREATE: "text-white border-white",
+                    EVENT_UPDATE: "text-white border-white",
+                    EVENT_DELETE: "text-[#DC2626] border-[#DC2626]",
                   };
-                  const colorClass = actionColors[log.action] || "text-zinc-400 bg-zinc-800";
+                  const colorClass = actionColors[log.action] || "text-zinc-400 border-zinc-800";
                   return (
-                    <div key={log.id || i} className="flex items-start gap-3 px-3 py-2.5 bg-zinc-900/40 border border-zinc-800/40 rounded-xl hover:border-zinc-700 transition-colors">
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg shrink-0 ${colorClass}`}>{log.action}</span>
+                    <div key={log.id || i} className="flex items-start gap-3 px-3 py-2.5 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none hover:border-[#F4B9B0] transition-colors flex-wrap sm:flex-nowrap">
+                      <span className={`text-[8px] font-bold px-2 py-0.5 border rounded-none shrink-0 uppercase ${colorClass}`}>{log.action}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-zinc-300 truncate">{log.details}</p>
-                        {log.admin && <p className="text-[10px] text-zinc-600 mt-0.5">by {log.admin.username || "Admin"}</p>}
+                        <p className="text-[9px] text-white pacman-mono uppercase leading-tight">{log.details}</p>
+                        {log.admin && <p className="text-[8px] text-[#F4B9B0] pacman-mono uppercase mt-1">by {log.admin.username || "Admin"}</p>}
                       </div>
-                      <span className="text-[10px] text-zinc-600 shrink-0 font-mono">{new Date(log.created_at).toLocaleString()}</span>
+                      <span className="text-[8px] text-zinc-500 shrink-0 font-mono pacman-mono uppercase">{new Date(log.created_at).toLocaleString()}</span>
                     </div>
                   );
                 })}
@@ -1719,22 +1822,22 @@ export default function AdminDashboard() {
         {/* ── MARKET TAB ───────────────────────────────────────────────── */}
         {activeTab === "market" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Auction Moderation</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Review active auctions, reports, and bidding boards</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Auction Moderation</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Review active auctions, reports, and bidding boards</p>
               </div>
-              <button onClick={fetchMarketAdmin} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+              <button onClick={fetchMarketAdmin} className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Market Stats */}
             {marketStats && (
-              <div className="grid grid-cols-3 gap-3">
-                <StatCard icon={<Package className="w-5 h-5" />} label="Active Auctions" value={marketStats.totalActive} accent="bg-emerald-500/10 text-emerald-400" />
-                <StatCard icon={<ArrowLeftRight className="w-5 h-5" />} label="Total Bids" value={marketStats.totalBids} accent="bg-sky-500/10 text-sky-400" />
-                <StatCard icon={<ShieldAlert className="w-5 h-5" />} label="Open Reports" value={marketStats.unresolvedReports} accent={marketStats.unresolvedReports > 0 ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-400"} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <StatCard icon={<Package className="w-5 h-5" />} label="Active Auctions" value={marketStats.totalActive} accent="bg-black text-[#16A34A] border-[#16A34A]" />
+                <StatCard icon={<ArrowLeftRight className="w-5 h-5" />} label="Total Bids" value={marketStats.totalBids} accent="bg-black text-[#2A3FE5] border-[#2A3FE5]" />
+                <StatCard icon={<ShieldAlert className="w-5 h-5" />} label="Open Reports" value={marketStats.unresolvedReports} accent={marketStats.unresolvedReports > 0 ? "bg-black text-[#DC2626] border-[#DC2626]" : "bg-black text-zinc-550 border-zinc-800"} />
               </div>
             )}
 
@@ -1743,22 +1846,22 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 <SectionHeader title={`🚨 Pending Reports (${marketReports.length})`} />
                 {marketReports.map((report: any) => (
-                  <div key={report.id} className="flex items-start gap-3 p-4 bg-rose-500/5 border border-rose-500/15 rounded-2xl">
+                  <div key={report.id} className="flex items-start gap-3 p-4 bg-black border-4 border-dotted border-[#DC2626] rounded-none flex-wrap sm:flex-nowrap">
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className="text-xs font-semibold text-rose-300">Reported by: {report.reporter?.username || "Unknown"}</p>
-                      <p className="text-xs text-zinc-400">Reason: {report.reason}</p>
-                      {report.auction_id && <p className="text-[10px] font-mono text-zinc-600">Auction ID: {report.auction_id}</p>}
-                      <p className="text-[10px] text-zinc-600">{new Date(report.created_at).toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-[#DC2626] uppercase">Reported by: {report.reporter?.username || "Unknown"}</p>
+                      <p className="text-[9px] text-white pacman-mono uppercase leading-tight">Reason: {report.reason}</p>
+                      {report.auction_id && <p className="text-[8px] font-mono text-zinc-555 pacman-mono uppercase">Auction ID: {report.auction_id}</p>}
+                      <p className="text-[8px] text-zinc-650 pacman-mono uppercase">{new Date(report.created_at).toLocaleString()}</p>
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto">
                       {report.auction_id && (
                         <button onClick={() => handleMarketRemoveListing(report.auction_id)}
-                          className="px-3 py-1.5 bg-rose-500/15 text-rose-400 text-xs font-semibold rounded-lg border border-rose-500/20 hover:bg-rose-500/25 transition-all">
+                          className="px-3 py-1.5 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] text-[8px] font-bold border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none uppercase transition-all">
                           Remove Auction
                         </button>
                       )}
                       <button onClick={() => handleMarketResolveReport(report.id)}
-                        className="px-3 py-1.5 bg-zinc-800 text-zinc-400 text-xs font-semibold rounded-lg hover:bg-zinc-700 transition-all">
+                        className="px-3 py-1.5 bg-black hover:bg-white hover:text-black text-zinc-400 text-[8px] font-bold border-2 border-dotted border-zinc-800 hover:border-solid rounded-none uppercase transition-all">
                         Dismiss
                       </button>
                     </div>
@@ -1767,48 +1870,48 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* All Listings */}
+            {/* All Auctions */}
             <div className="space-y-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap pb-2 border-b border-dotted border-[#2A3FE5]">
                 <SectionHeader title="All Auctions" />
                 <input value={marketSearch} onChange={e => setMarketSearch(e.target.value)} placeholder="Filter by seller, card, or ID…"
-                  className="flex-1 h-8 bg-zinc-900 border border-zinc-800 rounded-lg px-3 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/40" />
+                  className="flex-1 h-8 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none px-3 text-xs text-white focus:outline-none" />
               </div>
 
               {loadingMarket ? (
-                <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
+                <div className="space-y-2">{Array(5).fill(0).map((_, i) => <div key={i} className="h-16 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
               ) : marketListings.length === 0 ? (
-                <div className="text-center py-12 text-zinc-600 text-sm">No auctions found</div>
+                <div className="text-center py-12 text-zinc-550 border-2 border-dotted border-[#2A3FE5] text-[9px] uppercase pacman-mono">No auctions found</div>
               ) : (
                 <div className="space-y-2">
                   {marketListings
                     .filter((l: any) => !marketSearch || l.id.includes(marketSearch) || l.seller?.username?.includes(marketSearch) || l.card?.name?.toLowerCase().includes(marketSearch.toLowerCase()))
                     .map((listing: any) => (
-                      <div key={listing.id} className="flex items-start gap-3 p-3 bg-zinc-900/60 border border-zinc-800/60 rounded-xl hover:border-zinc-700 transition-colors">
-                        <div className="flex-1 min-w-0 space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-zinc-200">{listing.seller?.username || "Unknown"}</span>
-                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
-                              listing.status === "active" ? "bg-emerald-500/15 text-emerald-300" :
-                              listing.status === "completed" ? "bg-sky-500/15 text-sky-300" :
-                              "bg-zinc-700/50 text-zinc-400"
+                      <div key={listing.id} className="flex items-start gap-3 p-3 bg-black border-2 border-dotted border-[#2A3FE5] hover:border-[#F4B9B0] rounded-none transition-colors flex-wrap sm:flex-nowrap">
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[9px] font-bold text-white uppercase">{listing.seller?.username || "Unknown"}</span>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 border rounded-none uppercase ${
+                              listing.status === "active" ? "border-[#16A34A] text-[#16A34A]" :
+                              listing.status === "completed" ? "border-[#2A3FE5] text-[#2A3FE5]" :
+                              "border-zinc-800 text-zinc-550"
                             }`}>{listing.status}</span>
-                            {listing.highest_bid > 0 && <span className="text-[9px] text-fuchsia-400 font-semibold">{listing.highest_bid.toFixed(2)} USDC highest bid</span>}
+                            {listing.highest_bid > 0 && <span className="text-[8px] text-[#F4B9B0] font-bold uppercase pacman-mono">{listing.highest_bid.toFixed(2)} USDC HIGHEST BID</span>}
                           </div>
-                          <p className="text-[10px] text-zinc-500">
+                          <p className="text-[8px] text-[#F4B9B0] pacman-mono uppercase leading-tight">
                             Card: {listing.card?.name || listing.card_id} · Buyout: {listing.buyout_price ? `${listing.buyout_price} USDC` : "None"}
                           </p>
-                          <p className="text-[10px] font-mono text-zinc-700">{listing.id}</p>
+                          <p className="text-[8px] font-mono text-zinc-650 pacman-mono uppercase">{listing.id}</p>
                         </div>
                         {(listing.status === "active" || listing.status === "pending_payment") && (
-                          <div className="flex gap-1.5 shrink-0">
+                          <div className="flex gap-1.5 shrink-0 w-full sm:w-auto">
                             <button onClick={() => handleAdminAuctionCancel(listing.id)}
-                              className="px-2.5 py-1 bg-rose-500/10 text-rose-400 text-[10px] font-semibold rounded-lg border border-rose-500/15 hover:bg-rose-500/20 transition-all">
+                              className="px-2.5 py-1.5 bg-black hover:bg-[#DC2626] hover:text-white text-[#DC2626] text-[8px] font-bold border-2 border-dotted border-[#DC2626] hover:border-solid rounded-none uppercase transition-all flex-1 sm:flex-none text-center">
                               Cancel
                             </button>
                             {listing.highest_bidder_id && (
                               <button onClick={() => handleAdminAuctionComplete(listing.id)}
-                                className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold rounded-lg border border-emerald-500/15 hover:bg-emerald-500/20 transition-all">
+                                className="px-2.5 py-1.5 bg-black hover:bg-[#16A34A] hover:text-white text-[#16A34A] text-[8px] font-bold border-2 border-dotted border-[#16A34A] hover:border-solid rounded-none uppercase transition-all flex-1 sm:flex-none text-center">
                                 Complete
                               </button>
                             )}
@@ -1825,46 +1928,46 @@ export default function AdminDashboard() {
         {/* ── LIVE LOGS FEED TAB ────────────────────────────────────────── */}
         {activeTab === "logs" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-2 border-b-2 border-dotted border-[#2A3FE5]">
               <div>
-                <h1 className="text-xl font-black text-zinc-100">Live System Events</h1>
-                <p className="text-xs text-zinc-500 mt-0.5">Real-time listing of card packs ripped, ticket topups, and PokePoints transactions</p>
+                <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Live System Events</h1>
+                <p className="text-[9px] text-[#F4B9B0] mt-1 pacman-mono uppercase">Real-time listing of card packs ripped, ticket topups, and PokePoints transactions</p>
               </div>
-              <button onClick={fetchLiveLogs} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+              <button onClick={fetchLiveLogs} className="w-8 h-8 flex items-center justify-center border-2 border-dotted border-zinc-800 text-zinc-400 hover:text-[#F4B9B0] hover:border-[#F4B9B0] rounded-none">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {loadingLogs ? (
-              <div className="space-y-2">{Array(8).fill(0).map((_, i) => <div key={i} className="h-14 bg-zinc-900/60 border border-zinc-800/40 rounded-xl animate-pulse" />)}</div>
+              <div className="space-y-2">{Array(8).fill(0).map((_, i) => <div key={i} className="h-14 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none animate-pulse" />)}</div>
             ) : liveLogs.length === 0 ? (
-              <div className="text-center py-16">
+              <div className="text-center py-16 border-2 border-dotted border-[#2A3FE5]">
                 <Activity className="w-8 h-8 text-zinc-700 mx-auto mb-2 animate-pulse" />
-                <p className="text-sm text-zinc-650">No events logged yet.</p>
+                <p className="text-[9px] text-zinc-550 uppercase pacman-mono">No events logged yet.</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {liveLogs.map((log, i) => {
-                  const logColors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
-                    pack_open: { bg: "bg-amber-500/10 border-amber-500/20", text: "text-amber-400", icon: <PackageOpen className="w-3.5 h-3.5" /> },
-                    topup: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-400", icon: <Ticket className="w-3.5 h-3.5" /> },
-                    points: { bg: "bg-violet-500/10 border-violet-500/20", text: "text-violet-400", icon: <Sparkles className="w-3.5 h-3.5" /> }
+                  const logColors: Record<string, { border: string; text: string; icon: React.ReactNode }> = {
+                    pack_open: { border: "border-[#D97706]", text: "text-[#D97706]", icon: <PackageOpen className="w-3.5 h-3.5" /> },
+                    topup: { border: "border-[#16A34A]", text: "text-[#16A34A]", icon: <Ticket className="w-3.5 h-3.5" /> },
+                    points: { border: "border-[#F4B9B0]", text: "text-[#F4B9B0]", icon: <Sparkles className="w-3.5 h-3.5" /> }
                   };
-                  const style = logColors[log.type] || { bg: "bg-zinc-800", text: "text-zinc-400", icon: <Activity className="w-3.5 h-3.5" /> };
+                  const style = logColors[log.type] || { border: "border-zinc-800", text: "text-zinc-400", icon: <Activity className="w-3.5 h-3.5" /> };
                   return (
-                    <div key={log.id || i} className="flex items-start gap-3 px-3 py-2.5 bg-zinc-900/40 border border-zinc-800/40 rounded-xl hover:border-zinc-700 transition-colors">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
+                    <div key={log.id || i} className="flex items-start gap-3 px-3 py-2.5 bg-black border-2 border-dotted border-[#2A3FE5] rounded-none hover:border-[#F4B9B0] transition-colors flex-wrap sm:flex-nowrap">
+                      <div className={`w-8 h-8 border border-dotted flex items-center justify-center shrink-0 rounded-none bg-black ${style.border} ${style.text}`}>
                         {style.icon}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-zinc-300">
-                          <span className="font-bold text-zinc-200">{log.username}</span> {log.details}
+                        <p className="text-[9px] text-white pacman-mono uppercase leading-tight">
+                          <span className="font-bold text-white uppercase">{log.username}</span> {log.details}
                         </p>
                         {log.tx_hash && (
-                          <p className="text-[10px] font-mono text-zinc-500 truncate mt-0.5">TX: {log.tx_hash}</p>
+                          <p className="text-[8px] font-mono text-zinc-650 pacman-mono uppercase mt-1 truncate">TX: {log.tx_hash}</p>
                         )}
                       </div>
-                      <span className="text-[10px] text-zinc-600 shrink-0 font-mono">{new Date(log.created_at).toLocaleString()}</span>
+                      <span className="text-[8px] text-zinc-550 shrink-0 font-mono pacman-mono uppercase">{new Date(log.created_at).toLocaleString()}</span>
                     </div>
                   );
                 })}
