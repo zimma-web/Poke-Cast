@@ -449,7 +449,7 @@ export default function Home() {
                 const isClaimed = quest.claimed;
                 
                 return (
-                  <div key={quest.id} className="flex items-center justify-between space-x-4">
+                  <div key={quest.quest_id} className="flex items-center justify-between space-x-4">
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center space-x-2">
                         {isClaimed ? (
@@ -508,7 +508,7 @@ export default function Home() {
                 const isClaimed = quest.claimed;
                 
                 return (
-                  <div key={quest.id} className="flex items-center justify-between space-x-4">
+                  <div key={quest.quest_id} className="flex items-center justify-between space-x-4">
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center space-x-2">
                         {isClaimed ? (

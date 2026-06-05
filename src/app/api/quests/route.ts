@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const todayStr = new Date().toISOString().split('T')[0];
 
     // 1. Fetch current quests for the user for today
-    let { data: quests, error: fetchError } = await supabaseAdmin
+    const { data: rawQuests, error: fetchError } = await supabaseAdmin
       .from('user_quests')
       .select('*')
       .eq('user_id', userId)
@@ -37,26 +37,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    // 2. If quests are not initialized for today, initialize them!
-    if (!quests || quests.length === 0) {
-      const inserts = QUESTS_CONFIG.map(q => ({
-        user_id: userId,
-        quest_id: q.id,
-        progress: 0,
-        target: q.target,
-        claimed: false,
-        day: todayStr
-      }));
+    let quests = rawQuests || [];
 
-      const { data: newQuests, error: insertError } = await supabaseAdmin
-        .from('user_quests')
-        .insert(inserts)
-        .select('*');
+    // 2. Initialize any missing daily quests
+    if (quests.length < QUESTS_CONFIG.length) {
+      const existingIds = quests.map(q => q.quest_id);
+      const missingConfigs = QUESTS_CONFIG.filter(c => !existingIds.includes(c.id));
 
-      if (insertError) {
-        return NextResponse.json({ error: insertError.message }, { status: 500 });
+      if (missingConfigs.length > 0) {
+        const inserts = missingConfigs.map(q => ({
+          user_id: userId,
+          quest_id: q.id,
+          progress: 0,
+          target: q.target,
+          claimed: false,
+          day: todayStr
+        }));
+
+        const { data: newQuests, error: insertError } = await supabaseAdmin
+          .from('user_quests')
+          .insert(inserts)
+          .select('*');
+
+        if (insertError) {
+          return NextResponse.json({ error: insertError.message }, { status: 500 });
+        }
+        quests = [...quests, ...(newQuests || [])];
       }
-      quests = newQuests || [];
     }
 
     // 3. Fetch main quests for the user
