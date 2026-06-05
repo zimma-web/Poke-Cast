@@ -238,10 +238,11 @@ export default function Home() {
   };
 
   const displayStreakDay = loginStreak || 1;
-  const isMultipleOf7 = displayStreakDay % 7 === 0;
-  const rewardText = isMultipleOf7 
-    ? "+10 Pack Tickets & +1 Bonus Pack" 
-    : `+${displayStreakDay % 7} Pack Ticket${(displayStreakDay % 7) > 1 ? 's' : ''}`;
+  const dayOfCycle = displayStreakDay % 7 === 0 ? 7 : displayStreakDay % 7;
+  const streakTickets = dayOfCycle === 7 ? 5 : Math.floor((dayOfCycle - 1) / 2) + 1;
+  const rewardText = dayOfCycle === 7 
+    ? "+5 Pack Tickets & +1 Bonus Pack" 
+    : `+${streakTickets} Pack Ticket${streakTickets > 1 ? 's' : ''}`;
 
   const totalCopies = Object.values(ownedCards).reduce((acc, val) => acc + val, 0);
   const duplicatesCount = Object.values(ownedCards).reduce((acc, val) => acc + (val > 1 ? val - 1 : 0), 0);

@@ -43,20 +43,21 @@ export async function POST(request: Request) {
     }
 
     // 3. Calculate rewards based on rules:
-    // Day 1 to 6: +(Day % 7) Tickets
-    // Day 7 (and multiples of 7): +10 Tickets + 1 Bonus Pack
-    const isMultipleOf7 = streak % 7 === 0;
+    // Day 1-6: +1, +1, +2, +2, +3, +3 Tickets
+    // Day 7 (and multiples of 7): +5 Tickets + 1 Bonus Pack
+    const dayOfCycle = streak % 7 === 0 ? 7 : streak % 7;
     let rewardType: 'tickets' | 'tickets_and_pack' = 'tickets';
-    let rewardAmount = streak % 7;
-    let ticketsAdded = rewardAmount;
+    let ticketsAdded = 0;
     let packsAdded = 0;
 
-    if (isMultipleOf7) {
+    if (dayOfCycle === 7) {
       rewardType = 'tickets_and_pack';
-      rewardAmount = 10;
-      ticketsAdded = 10;
+      ticketsAdded = 5;
       packsAdded = 1;
+    } else {
+      ticketsAdded = Math.floor((dayOfCycle - 1) / 2) + 1;
     }
+    const rewardAmount = ticketsAdded;
 
     // 4. Update database (insert login_rewards and update users)
     const { error: insertRewardError } = await supabaseAdmin
