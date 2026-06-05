@@ -145,7 +145,7 @@ export async function awardPoints(
 
 // ─── Daily Share Limit ────────────────────────────────────────────────────────
 
-const DAILY_SHARE_LIMIT = 20;
+const DAILY_SHARE_LIMIT = 5;
 
 export async function canAwardSharePoints(userId: string): Promise<boolean> {
   try {

@@ -4,9 +4,9 @@ import { supabaseAdmin } from '@/lib/supabase';
 // Define the static configuration for our daily quests
 const QUESTS_CONFIG = [
   { id: 'daily_login', title: 'Daily Check-in', desc: 'Claim your daily login streak reward', target: 1, reward: 2 },
-  { id: 'open_pack', title: 'Booster Ripper', desc: 'Open at least 1 booster pack today', target: 1, reward: 3 },
-  { id: 'place_bid', title: 'Auction Bidder', desc: 'Place at least 1 bid in the Auction House', target: 1, reward: 4 },
-  { id: 'create_auction', title: 'Card Trader', desc: 'List at least 1 card for sale in the Auction House', target: 1, reward: 5 },
+  { id: 'open_pack', title: 'Booster Ripper', desc: 'Open at least 1 booster pack today', target: 1, reward: 2 },
+  { id: 'place_bid', title: 'Auction Bidder', desc: 'Place at least 1 bid in the Auction House', target: 1, reward: 2 },
+  { id: 'create_auction', title: 'Card Trader', desc: 'List at least 1 card for sale in the Auction House', target: 1, reward: 3 },
 ];
 
 const MAIN_QUESTS_CONFIG = [

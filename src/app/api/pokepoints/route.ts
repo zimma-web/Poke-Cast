@@ -87,10 +87,10 @@ export async function POST(request: Request) {
     if (action === 'share') {
       const canAward = await canAwardSharePoints(userId);
       if (!canAward) {
-        return NextResponse.json({ awarded: false, reason: 'Daily share limit reached (20/day)' });
+        return NextResponse.json({ awarded: false, reason: 'Daily share limit reached (5/day)' });
       }
 
-      await awardPoints(userId, 'share', 2, referenceId, { source: 'card_share' });
+      await awardPoints(userId, 'share', 5, referenceId, { source: 'card_share' });
 
       const { data: user } = await supabaseAdmin
         .from('users')
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         .eq('id', userId)
         .single();
 
-      return NextResponse.json({ awarded: true, points: 2, total: user?.pokepoints || 0 });
+      return NextResponse.json({ awarded: true, points: 5, total: user?.pokepoints || 0 });
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
