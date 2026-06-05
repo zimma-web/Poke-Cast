@@ -335,33 +335,58 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
   };
 
   const handleSubmit = async () => {
-    if (selectedCards.length === 0 || !startPrice) return;
+    if (selectedCards.length === 0) {
+      showToast("Please select a card to list", "err");
+      return;
+    }
+    if (!startPrice) {
+      showToast("Please enter a starting bid price", "err");
+      return;
+    }
+    if (!buyoutPrice) {
+      showToast("Buyout price is required", "err");
+      return;
+    }
+
+    const parsedStart = parseFloat(startPrice);
+    const parsedBuyout = parseFloat(buyoutPrice);
+
+    if (isNaN(parsedStart) || parsedStart <= 0) {
+      showToast("Starting bid price must be a valid number greater than 0", "err");
+      return;
+    }
+    if (isNaN(parsedBuyout) || parsedBuyout <= 0) {
+      showToast("Buyout price must be a valid number greater than 0", "err");
+      return;
+    }
+    if (parsedBuyout <= parsedStart) {
+      showToast("Buyout price must be greater than starting bid price", "err");
+      return;
+    }
+
     setSubmitting(true);
     setStatusText("Preparing listing...");
     try {
-      const parsedBuyout = buyoutPrice ? parseFloat(buyoutPrice) : null;
       let listingTxHash = null;
 
-      if (parsedBuyout !== null && parsedBuyout > 0) {
-        setStatusText("Requesting listing fee (0.000016 ETH)...");
-        if (isConnected) {
-          const valueWei = BigInt(16000000000000); // 0.000016 ETH
-          try {
-            const tx = await sendTransactionAsync({
-              to: TREASURY_ADDRESS as `0x${string}`,
-              value: valueWei,
-            });
-            listingTxHash = tx;
-          } catch (walletErr: any) {
-            console.error("Wallet transaction rejected:", walletErr);
-            throw new Error(walletErr.message || "Listing fee payment rejected by wallet.");
-          }
-        } else {
-          // Dev Mock
-          console.warn("Wagmi wallet not connected. Simulating transaction on Base.");
-          await new Promise(r => setTimeout(r, 1500));
-          listingTxHash = "0xmock_listing_" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      setStatusText("Requesting listing fee (0.000016 ETH)...");
+      if (isConnected) {
+        const valueWei = BigInt(16000000000000); // 0.000016 ETH
+        try {
+          const tx = await sendTransactionAsync({
+            to: TREASURY_ADDRESS as `0x${string}`,
+            value: valueWei,
+          });
+          listingTxHash = tx;
+        } catch (walletErr: any) {
+          console.error("Wallet transaction rejected:", walletErr);
+          throw new Error(walletErr.message || "Listing fee payment rejected by wallet.");
         }
+      } else {
+        // Dev Mock
+        console.warn("Wagmi wallet not connected. Simulating transaction on Base.");
+        await new Promise(r => setTimeout(r, 1500));
+        listingTxHash = "0xmock_listing_" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
       }
 
       setStatusText("Creating auction listing...");
@@ -477,7 +502,7 @@ function CreateListingSheet({ userId, ownedCards, onCreated, onClose }: {
             </div>
             <div className="space-y-1.5">
               <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">Buyout Price (USDC)</p>
-              <input value={buyoutPrice} onChange={e => setBuyoutPrice(e.target.value)} type="number" step="0.01" placeholder="Optional buyout"
+              <input value={buyoutPrice} onChange={e => setBuyoutPrice(e.target.value)} type="number" step="0.01" placeholder="e.g. 5.00"
                 className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40" />
               {loadingPrice && <p className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Fetching market price...</p>}
               {!loadingPrice && recommendedPrice !== null && (

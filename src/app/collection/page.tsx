@@ -304,6 +304,7 @@ export default function CollectionScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
+  const [showOwnedOnly, setShowOwnedOnly] = useState(false);
   
   const { ref, inView } = useInView();
   const ownedCards = useCollectionStore(state => state.ownedCards);
@@ -332,12 +333,13 @@ export default function CollectionScreen() {
     fetch('/api/sets').then(res => res.json()).then(data => setSets(data.sets));
   }, []);
 
-  const fetchCards = async (pageNum: number, searchQuery: string, setId: string | undefined, reset: boolean = false) => {
+  const fetchCards = async (pageNum: number, searchQuery: string, setId: string | undefined, reset: boolean = false, ownedOnly: boolean = showOwnedOnly) => {
     if (loading) return;
     setLoading(true);
     try {
       let url = `/api/cards?page=${pageNum}&limit=30&q=${encodeURIComponent(searchQuery)}`;
       if (setId) url += `&set=${setId}`;
+      if (ownedOnly && userId) url += `&owner=${userId}`;
       const res = await fetch(url);
       const data = await res.json();
       if (reset) setCards(data.cards);
@@ -353,18 +355,18 @@ export default function CollectionScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
-      fetchCards(1, search, selectedSet?.id, true);
+      fetchCards(1, search, selectedSet?.id, true, showOwnedOnly);
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, selectedSet]);
+  }, [search, selectedSet, showOwnedOnly]);
 
   useEffect(() => {
     if (inView && hasMore && !loading) {
       const nextPage = page + 1;
       setPage(nextPage);
-      fetchCards(nextPage, search, selectedSet?.id, false);
+      fetchCards(nextPage, search, selectedSet?.id, false, showOwnedOnly);
     }
-  }, [inView, hasMore, loading, selectedSet]);
+  }, [inView, hasMore, loading, selectedSet, showOwnedOnly]);
 
   const groupedSets = sets.reduce((acc, set) => {
     acc[set.series] = acc[set.series] || [];
@@ -445,14 +447,30 @@ export default function CollectionScreen() {
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-          <Input 
-            placeholder="Search cards..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-zinc-900 border-zinc-800 text-zinc-200 rounded-full h-10 placeholder:text-zinc-500 focus-visible:ring-fuchsia-500"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Input 
+              placeholder="Search cards..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-zinc-900 border-zinc-800 text-zinc-200 rounded-full h-10 placeholder:text-zinc-500 focus-visible:ring-fuchsia-500"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setShowOwnedOnly(prev => !prev);
+            }}
+            className={cn(
+              "h-10 px-4 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 whitespace-nowrap",
+              showOwnedOnly 
+                ? "bg-fuchsia-600/20 border-fuchsia-500/50 text-fuchsia-300 hover:bg-fuchsia-600/30" 
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+            )}
+          >
+            <Star className={cn("w-3.5 h-3.5", showOwnedOnly ? "fill-fuchsia-400 text-fuchsia-400" : "")} />
+            {showOwnedOnly ? "Owned Only" : "Show Owned"}
+          </button>
         </div>
 
         {/* Series Horizontal Scroll */}

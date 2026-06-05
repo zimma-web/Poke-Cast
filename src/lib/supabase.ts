@@ -13,3 +13,27 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     autoRefreshToken: false,
   },
 });
+
+export async function fetchAllUserCards(userId: string): Promise<any[]> {
+  let allCards: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabaseAdmin
+      .from('user_cards')
+      .select('id, card_id, obtained_at, source_set_id')
+      .eq('user_id', userId)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error) {
+      console.error('Error fetching user cards page:', error);
+      throw error;
+    }
+    if (!data || data.length === 0) break;
+    allCards = allCards.concat(data);
+    if (data.length < pageSize) break;
+    page++;
+  }
+  return allCards;
+}
+

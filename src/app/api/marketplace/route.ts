@@ -259,17 +259,17 @@ export async function POST(request: Request) {
     if (action === 'create_auction') {
       const { userId, cardId, cardIds, startPrice, buyoutPrice, durationHours, listingTxHash } = payload || {};
       
-      if (!userId || (!cardId && (!cardIds || cardIds.length === 0)) || !startPrice) {
-        return NextResponse.json({ error: 'userId, cardId/cardIds, and startPrice are required' }, { status: 400 });
+      if (!userId || (!cardId && (!cardIds || cardIds.length === 0)) || !startPrice || buyoutPrice === undefined || buyoutPrice === null || buyoutPrice === "") {
+        return NextResponse.json({ error: 'userId, cardId/cardIds, startPrice, and buyoutPrice are required' }, { status: 400 });
       }
 
       const parsedStart = parseFloat(startPrice);
-      const parsedBuyout = buyoutPrice ? parseFloat(buyoutPrice) : null;
+      const parsedBuyout = parseFloat(buyoutPrice);
 
       if (isNaN(parsedStart) || parsedStart < 0.01) {
         return NextResponse.json({ error: 'Start price must be at least 0.01 USDC' }, { status: 400 });
       }
-      if (parsedBuyout !== null && (isNaN(parsedBuyout) || parsedBuyout <= parsedStart)) {
+      if (isNaN(parsedBuyout) || parsedBuyout <= parsedStart) {
         return NextResponse.json({ error: 'Buyout price must be greater than start price' }, { status: 400 });
       }
 

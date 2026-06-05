@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { fetchAllUserCards } from '@/lib/supabase';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,6 +11,7 @@ export async function GET(request: Request) {
   const rarity = searchParams.get('rarity');
   const query = searchParams.get('q');
   const ids = searchParams.get('ids');
+  const owner = searchParams.get('owner');
 
   const filePath = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
   
@@ -18,6 +20,15 @@ export async function GET(request: Request) {
     let cards = JSON.parse(fileContents);
 
     // Filter
+    if (owner) {
+      try {
+        const userCards = await fetchAllUserCards(owner);
+        const ownedIds = new Set(userCards.map((c: any) => c.card_id));
+        cards = cards.filter((c: any) => ownedIds.has(c.id));
+      } catch (err) {
+        console.error('Failed to filter cards by owner:', err);
+      }
+    }
     if (ids) {
       const idList = ids.split(',');
       cards = cards.filter((c: any) => idList.includes(c.id));

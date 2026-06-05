@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, fetchAllUserCards } from '@/lib/supabase';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,12 +21,10 @@ export async function evaluateAchievements(userId: string) {
     }
 
     // 2. Fetch all cards owned by the user
-    const { data: userCards, error: cardsError } = await supabaseAdmin
-      .from('user_cards')
-      .select('card_id')
-      .eq('user_id', userId);
-
-    if (cardsError) {
+    let userCards: any[] = [];
+    try {
+      userCards = await fetchAllUserCards(userId);
+    } catch (cardsError: any) {
       console.error('Failed to query user cards for achievements:', cardsError);
       return [];
     }

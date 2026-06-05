@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, fetchAllUserCards } from '@/lib/supabase';
 
 // Absolute file paths to card databases
 const CARDS_FILE_PATH = path.join(process.cwd(), 'public', 'data', 'pokemon_cards.json');
@@ -170,8 +170,12 @@ export async function POST(request: Request) {
         .from('users').select('*').eq('id', userId).single();
       if (userError) return NextResponse.json({ error: userError.message }, { status: 500 });
 
-      const { data: userCards } = await supabaseAdmin
-        .from('user_cards').select('card_id, obtained_at, source_set_id').eq('user_id', userId);
+      let userCards: any[] = [];
+      try {
+        userCards = await fetchAllUserCards(userId);
+      } catch (cardsError: any) {
+        console.error('Failed to query user cards for admin:', cardsError);
+      }
 
       // Count unique cards
       const uniqueCardIds = new Set((userCards || []).map((c: any) => c.card_id));

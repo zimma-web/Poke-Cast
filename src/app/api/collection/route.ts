@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, fetchAllUserCards } from '@/lib/supabase';
 import { evaluateAchievements } from '@/lib/achievements';
 
 // Local utility to get card score from store logic
@@ -93,12 +93,10 @@ export async function GET(request: Request) {
     }
 
     // 2. Fetch all cards owned by the user
-    const { data: userCards, error: cardsError } = await supabaseAdmin
-      .from('user_cards')
-      .select('card_id')
-      .eq('user_id', userId);
-
-    if (cardsError) {
+    let userCards: any[] = [];
+    try {
+      userCards = await fetchAllUserCards(userId);
+    } catch (cardsError: any) {
       console.error('Database query cards error:', cardsError);
       return NextResponse.json({ error: 'Database query error' }, { status: 500 });
     }

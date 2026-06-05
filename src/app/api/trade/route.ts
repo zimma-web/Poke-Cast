@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, fetchAllUserCards } from '@/lib/supabase';
 import { awardReferralTradeComplete } from '@/lib/referrals';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -387,10 +387,13 @@ export async function POST(request: Request) {
       const { userId } = payload || {};
       if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
-      const { data: cards } = await supabaseAdmin
-        .from('user_cards')
-        .select('card_id, obtained_at, source_set_id')
-        .eq('user_id', userId);
+      let cards: any[] = [];
+      try {
+        cards = await fetchAllUserCards(userId);
+      } catch (cardsError: any) {
+        console.error('Failed to query user collection for trade:', cardsError);
+        return NextResponse.json({ error: 'Failed to query collection' }, { status: 500 });
+      }
 
       // Count duplicates
       const cardCounts: Record<string, number> = {};
